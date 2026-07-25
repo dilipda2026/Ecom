@@ -19,7 +19,14 @@ export default function LoginForm() {
 
     const { user, error: err } = await authService.signIn(email, password);
     setLoading(false);
-    if (err) { setError(err); return; }
+    if (err) {
+      if (err.toLowerCase().includes('email not confirmed')) {
+        setError('Please verify your email. Check your inbox or sign up again to receive a new verification email.');
+      } else {
+        setError(err);
+      }
+      return;
+    }
 
     useAuthStore.getState().setUser(user);
 

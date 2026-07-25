@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, CreditCard, Banknote, ArrowLeft, ShieldCheck, Loader2, ShoppingBag, Wallet } from 'lucide-react';
@@ -11,6 +11,7 @@ import BNPLPaymentOption from '@/features/bnpl/components/BNPLPaymentOption';
 import { createOrder, confirmPayment, failPayment } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
 import { getWalletBalance, deductWalletBalance } from '@/features/wallet/actions';
+import { getCitStudentStatus } from '@/features/cit-student/actions';
 
 const paymentMethods = [
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
@@ -33,8 +34,26 @@ export default function CheckoutPage() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletError, setWalletError] = useState(false);
 
+  const [citVerified, setCitVerified] = useState<boolean | null>(null);
   const walletLoading = paymentMethod === 'wallet' && walletBalance === null && !walletError;
   const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+
+  const citChecked = useRef(false);
+
+  useEffect(() => {
+    if (citChecked.current) return;
+    getCitStudentStatus().then((res) => {
+      citChecked.current = true;
+      const isVerified = res.status?.isVerified ?? false;
+      setCitVerified(isVerified);
+      if (!isVerified && (paymentMethod === 'wallet' || paymentMethod === 'bnpl')) {
+        setPaymentMethod('razorpay');
+      }
+    });
+  }, [paymentMethod]);
+
+  const restrictedMethods = citVerified === false ? ['wallet', 'bnpl'] : [];
+  const allowedMethods = paymentMethods.filter((pm) => !restrictedMethods.includes(pm.id));
 
   useEffect(() => {
     if (paymentMethod === 'wallet') {
@@ -203,7 +222,7 @@ async function handlePlaceOrder() {
   <CreditCard size={18} className="text-zred shrink-0" /> Payment method
  </h2>
  <div className="space-y-3">
-  {paymentMethods.map((pm) =>
+   {allowedMethods.map((pm) =>
   pm.id === 'bnpl' ? (
   <BNPLPaymentOption
   key={pm.id}
