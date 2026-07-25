@@ -32,6 +32,13 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
     if (!isLoading && !isAuthenticated) router.push('/auth/login');
   }, [isLoading, isAuthenticated, router]);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!isAuthenticated) window.location.href = '/auth/login';
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [isAuthenticated]);
+
   if (isLoading) return null;
 
   return (

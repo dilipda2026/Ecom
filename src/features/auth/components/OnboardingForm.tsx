@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuthStore } from '../store';
-import { authService } from '../services/auth-service';
+import { completeOnboarding } from '@/features/auth/actions';
 
 const roles = [
   { value: 'student', label: 'Hungry Student', desc: 'Order food, pay later with Ethics Pay BNPL', emoji: '🎓' },
@@ -11,7 +10,6 @@ const roles = [
 ] as const;
 
 export default function OnboardingForm() {
-  const setUser = useAuthStore((s) => s.setUser);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
@@ -21,13 +19,12 @@ export default function OnboardingForm() {
     e.preventDefault();
     if (!selectedRole) { setError('Please select a role'); return; }
     setError(''); setLoading(true);
-    const { user } = await authService.updateUserMetadata({ role: selectedRole, phone: phone || null });
-    if (!user) { setError('Failed to update profile'); setLoading(false); return; }
-    const { error: profileError } = await authService.updateProfile(user.id, { full_name: user.fullName, role: selectedRole, phone: phone || undefined, email: user.email });
-    if (profileError) { setError(profileError); setLoading(false); return; }
-    setUser({ ...user, role: selectedRole as 'student' | 'merchant' | 'delivery' | 'admin' | 'super_admin', phone: phone || null });
-    const dashboards: Record<string, string> = { student: '/dashboard/student', merchant: '/dashboard/merchant', delivery: '/dashboard/delivery' };
-    window.location.href = dashboards[selectedRole] ?? '/';
+    const formData = new FormData();
+    formData.set('role', selectedRole);
+    formData.set('phone', phone);
+    const result = await completeOnboarding(formData);
+    if (result.error) { setError(result.error); setLoading(false); return; }
+    if (result.redirect) window.location.href = result.redirect;
   }
 
   return (

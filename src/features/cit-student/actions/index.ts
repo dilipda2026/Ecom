@@ -25,19 +25,27 @@ export async function getCitStudentStatus() {
   const { user } = await getServerSession();
   if (!user) return { status: null, error: 'Not authenticated' };
 
+  const isCitDomain = user.email.toLowerCase().endsWith(CIT_DOMAIN);
+
   const { data } = await supabase
     .from('profiles')
     .select('is_cit_student, student_email, student_verified_at')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (!data) return { status: null, error: 'Profile not found' };
+  if (isCitDomain && (!data || !data.is_cit_student)) {
+    await supabase.from('profiles').update({
+      is_cit_student: true,
+      student_email: user.email.toLowerCase(),
+      student_verified_at: new Date().toISOString(),
+    }).eq('id', user.id);
+  }
 
   return {
     status: {
-      isVerified: data.is_cit_student,
-      studentEmail: data.student_email,
-      verifiedAt: data.student_verified_at,
+      isVerified: isCitDomain || !!data?.is_cit_student,
+      studentEmail: data?.student_email ?? null,
+      verifiedAt: data?.student_verified_at ?? null,
     },
     error: null,
   };
