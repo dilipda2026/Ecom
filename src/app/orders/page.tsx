@@ -20,6 +20,8 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/15 text-red-400',
 };
 
+const cancellableStatuses = ['pending', 'accepted'];
+
 function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, reason: string) => void }) {
   const itemCount = order.order_items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
   const [cancelling, setCancelling] = useState(false);
@@ -32,6 +34,8 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
     setCancelling(false);
     setShowConfirm(false);
   }
+
+  const canCancel = cancellableStatuses.includes(order.status);
 
   return (
     <div className="bg-zcard rounded-xl border border-zborder p-4 sm:p-5 hover:shadow-z-hover transition-shadow">
@@ -64,7 +68,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
         </div>
       </Link>
 
-      {order.status === 'pending' && !showConfirm && (
+      {canCancel && !showConfirm && (
         <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/5 transition-colors">
           <XCircle size={13} /> Cancel
         </button>
@@ -115,8 +119,8 @@ export default function OrdersPage() {
     }
   }, [activeTab, page, isAuthenticated]);
 
-  async function handleCancelOrder(orderId: string) {
-    const res = await cancelUserOrder(orderId, '');
+  async function handleCancelOrder(orderId: string, reason: string) {
+    const res = await cancelUserOrder(orderId, reason);
     if (res.success) {
       showToast('Order cancelled');
       setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: 'cancelled' as const } : o));

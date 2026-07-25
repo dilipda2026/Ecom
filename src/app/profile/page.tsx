@@ -9,6 +9,7 @@ import { showToast } from '@/components/shared/Toast';
 import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
+import { getWalletBalance } from '@/features/wallet/actions';
 
 export default function ProfilePage() {
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
@@ -23,10 +24,12 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadAddress();
+      getWalletBalance().then((res) => { if (res.success) setWalletBalance(res.balance); });
     }
   }, [isAuthenticated]);
 
@@ -287,6 +290,17 @@ export default function ProfilePage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-ztext text-sm">Email</p>
                   <p className="text-xs text-ztext-light mt-0.5 truncate">{user.email}</p>
+                </div>
+              </div>
+
+              {/* Wallet balance */}
+              <div className="p-4 flex items-center gap-3">
+                <Wallet size={18} className="text-zred shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-ztext text-sm">Wallet</p>
+                  <p className="text-xs text-ztext-light mt-0.5">
+                    {walletBalance !== null ? `₹${walletBalance.toLocaleString('en-IN')}` : 'Loading...'}
+                  </p>
                 </div>
               </div>
 

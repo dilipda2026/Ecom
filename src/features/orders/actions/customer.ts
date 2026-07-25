@@ -188,7 +188,7 @@ export async function cancelUserOrder(orderId: string, reason: string) {
 
   if (fetchError || !order) return { success: false, error: 'Order not found' };
   if (order.user_id !== user.id) return { success: false, error: 'Unauthorized' };
-  if (order.status !== 'pending') return { success: false, error: 'Only pending orders can be cancelled' };
+  if (order.status !== 'pending' && order.status !== 'accepted') return { success: false, error: 'Order can no longer be cancelled' };
 
   const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };
   const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;

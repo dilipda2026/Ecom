@@ -117,6 +117,9 @@ export default function AdminDashboardPage() {
                   </td>
                   <td className="px-5 py-3">
                     <p className="text-sm text-ztext-light">{order.user?.full_name ?? order.customer_name ?? 'Guest'}</p>
+                    {order.payment_method === 'bnpl' && (
+                      <span className="text-[10px] font-medium text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">BNPL</span>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <span className="font-medium text-ztext">{fmt(Number(order.total))}</span>

@@ -1,20 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, CreditCard, Banknote, ArrowLeft, ShieldCheck, Loader2, ShoppingBag } from 'lucide-react';
+import { MapPin, CreditCard, Banknote, ArrowLeft, ShieldCheck, Loader2, ShoppingBag, Wallet } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { processBNPLCheckout } from '@/features/bnpl/actions';
 import BNPLPaymentOption from '@/features/bnpl/components/BNPLPaymentOption';
 import { createOrder, confirmPayment, failPayment } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
+import { getWalletBalance, deductWalletBalance } from '@/features/wallet/actions';
 
 const paymentMethods = [
- { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
- { id: 'bnpl', label: 'Ethics Pay BNPL', desc: 'Pay in 15 days. Zero interest. ₹5,000 limit', icon: ShieldCheck },
- { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
+  { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
+  { id: 'wallet', label: 'Wallet', desc: 'Pay with your wallet balance', icon: Wallet },
+  { id: 'bnpl', label: 'Ethics Pay BNPL', desc: 'Pay in 15 days. Zero interest. ₹5,000 limit', icon: ShieldCheck },
+  { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
 
 export default function CheckoutPage() {
@@ -26,12 +28,24 @@ export default function CheckoutPage() {
  const [city, setCity] = useState('Kolkata');
  const [pincode, setPincode] = useState('');
  const [notes, setNotes] = useState('');
- const [placing, setPlacing] = useState(false);
- const [error, setError] = useState('');
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState('');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
 
- const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
- if (items.length === 0) {
+  useEffect(() => {
+    if (paymentMethod === 'wallet') {
+      setWalletLoading(true);
+      getWalletBalance().then((res) => {
+        if (res.success) setWalletBalance(res.balance);
+        setWalletLoading(false);
+      });
+    }
+  }, [paymentMethod]);
+
+  if (items.length === 0) {
  return (
  <div className="min-h-screen bg-[#F6F6F6]">
  <div className="page-pad">
@@ -70,6 +84,20 @@ async function handlePlaceOrder() {
     }
 
     const { orderId, trackingCode } = orderResult.data!;
+
+    if (paymentMethod === 'wallet') {
+      const deductResult = await deductWalletBalance(total(), orderId);
+      if (deductResult.success) {
+        await confirmPayment(orderId);
+        clearCart();
+        router.push(`/order/confirmed?orderId=${orderId}`);
+      } else {
+        await failPayment(orderId);
+        setError(deductResult.error || 'Wallet payment failed');
+        setPlacing(false);
+      }
+      return;
+    }
 
     if (paymentMethod === 'bnpl') {
       try {
@@ -172,34 +200,52 @@ async function handlePlaceOrder() {
   <CreditCard size={18} className="text-zred shrink-0" /> Payment method
  </h2>
  <div className="space-y-3">
- {paymentMethods.map((pm) =>
- pm.id === 'bnpl' ? (
- <BNPLPaymentOption
- key={pm.id}
- selected={paymentMethod === pm.id}
- onSelect={() => setPaymentMethod(pm.id)}
- orderTotal={total()}
- />
- ) : (
- <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
- className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
- paymentMethod === pm.id
-  ? 'border-zred bg-red-500/10 shadow-z'
- : 'border-zborder hover:border-ztext-light hover:bg-zgray '
- }`}>
-  <pm.icon size={20} className={`mt-0.5 shrink-0 ${paymentMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
- <div>
- <p className="font-semibold text-ztext text-sm">{pm.label}</p>
- <p className="text-xs text-ztext-light mt-0.5">{pm.desc}</p>
- </div>
- {paymentMethod === pm.id && (
+  {paymentMethods.map((pm) =>
+  pm.id === 'bnpl' ? (
+  <BNPLPaymentOption
+  key={pm.id}
+  selected={paymentMethod === pm.id}
+  onSelect={() => setPaymentMethod(pm.id)}
+  orderTotal={total()}
+  />
+  ) : pm.id === 'wallet' ? (
+  <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
+  className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
+  paymentMethod === pm.id ? 'border-zred bg-red-500/10 shadow-z' : 'border-zborder hover:border-ztext-light hover:bg-zgray '
+  }`}>
+  <Wallet size={20} className={`mt-0.5 shrink-0 ${paymentMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
+  <div className="flex-1">
+  <p className="font-semibold text-ztext text-sm">Wallet</p>
+  <p className="text-xs text-ztext-light mt-0.5">
+  {walletLoading ? 'Loading...' : walletBalance !== null ? `₹${walletBalance.toLocaleString('en-IN')} available` : 'Pay with wallet balance'}
+  </p>
+  </div>
+  {paymentMethod === pm.id && (
   <span className="ml-auto w-5 h-5 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
- <span className="w-2 h-2 rounded-full bg-zcard" />
- </span>
- )}
- </button>
- )
- )}
+  <span className="w-2 h-2 rounded-full bg-zcard" />
+  </span>
+  )}
+  </button>
+  ) : (
+  <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
+  className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
+  paymentMethod === pm.id
+   ? 'border-zred bg-red-500/10 shadow-z'
+  : 'border-zborder hover:border-ztext-light hover:bg-zgray '
+  }`}>
+   <pm.icon size={20} className={`mt-0.5 shrink-0 ${paymentMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
+  <div>
+  <p className="font-semibold text-ztext text-sm">{pm.label}</p>
+  <p className="text-xs text-ztext-light mt-0.5">{pm.desc}</p>
+  </div>
+  {paymentMethod === pm.id && (
+   <span className="ml-auto w-5 h-5 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
+  <span className="w-2 h-2 rounded-full bg-zcard" />
+  </span>
+  )}
+  </button>
+  )
+  )}
  </div>
  </div>
 

@@ -152,7 +152,7 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {order.status === 'pending' && !showCancelInput && (
+        {(order.status === 'pending' || order.status === 'accepted') && !showCancelInput && (
           <button onClick={() => setShowCancelInput(true)} className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/30 text-sm font-medium text-red-400 hover:bg-red-500/5 transition-colors">
             <XCircle size={16} /> Cancel order
           </button>

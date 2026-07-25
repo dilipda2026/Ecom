@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Shield, ShieldOff, CheckCircle, Clock } from 'lucide-react';
+import { RefreshCw, Shield, ShieldOff, CheckCircle, Clock, Wallet, Loader2 } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
 import { getAdminStudents, suspendStudent, unsuspendStudent, verifyStudent, resetStudentVerification, bulkSuspendStudents, bulkUnsuspendStudents } from '@/features/admin/actions';
+import { adminCreditWallet } from '@/features/wallet/actions';
 import type { AdminStudent } from '@/features/admin/types';
 
 export default function AdminStudentsPage() {
@@ -18,6 +19,10 @@ export default function AdminStudentsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ type: string; id?: string; ids?: string[] } | null>(null);
+  const [walletModal, setWalletModal] = useState<{ id: string; name: string } | null>(null);
+  const [walletAmount, setWalletAmount] = useState('');
+  const [walletNote, setWalletNote] = useState('');
+  const [walletCrediting, setWalletCrediting] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const fetchStudents = useCallback(async (p?: number) => {
@@ -65,6 +70,17 @@ export default function AdminStudentsPage() {
     const res = await resetStudentVerification(id, 'Reset by admin');
     if (res.success) { addToast('Verification reset', 'success'); fetchStudents(); }
     else addToast(res.error ?? 'Failed', 'error');
+  };
+
+  const handleCreditWallet = async () => {
+    if (!walletModal) return;
+    const amount = parseInt(walletAmount, 10);
+    if (isNaN(amount) || amount <= 0) { addToast('Enter a valid amount', 'error'); return; }
+    setWalletCrediting(true);
+    const res = await adminCreditWallet(walletModal.id, amount, walletNote || 'Admin credit');
+    if (res.success) { addToast(`₹${amount} credited to ${walletModal.name}`, 'success'); setWalletModal(null); setWalletAmount(''); setWalletNote(''); }
+    else addToast(res.error ?? 'Failed', 'error');
+    setWalletCrediting(false);
   };
 
   const handleBulkSuspend = async () => {
@@ -121,6 +137,9 @@ export default function AdminStudentsPage() {
     ), hideOnMobile: true },
     { key: 'actions', header: 'Actions', render: (s: AdminStudent) => (
       <div className="flex items-center gap-1">
+        <button onClick={() => setWalletModal({ id: s.id, name: s.full_name })} className="p-1.5 hover:bg-emerald-500/10 rounded-lg text-ztext-muted hover:text-emerald-600 transition-colors" title="Credit wallet">
+          <Wallet size={14} />
+        </button>
         {s.is_active ? (
           <button onClick={() => setConfirmAction({ type: 'suspend', id: s.id })} className="p-1.5 hover:bg-red-500/10 rounded-lg text-ztext-muted hover:text-red-400 transition-colors" title="Suspend">
             <ShieldOff size={14} />
@@ -194,6 +213,24 @@ export default function AdminStudentsPage() {
           onSelectChange={setSelectedIds}
         />
       </div>
+
+      {walletModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setWalletModal(null)}>
+          <div className="bg-zcard rounded-2xl p-6 max-w-sm w-full shadow-z-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-ztext">Credit Wallet</h3>
+            <p className="text-xs text-ztext-lighter mt-1">Add points to <span className="font-medium text-ztext">{walletModal.name}</span></p>
+            <input type="number" min="1" value={walletAmount} onChange={(e) => setWalletAmount(e.target.value)} placeholder="Amount (₹)" className="input-z w-full mt-4 text-sm" autoFocus />
+            <input value={walletNote} onChange={(e) => setWalletNote(e.target.value)} placeholder="Note (optional)" className="input-z w-full mt-3 text-sm" />
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => { setWalletModal(null); setWalletAmount(''); setWalletNote(''); }} className="flex-1 px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Cancel</button>
+              <button onClick={handleCreditWallet} disabled={walletCrediting || !walletAmount} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-zred rounded-xl hover:bg-zred-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {walletCrediting ? <Loader2 size={14} className="animate-spin" /> : null}
+                {walletCrediting ? 'Crediting...' : 'Credit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!confirmAction}
