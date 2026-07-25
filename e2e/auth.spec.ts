@@ -24,7 +24,7 @@ test('signup page renders and links to login', async ({ page }) => {
 });
 
 test('unauthenticated access to dashboard redirects to login', async ({ page }) => {
-  await page.goto('/dashboard/merchant');
-  await page.waitForURL(/\/auth\/login/);
+  await page.goto('/dashboard/merchant', { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveURL(/\/auth\/login/);
+  await expect(page.getByRole('heading', { name: /sign in|login/i })).toBeVisible();
 });

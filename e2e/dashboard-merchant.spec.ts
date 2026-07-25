@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('unauthenticated user is redirected to login', async ({ page }) => {
-  await page.goto('/dashboard/merchant');
-  await page.waitForURL(/\/auth\/login/);
-  expect(page.url()).toContain('/auth/login');
+  await page.goto('/dashboard/merchant', { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(/\/auth\/login/);
+  await expect(page.getByRole('heading', { name: /sign in|login/i })).toBeVisible();
 });
 
 test('dashboard page shows redirect when not logged in', async ({ page }) => {

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingBag, UtensilsCrossed, Package, FolderTree,
   BarChart3, Bell, Settings, Menu, X, LogOut, Store,
@@ -22,10 +22,17 @@ const navItems = [
 
 export default function MerchantLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { signOut } = useAuthStore();
+  const router = useRouter();
+  const { isAuthenticated, isLoading, signOut } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) router.push('/auth/login');
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-zgray">

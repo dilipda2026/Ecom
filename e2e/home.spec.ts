@@ -7,8 +7,7 @@ test('homepage loads and shows title', async ({ page }) => {
 
 test('homepage has navigation bar', async ({ page }) => {
   await page.goto('/');
-  const nav = page.locator('nav');
-  await expect(nav).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
 });
 
 test('homepage has menu link', async ({ page }) => {
