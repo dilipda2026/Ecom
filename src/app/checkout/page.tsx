@@ -8,6 +8,8 @@ import { useCartStore } from '@/features/cart/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { processBNPLCheckout } from '@/features/bnpl/actions';
 import BNPLPaymentOption from '@/features/bnpl/components/BNPLPaymentOption';
+import { createOrder, confirmPayment, failPayment } from '@/features/orders/actions/customer';
+import { createRazorpayOrder } from '@/features/payments/actions';
 
 const paymentMethods = [
  { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
@@ -43,52 +45,94 @@ export default function CheckoutPage() {
  );
  }
 
- async function handlePlaceOrder() {
- setError('');
- if (!address.trim()) { setError('Please enter your delivery address'); return; }
- setPlacing(true);
+async function handlePlaceOrder() {
+    setError('');
+    if (!address.trim()) { setError('Please enter your delivery address'); return; }
+    setPlacing(true);
 
- if (paymentMethod === 'bnpl') {
- try {
- const orderId = crypto.randomUUID();
- const result = await processBNPLCheckout(orderId, total());
- if (result.success) {
- clearCart();
- router.push('/order/confirmed');
- } else {
- setError(result.error || 'BNPL checkout failed');
- }
- } catch (err) {
- setError(err instanceof Error ? err.message : 'BNPL checkout failed');
- } finally {
- setPlacing(false);
- }
- return;
- }
+    const orderResult = await createOrder({
+      items,
+      subtotal: subtotal(),
+      deliveryFee: deliveryFee(),
+      taxAmount: taxAmount(),
+      total: total(),
+      paymentMethod,
+      address,
+      city,
+      pincode,
+      notes,
+    });
 
- if (paymentMethod === 'razorpay') {
- const loaded = await loadRazorpayScript();
- if (!loaded || !razorpayKey) {
- await new Promise((r) => setTimeout(r, 1000));
- clearCart();
- router.push('/order/confirmed');
- return;
- }
- openRazorpayCheckout({
- key: razorpayKey,
- amount: total() * 100,
- name: 'Dilipda',
- description: 'Food order',
- onSuccess: () => { clearCart(); router.push('/order/confirmed'); },
- onFailure: (err) => { setError(err); setPlacing(false); },
- });
- return;
- }
+    if (!orderResult.success) {
+      setError(orderResult.error ?? 'Failed to place order');
+      setPlacing(false);
+      return;
+    }
 
- await new Promise((r) => setTimeout(r, 1000));
- clearCart();
- router.push('/order/confirmed');
- }
+    const { orderId, trackingCode } = orderResult.data!;
+
+    if (paymentMethod === 'bnpl') {
+      try {
+        const result = await processBNPLCheckout(orderId, total());
+        if (result.success) {
+          await confirmPayment(orderId);
+          clearCart();
+          router.push(`/order/confirmed?orderId=${orderId}`);
+        } else {
+          await failPayment(orderId);
+          setError(result.error || 'BNPL checkout failed');
+          setPlacing(false);
+        }
+      } catch (err) {
+        await failPayment(orderId);
+        setError(err instanceof Error ? err.message : 'BNPL checkout failed');
+        setPlacing(false);
+      }
+      return;
+    }
+
+    if (paymentMethod === 'razorpay') {
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !razorpayKey) {
+        await failPayment(orderId);
+        clearCart();
+        router.push(`/order/confirmed?orderId=${orderId}`);
+        return;
+      }
+
+      const rzpResult = await createRazorpayOrder(total() * 100);
+      if (!rzpResult.success) {
+        await failPayment(orderId);
+        setError(rzpResult.error || 'Failed to initiate payment');
+        setPlacing(false);
+        return;
+      }
+
+      openRazorpayCheckout({
+        key: razorpayKey,
+        amount: rzpResult.data.amount,
+        name: 'Dilipda',
+        description: 'Food order',
+        orderId: rzpResult.data.id,
+        onSuccess: async () => {
+          await confirmPayment(orderId);
+          clearCart();
+          router.push(`/order/confirmed?orderId=${orderId}`);
+        },
+        onFailure: (err) => {
+          failPayment(orderId);
+          setError(err);
+          setPlacing(false);
+        },
+      });
+      return;
+    }
+
+    // COD
+    await confirmPayment(orderId);
+    clearCart();
+    router.push(`/order/confirmed?orderId=${orderId}`);
+  }
 
  return (
  <div className="min-h-screen bg-[#F6F6F6] ">

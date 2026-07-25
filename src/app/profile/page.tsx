@@ -1,12 +1,83 @@
 'use client';
 
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
 import ThemeToggle from '@/components/shared/ThemeToggle';
+import { showToast } from '@/components/shared/Toast';
+import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, signOut } = useAuthStore();
+  const { user, isAuthenticated, signOut, refresh } = useAuthStore();
+
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [address, setAddress] = useState('');
+  const [addressLoading, setAddressLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadAddress();
+    }
+  }, [isAuthenticated]);
+
+  async function loadAddress() {
+    setAddressLoading(true);
+    const result = await getServerAddress();
+    if (result.address) {
+      setAddress(result.address.full_address || '');
+    }
+    setAddressLoading(false);
+  }
+
+  function startEdit(field: string, currentValue: string) {
+    setEditingField(field);
+    setEditValue(currentValue);
+  }
+
+  function cancelEdit() {
+    setEditingField(null);
+    setEditValue('');
+  }
+
+  async function handleSave() {
+    if (!editingField || !editValue.trim()) return;
+    setSaving(true);
+
+    if (editingField === 'name') {
+      const result = await updateServerProfile({ full_name: editValue });
+      if (result.error) {
+        showToast(result.error);
+      } else {
+        await refresh();
+        showToast('Name updated');
+      }
+    } else if (editingField === 'phone') {
+      const result = await updateServerProfile({ phone: editValue });
+      if (result.error) {
+        showToast(result.error);
+      } else {
+        await refresh();
+        showToast('Phone updated');
+      }
+    } else if (editingField === 'address') {
+      const formData = new FormData();
+      formData.set('fullAddress', editValue);
+      const result = await updateServerAddress(formData);
+      if (result.error) {
+        showToast(result.error);
+      } else {
+        setAddress(editValue);
+        showToast('Address updated');
+      }
+    }
+
+    setSaving(false);
+    setEditingField(null);
+    setEditValue('');
+  }
 
   if (!isAuthenticated || !user) {
     return (
@@ -37,6 +108,22 @@ export default function ProfilePage() {
     .toUpperCase()
     .slice(0, 2);
 
+  function renderEditActions() {
+    if (saving) {
+      return <Loader2 size={16} className="animate-spin text-ztext-muted shrink-0" />;
+    }
+    return (
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={handleSave} className="size-7 grid place-items-center rounded-md hover:bg-zgreen/10 text-zgreen transition-colors">
+          <Check size={15} />
+        </button>
+        <button onClick={cancelEdit} className="size-7 grid place-items-center rounded-md hover:bg-zred/10 text-zred transition-colors">
+          <X size={15} />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="page-pad">
       <div className="container-z mx-auto max-w-lg">
@@ -57,16 +144,28 @@ export default function ProfilePage() {
 
         {/* Settings list */}
         <div className="mt-4 bg-zcard rounded-xl border border-zborder divide-y divide-zborder">
-          {/* Saved address */}
+          {/* Name */}
           <div className="p-4 flex items-center gap-3">
-            <MapPin size={18} className="text-zred shrink-0" />
+            <User size={18} className="text-zred shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-ztext text-sm">Delivery address</p>
-              <p className="text-xs text-ztext-light mt-0.5 truncate">
-                Near CIT Kokrajhar, 2nd Gate
-              </p>
+              <p className="font-semibold text-ztext text-sm">Name</p>
+              {editingField === 'name' ? (
+                <input
+                  className="input-z mt-1 text-sm"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
+                />
+              ) : (
+                <p className="text-xs text-ztext-light mt-0.5 truncate">{user.fullName || 'Not set'}</p>
+              )}
             </div>
-            <ChevronRight size={16} className="text-ztext-muted shrink-0" />
+            {editingField === 'name' ? renderEditActions() : (
+              <button onClick={() => startEdit('name', user.fullName || '')} className="size-7 grid place-items-center rounded-md hover:bg-zgray text-ztext-muted transition-colors shrink-0">
+                <Pencil size={14} />
+              </button>
+            )}
           </div>
 
           {/* Phone */}
@@ -74,9 +173,52 @@ export default function ProfilePage() {
             <Phone size={18} className="text-zred shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-ztext text-sm">Phone</p>
-              <p className="text-xs text-ztext-light mt-0.5">{user.phone || 'Not set'}</p>
+              {editingField === 'phone' ? (
+                <input
+                  className="input-z mt-1 text-sm"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
+                />
+              ) : (
+                <p className="text-xs text-ztext-light mt-0.5">{user.phone || 'Not set'}</p>
+              )}
             </div>
-            <ChevronRight size={16} className="text-ztext-muted shrink-0" />
+            {editingField === 'phone' ? renderEditActions() : (
+              <button onClick={() => startEdit('phone', user.phone || '')} className="size-7 grid place-items-center rounded-md hover:bg-zgray text-ztext-muted transition-colors shrink-0">
+                <Pencil size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Delivery address */}
+          <div className="p-4 flex items-start gap-3">
+            <MapPin size={18} className="text-zred shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-ztext text-sm">Delivery address</p>
+              {editingField === 'address' ? (
+                <textarea
+                  className="input-z mt-1 text-sm resize-none h-20"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <p className="text-xs text-ztext-light mt-0.5">
+                  {addressLoading ? (
+                    <span className="inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Loading...</span>
+                  ) : (
+                    address || 'No address saved'
+                  )}
+                </p>
+              )}
+            </div>
+            {editingField === 'address' ? renderEditActions() : (
+              <button onClick={() => startEdit('address', address)} className="size-7 grid place-items-center rounded-md hover:bg-zgray text-ztext-muted transition-colors shrink-0 mt-0.5">
+                <Pencil size={14} />
+              </button>
+            )}
           </div>
 
           {/* Email */}

@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
+import { createServiceClient } from '@/infrastructure/supabase/service';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -21,10 +22,10 @@ export async function getServerSession() {
 }
 
 export async function getServerProfile() {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceClient();
   if (!supabase) return { profile: null };
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerSession();
   if (!user) return { profile: null };
 
   const { data } = await supabase
@@ -37,10 +38,10 @@ export async function getServerProfile() {
 }
 
 export async function updateServerProfile(updates: { role?: string; phone?: string; full_name?: string }) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceClient();
   if (!supabase) return { error: 'Supabase not configured' };
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerSession();
   if (!user) return { error: 'Not authenticated' };
 
   const { error } = await supabase
@@ -49,18 +50,81 @@ export async function updateServerProfile(updates: { role?: string; phone?: stri
 
   if (error) return { error: error.message };
 
-  if (updates.role) {
-    await supabase.auth.updateUser({ data: { role: updates.role } });
+  const metadataUpdates: Record<string, string> = {};
+  if (updates.full_name) metadataUpdates.full_name = updates.full_name;
+  if (updates.phone) metadataUpdates.phone = updates.phone;
+  if (updates.role) metadataUpdates.role = updates.role;
+
+  if (Object.keys(metadataUpdates).length > 0) {
+    const authSupabase = await createServerSupabaseClient();
+    if (authSupabase) {
+      await authSupabase.auth.updateUser({ data: metadataUpdates });
+    }
+  }
+
+  return { error: null };
+}
+
+export async function getServerAddress() {
+  const supabase = createServiceClient();
+  if (!supabase) return { address: null };
+
+  const { user } = await getServerSession();
+  if (!user) return { address: null };
+
+  const { data } = await supabase
+    .from('addresses')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_default', true)
+    .maybeSingle();
+
+  return { address: data };
+}
+
+export async function updateServerAddress(formData: FormData) {
+  const supabase = createServiceClient();
+  if (!supabase) return { error: 'Supabase not configured' };
+
+  const { user } = await getServerSession();
+  if (!user) return { error: 'Not authenticated' };
+
+  const fullAddress = formData.get('fullAddress') as string;
+  if (!fullAddress?.trim()) return { error: 'Address is required' };
+
+  const city = formData.get('city') as string || '';
+  const state = formData.get('state') as string || '';
+  const postalCode = formData.get('postalCode') as string || '';
+  const label = formData.get('label') as string || 'Home';
+
+  const { data: existing } = await supabase
+    .from('addresses')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_default', true)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('addresses')
+      .update({ full_address: fullAddress, city, state, postal_code: postalCode, label, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase
+      .from('addresses')
+      .insert({ user_id: user.id, full_address: fullAddress, city, state, postal_code: postalCode, label, is_default: true });
+    if (error) return { error: error.message };
   }
 
   return { error: null };
 }
 
 export async function completeOnboarding(formData: FormData) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceClient();
   if (!supabase) return { error: 'Supabase not configured', redirect: null };
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerSession();
   if (!user) return { error: 'Not authenticated', redirect: null };
 
   const role = formData.get('role') as string;
@@ -76,7 +140,10 @@ export async function completeOnboarding(formData: FormData) {
 
   if (profileError) return { error: profileError.message, redirect: null };
 
-  await supabase.auth.updateUser({ data: { role } });
+  const authSupabase = await createServerSupabaseClient();
+  if (authSupabase) {
+    await authSupabase.auth.updateUser({ data: { role } });
+  }
 
   const dashboards: Record<string, string> = {
     student: '/dashboard/student',
