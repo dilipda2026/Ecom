@@ -46,7 +46,7 @@ export async function updateServerProfile(updates: { role?: string; phone?: stri
 
   const { error } = await supabase
     .from('profiles')
-    .upsert({ id: user.id, ...updates });
+    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role: user.role || '', is_active: true, ...updates });
 
   if (error) return { error: error.message };
 
@@ -136,7 +136,7 @@ export async function completeOnboarding(formData: FormData) {
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .upsert({ id: user.id, role, phone: phone || null });
+    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role, phone: phone || null });
 
   if (profileError) return { error: profileError.message, redirect: null };
 
