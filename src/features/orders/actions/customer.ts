@@ -173,6 +173,41 @@ export async function getUserOrders(page = 1, pageSize = 10) {
   };
 }
 
+export async function cancelUserOrder(orderId: string, reason: string) {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  const { user } = await getServerSession();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  const { data: order, error: fetchError } = await supabase
+    .from('orders')
+    .select('user_id, status, status_history')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (fetchError || !order) return { success: false, error: 'Order not found' };
+  if (order.user_id !== user.id) return { success: false, error: 'Unauthorized' };
+  if (order.status !== 'pending') return { success: false, error: 'Only pending orders can be cancelled' };
+
+  const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };
+  const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;
+  const statusHistory = [...existingHistory, historyEntry];
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason || 'Cancelled by customer',
+      status_history: statusHistory,
+    })
+    .eq('id', orderId);
+
+  if (error) return { success: false, error: 'Failed to cancel order' };
+  return { success: true };
+}
+
 export async function getUserOrder(orderId: string) {
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service unavailable' };

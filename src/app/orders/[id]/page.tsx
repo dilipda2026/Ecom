@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Bike, MapPin, Clock, Loader2, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Bike, MapPin, Clock, Loader2, ShoppingBag, XCircle } from 'lucide-react';
 import Link from 'next/link';
-import { getUserOrder } from '@/features/orders/actions/customer';
+import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
 import { getOrderTimelineEvent } from '@/features/orders/types';
+import { showToast } from '@/components/shared/Toast';
 import type { Order, OrderItem } from '@/features/orders/types';
 
 export default function OrderDetailPage() {
@@ -13,6 +14,9 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [showCancelInput, setShowCancelInput] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -21,6 +25,20 @@ export default function OrderDetailPage() {
       setLoading(false);
     });
   }, [id]);
+
+  async function handleCancel() {
+    if (!order || cancelling) return;
+    setCancelling(true);
+    const res = await cancelUserOrder(order.id, cancelReason);
+    if (res.success) {
+      showToast('Order cancelled');
+      setOrder({ ...order, status: 'cancelled', cancellation_reason: cancelReason || null });
+      setShowCancelInput(false);
+    } else {
+      showToast(res.error ?? 'Failed to cancel');
+    }
+    setCancelling(false);
+  }
 
   if (loading) {
     return (
@@ -134,7 +152,34 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        <div className="flex gap-3 mt-6">
+        {order.status === 'pending' && !showCancelInput && (
+          <button onClick={() => setShowCancelInput(true)} className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/30 text-sm font-medium text-red-400 hover:bg-red-500/5 transition-colors">
+            <XCircle size={16} /> Cancel order
+          </button>
+        )}
+
+        {showCancelInput && (
+          <div className="mt-4 bg-zcard rounded-xl border border-red-500/30 p-4">
+            <p className="text-xs font-semibold text-ztext mb-2">Reason for cancellation (optional)</p>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="e.g. Changed my mind"
+              className="input-z text-sm w-full"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCancel(); if (e.key === 'Escape') setShowCancelInput(false); }}
+            />
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => { setShowCancelInput(false); setCancelReason(''); }} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-ztext-light bg-zgray hover:bg-zsurface transition-colors">Back</button>
+              <button onClick={handleCancel} disabled={cancelling} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {cancelling ? <Loader2 size={14} className="animate-spin" /> : null}
+                {cancelling ? 'Cancelling...' : 'Confirm cancel'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-4">
           <Link href="/orders" className="button-z button-z-outline flex-1 h-11 text-sm">All orders</Link>
           <Link href="/menu" className="button-z button-z-primary flex-1 h-11 text-sm">Order again</Link>
         </div>

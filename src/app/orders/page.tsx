@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, RotateCcw, ChefHat, ShoppingBag, Loader2 } from 'lucide-react';
+import { ClipboardList, RotateCcw, ChefHat, ShoppingBag, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
-import { getUserOrders } from '@/features/orders/actions/customer';
+import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
+import { showToast } from '@/components/shared/Toast';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/15 text-yellow-500',
@@ -19,38 +20,75 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/15 text-red-400',
 };
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, reason: string) => void }) {
   const itemCount = order.order_items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+  const [cancelling, setCancelling] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+
+  async function handleConfirm() {
+    setCancelling(true);
+    await onCancel(order.id, cancelReason);
+    setCancelling(false);
+    setShowConfirm(false);
+  }
 
   return (
-    <Link href={`/orders/${order.id}`} className="block bg-zcard rounded-xl border border-zborder p-4 sm:p-5 hover:shadow-z-hover transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-zgray flex items-center justify-center shrink-0">
-            <ChefHat size={18} className="text-zred" />
+    <div className="bg-zcard rounded-xl border border-zborder p-4 sm:p-5 hover:shadow-z-hover transition-shadow">
+      <Link href={`/orders/${order.id}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-zgray flex items-center justify-center shrink-0">
+              <ChefHat size={18} className="text-zred" />
+            </div>
+            <div>
+              <p className="font-semibold text-ztext text-sm">Dilip Da</p>
+              <p className="text-xs text-ztext-lighter">{new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-ztext text-sm">Dilip Da</p>
-            <p className="text-xs text-ztext-lighter">{new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-          </div>
+          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${statusColors[order.status] ?? 'bg-zgray text-ztext-light'}`}>
+            {order.status === 'pending' ? 'Placed' : order.status.charAt(0).toUpperCase() + order.status.slice(1).replace(/_/g, ' ')}
+          </span>
         </div>
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${statusColors[order.status] ?? 'bg-zgray text-ztext-light'}`}>
-          {order.status === 'pending' ? 'Placed' : order.status.charAt(0).toUpperCase() + order.status.slice(1).replace(/_/g, ' ')}
-        </span>
-      </div>
 
-      <div className="mt-3 pt-3 border-t border-zborder">
-        <p className="text-xs text-ztext-light line-clamp-2">
-          {order.order_items?.map((i) => `${i.quantity}x ${i.product_name}`).join(' • ') || `${itemCount} item(s)`}
-        </p>
-        <div className="flex items-center justify-between mt-3">
-          <p className="text-sm font-bold text-ztext">₹{order.total}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-ztext-lighter font-medium">{order.tracking_code}</span>
+        <div className="mt-3 pt-3 border-t border-zborder">
+          <p className="text-xs text-ztext-light line-clamp-2">
+            {order.order_items?.map((i) => `${i.quantity}x ${i.product_name}`).join(' • ') || `${itemCount} item(s)`}
+          </p>
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-sm font-bold text-ztext">₹{order.total}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-ztext-lighter font-medium">{order.tracking_code}</span>
+            </div>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      {order.status === 'pending' && !showConfirm && (
+        <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/5 transition-colors">
+          <XCircle size={13} /> Cancel
+        </button>
+      )}
+
+      {showConfirm && (
+        <div className="mt-3 pt-3 border-t border-zborder" onClick={(e) => e.stopPropagation()}>
+          <input
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Reason (optional)"
+            className="input-z text-xs w-full"
+            autoFocus
+          />
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => { setShowConfirm(false); setCancelReason(''); }} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-ztext-light bg-zgray hover:bg-zsurface transition-colors">Back</button>
+            <button onClick={handleConfirm} disabled={cancelling} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+              {cancelling ? <Loader2 size={12} className="animate-spin" /> : null}
+              {cancelling ? 'Cancelling...' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -76,6 +114,16 @@ export default function OrdersPage() {
       });
     }
   }, [activeTab, page, isAuthenticated]);
+
+  async function handleCancelOrder(orderId: string) {
+    const res = await cancelUserOrder(orderId, '');
+    if (res.success) {
+      showToast('Order cancelled');
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: 'cancelled' as const } : o));
+    } else {
+      showToast(res.error ?? 'Failed to cancel');
+    }
+  }
 
   if (!isAuthenticated) {
     return (
@@ -207,7 +255,7 @@ export default function OrdersPage() {
               <>
                 <div className="space-y-3">
                   {orders.map((order) => (
-                    <OrderCard key={order.id} order={order} />
+                    <OrderCard key={order.id} order={order} onCancel={handleCancelOrder} />
                   ))}
                 </div>
 
