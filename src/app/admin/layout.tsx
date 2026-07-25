@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-zborder">
-          <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-ztext-muted hover:text-zred hover:bg-zred/10 transition-colors">
+          <button onClick={() => { useAuthStore.getState().signOut(); }} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-ztext-muted hover:text-zred hover:bg-zred/10 transition-colors">
             <LogOut size={18} />
             Sign Out
           </button>
