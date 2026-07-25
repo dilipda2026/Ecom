@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Bike, MapPin, Clock, Loader2, ShoppingBag, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
 import { getOrderTimelineEvent } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
-import type { Order, OrderItem } from '@/features/orders/types';
+import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +61,7 @@ export default function OrderDetailPage() {
   }
 
   const address = order.delivery_address as Record<string, string> | null;
-  const timeline = (order.status_history as Array<{ status: string; timestamp: string }>) ?? [];
+  const timeline = (order.status_history as Array<{ status: OrderStatus; timestamp: string }>) ?? [];
 
   return (
     <div className="page-pad pb-28">
@@ -141,7 +141,7 @@ export default function OrderDetailPage() {
                     {idx < timeline.length - 1 && <div className="w-px flex-1 bg-zborder my-0.5" />}
                   </div>
                   <div>
-                    <p className="text-sm text-ztext">{getOrderTimelineEvent(event.status as any)}</p>
+                    <p className="text-sm text-ztext">{getOrderTimelineEvent(event.status)}</p>
                     <p className="text-[10px] text-ztext-lighter mt-0.5">
                       {new Date(event.timestamp).toLocaleString('en-IN')}
                     </p>

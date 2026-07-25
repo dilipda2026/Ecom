@@ -44,16 +44,6 @@ const sql = `
 async function main() {
   console.log('Running wallet setup SQL...');
 
-  const res = await fetch(`${url}/rest/v1/rpc/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({ query: sql }),
-  });
-
   // Try direct SQL via supabase-js admin client
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 

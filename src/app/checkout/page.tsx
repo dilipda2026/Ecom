@@ -31,16 +31,19 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState(false);
 
+  const walletLoading = paymentMethod === 'wallet' && walletBalance === null && !walletError;
   const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
   useEffect(() => {
     if (paymentMethod === 'wallet') {
-      setWalletLoading(true);
       getWalletBalance().then((res) => {
-        if (res.success) setWalletBalance(res.balance);
-        setWalletLoading(false);
+        if (res.success) {
+          setWalletBalance(res.balance);
+        } else {
+          setWalletError(true);
+        }
       });
     }
   }, [paymentMethod]);
@@ -83,7 +86,7 @@ async function handlePlaceOrder() {
       return;
     }
 
-    const { orderId, trackingCode } = orderResult.data!;
+    const { orderId } = orderResult.data!;
 
     if (paymentMethod === 'wallet') {
       const deductResult = await deductWalletBalance(total(), orderId);

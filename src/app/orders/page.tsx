@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, RotateCcw, ChefHat, ShoppingBag, Loader2, XCircle } from 'lucide-react';
+import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
@@ -101,20 +102,20 @@ export default function OrdersPage() {
   const { isAuthenticated } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, taxAmount, total, totalItems } = useCartStore();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const loading = !ordersLoaded && activeTab === 'orders';
   const cartCount = totalItems();
 
   useEffect(() => {
     if (activeTab === 'orders' && isAuthenticated) {
-      setLoading(true);
       getUserOrders(page, 5).then((res) => {
         if (res.success && res.data) {
           setOrders(res.data.orders);
           setTotalPages(res.data.totalPages);
         }
-        setLoading(false);
+        setOrdersLoaded(true);
       });
     }
   }, [activeTab, page, isAuthenticated]);
@@ -190,7 +191,7 @@ export default function OrdersPage() {
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex gap-3 items-center">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-zgray shrink-0 relative">
-                          <img src={item.image} alt={item.name} className="object-cover w-full h-full" />
+                          <Image src={item.image} alt={item.name} fill className="object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h2 className="font-semibold text-ztext text-sm truncate">{item.name}</h2>

@@ -37,7 +37,7 @@ export default function ProfilePage() {
     if (tab === 'dashboard' && isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin')) {
       fetchDashboardData();
     }
-  }, [tab, isAuthenticated]);
+  }, [tab, isAuthenticated, user?.role]);
 
   async function loadAddress() {
     setAddressLoading(true);

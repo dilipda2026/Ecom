@@ -6,7 +6,7 @@ import { useAuthStore } from '@/features/auth/store';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
     if (!isLoading) {
