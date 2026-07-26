@@ -136,18 +136,14 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="All Users"
-        description={`${total} user${total === 1 ? '' : 's'} registered`}
-        actions={
-          <button onClick={() => fetchUsers()} disabled={loading}
-            className="button-z button-z-secondary h-9 px-3 text-xs flex items-center gap-1.5"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        }
-      />
+      <PageHeader title="All Users" description={`${total} user${total === 1 ? '' : 's'} registered`}>
+        <button onClick={() => fetchUsers()} disabled={loading}
+          className="button-z button-z-secondary h-9 px-3 text-xs flex items-center gap-1.5"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </PageHeader>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by name, email or phone..." />
@@ -183,7 +179,7 @@ export default function AdminUsersPage() {
         confirmLabel="Delete permanently"
       />
 
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
