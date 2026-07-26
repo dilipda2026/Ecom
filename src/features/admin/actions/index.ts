@@ -641,6 +641,17 @@ export async function deleteUser(userId: string) {
   try {
     await authorizeAdmin();
     const admin = createAdminClient();
+
+    await admin.from('orders').update({ user_id: null }).eq('user_id', userId);
+    await admin.from('orders').update({ delivery_partner_id: null }).eq('delivery_partner_id', userId);
+    await admin.from('payments').update({ user_id: null }).eq('user_id', userId);
+    await admin.from('restaurants').update({ owner_id: null }).eq('owner_id', userId);
+    await admin.from('audit_logs').update({ changed_by: null }).eq('changed_by', userId);
+    await admin.from('restaurant_settings').update({ created_by: null }).eq('created_by', userId);
+
+    const { error: profileErr } = await admin.from('profiles').delete().eq('id', userId);
+    if (profileErr) throw new Error(profileErr.message);
+
     const { error } = await admin.auth.admin.deleteUser(userId);
     if (error) throw new Error(error.message);
     return { success: true };
