@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/infrastructure/supabase/admin';
 import type {
-  DashboardStats, AdminStudent, AdminMerchant, AdminOrder,
+  DashboardStats, AdminStudent, AdminMerchant, AdminOrder, AdminUser,
   CreditAccountAdmin, PaymentAdmin, AuditEntry, SystemSetting,
   PaginatedResponse, AdminFilter,
 } from '../types';
@@ -34,6 +34,34 @@ export class AdminRepository {
     const { data, count } = await query.range(from, to);
     return {
       data: (data ?? []) as unknown as AdminStudent[],
+      total: count ?? 0,
+      page,
+      pageSize,
+      totalPages: Math.ceil((count ?? 0) / pageSize),
+    };
+  }
+
+  async getUsers(filter: AdminFilter = {}): Promise<PaginatedResponse<AdminUser>> {
+    const admin = createAdminClient();
+    const { search, status, role, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc' } = filter;
+    let query = admin
+      .from('profiles')
+      .select('id, email, full_name, phone, role, is_active, created_at', { count: 'exact' })
+      .is('deleted_at', null);
+    if (status === 'active') query = query.eq('is_active', true);
+    if (status === 'suspended') query = query.eq('is_active', false);
+    if (role && role !== 'all') query = query.eq('role', role);
+    if (search) {
+      query = query.or(
+        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`,
+      );
+    }
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const { data, count } = await query.range(from, to);
+    return {
+      data: (data ?? []) as unknown as AdminUser[],
       total: count ?? 0,
       page,
       pageSize,

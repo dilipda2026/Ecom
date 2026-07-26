@@ -2,6 +2,7 @@
 
 import { adminRepository } from '../repositories';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
+import { createAdminClient } from '@/infrastructure/supabase/admin';
 import type { AdminFilter } from '../types';
 
 async function authorizeAdmin() {
@@ -623,5 +624,27 @@ export async function getRecentPayments() {
     return { success: true, data };
   } catch (e) {
     return { success: false, error: (e as Error).message, data: null };
+  }
+}
+
+export async function getAdminUsers(filter: AdminFilter = {}) {
+  try {
+    await authorizeAdmin();
+    const data = await adminRepository.getUsers(filter);
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, error: (e as Error).message, data: null };
+  }
+}
+
+export async function deleteUser(userId: string) {
+  try {
+    await authorizeAdmin();
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
   }
 }

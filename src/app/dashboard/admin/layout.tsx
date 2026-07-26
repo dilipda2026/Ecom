@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutDashboard, Users, Store, ShoppingBag, Banknote,
+  LayoutDashboard, Users, UserCog, Store, ShoppingBag, Banknote,
   Settings, LogOut, Menu, X, Bell,
   ClipboardList, Wallet,
 } from 'lucide-react';
@@ -19,6 +19,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+  { label: 'All Users', href: '/dashboard/admin/users', icon: UserCog },
   { label: 'Students', href: '/dashboard/admin/students', icon: Users },
   { label: 'Merchants', href: '/dashboard/admin/merchants', icon: Store },
   { label: 'Orders', href: '/dashboard/admin/orders', icon: ShoppingBag },

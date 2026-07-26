@@ -1,3 +1,13 @@
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface DashboardStats {
   total_users: number;
   total_students: number;
@@ -172,6 +182,7 @@ export interface PaginatedResponse<T> {
 export interface AdminFilter {
   search?: string;
   status?: string;
+  role?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string;
