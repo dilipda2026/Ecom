@@ -6,7 +6,7 @@ import { useCartStore } from '@/features/cart/store';
 
 const popularPicks = [
   { id: 'offer-1', name: 'Kolkata Biryani', image: '/images/Kolkata_biryani.jpg', price: 280, veg: false },
-  { id: 'offer-2', name: 'Macher Jhol', image: '/images/Macher Jhol.jpg', price: 220, veg: false },
+  { id: 'offer-2', name: 'Macher Jhol', image: '/images/Macher-Jhol.webp', price: 220, veg: false },
   { id: 'offer-3', name: 'Shorshe Ilish', image: '/images/Shorshe Ilish.jpg', price: 350, veg: false },
   { id: 'offer-4', name: 'Mutton Kosha', image: '/images/Mutton Kosha.jpg', price: 320, veg: false },
   { id: 'offer-5', name: 'Misti Doi', image: '/images/Misti Doi.jpg', price: 80, veg: true },
@@ -56,7 +56,6 @@ export default function OfferCards() {
                     className="object-cover"
                     sizes="105px"
                     loading="lazy"
-                    unoptimized
                   />
                 </div>
 
@@ -69,7 +68,7 @@ export default function OfferCards() {
                   {qty === 0 ? (
                     <button
                       onClick={(e) => handleAdd(pick, e)}
-                      className="w-[72px] h-7 flex items-center justify-center gap-1 text-[11px] font-bold text-zred border border-zred rounded-full hover:bg-zred hover:text-white transition-colors"
+                      className="w-[72px] h-7 flex items-center justify-center gap-1 text-[11px] font-bold text-zred-dark border border-zred-dark rounded-full hover:bg-zred-dark hover:text-white transition-colors"
                     >
                       <Plus size={10} /> ADD
                     </button>

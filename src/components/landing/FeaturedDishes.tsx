@@ -8,7 +8,7 @@ import FavoriteButton from '@/components/shared/FavoriteButton';
 
 const dishes = [
   { id: 'featured-1', name: 'Kolkata Biryani', image: '/images/Kolkata_biryani.jpg', price: 280, veg: false, desc: 'Fragrant basmati rice with tender chicken' },
-  { id: 'featured-2', name: 'Macher Jhol', image: '/images/Macher Jhol.jpg', price: 220, veg: false, desc: 'Traditional Bengali fish curry' },
+  { id: 'featured-2', name: 'Macher Jhol', image: '/images/Macher-Jhol.webp', price: 220, veg: false, desc: 'Traditional Bengali fish curry' },
   { id: 'featured-3', name: 'Shorshe Ilish', image: '/images/Shorshe Ilish.jpg', price: 350, veg: false, desc: 'Hilsa fish in mustard gravy' },
   { id: 'featured-4', name: 'Mutton Kosha', image: '/images/Mutton Kosha.jpg', price: 320, veg: false, desc: 'Slow-cooked mutton in thick gravy' },
   { id: 'featured-5', name: 'Misti Doi', image: '/images/Misti Doi.jpg', price: 80, veg: true, desc: 'Traditional Bengali sweet yogurt' },
@@ -97,7 +97,6 @@ export default function FeaturedDishes() {
                     className="object-cover"
                     sizes="220px"
                     loading="lazy"
-                    unoptimized
                   />
                   <div className={`absolute top-2 left-2 w-4 h-4 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-sm shadow-sm border ${dish.veg ? 'border-green-600' : 'border-red-600'}`}>
                     <div className={`w-2 h-2 rounded-full ${dish.veg ? 'bg-green-600' : 'bg-red-600'}`}></div>
@@ -112,7 +111,7 @@ export default function FeaturedDishes() {
                     {qty === 0 ? (
                       <button
                         onClick={(e) => handleAdd(dish, e)}
-                        className="w-16 h-7 flex items-center justify-center text-[10px] font-bold text-zred border border-zred rounded-lg hover:bg-zred hover:text-white transition-colors"
+                        className="w-16 h-7 flex items-center justify-center text-[10px] font-bold text-zred-dark border border-zred-dark rounded-lg hover:bg-zred-dark hover:text-white transition-colors"
                       >
                         ADD
                       </button>

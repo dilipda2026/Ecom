@@ -211,7 +211,7 @@ button, input, select, textarea { font: inherit; }
   padding: 0.25rem 0.75rem;
   font-size: 0.625rem;
   font-weight: 600;
-  color: var(--color-ztext-muted);
+  color: var(--color-ztext-lighter);
   text-decoration: none;
   transition: color 0.2s;
   position: relative;

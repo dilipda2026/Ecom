@@ -15,9 +15,9 @@ export default function Footer() {
             <span className="font-black text-ztext text-sm">
               Dilip<span className="text-zred"> Da</span>
             </span>
-            <span className="text-xs text-ztext-lighter">&mdash; Order food. Pay fair.</span>
+            <span className="text-xs text-ztext-light">&mdash; Order food. Pay fair.</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-ztext-lighter">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-ztext-light">
             <span className="flex items-center gap-1">
               <MapPin size={11} /> Near CIT Kokrajhar
             </span>
