@@ -17,7 +17,7 @@ const paymentMethods = [
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
   { id: 'wallet', label: 'Wallet', desc: 'Pay with your wallet balance', icon: Wallet },
   { id: 'bnpl', label: 'Ethics Pay BNPL', desc: 'Pay in 15 days. Zero interest. ₹5,000 limit', icon: ShieldCheck },
-  { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
+  { id: 'cod', label: 'Pay on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
 
 export default function CheckoutPage() {
@@ -200,10 +200,31 @@ async function handlePlaceOrder() {
   <MapPin size={18} className="text-zred shrink-0" /> Delivery address
  </h2>
  <div className="space-y-4">
- <div>
- <label className="text-xs font-semibold text-ztext uppercase tracking-wide">Street / Area</label>
- <input className="input-z mt-1.5" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. Sector V, Salt Lake" />
- </div>
+  <div>
+  <label className="text-xs font-semibold text-ztext uppercase tracking-wide mb-2 block">Delivery location</label>
+  <div className="space-y-2">
+    {[
+      { value: 'SNM, CIT Kokrajhar', label: 'SNM' },
+      { value: 'SJ, CIT Kokrajhar', label: 'SJ' },
+      { value: 'JD, CIT Kokrajhar', label: 'JD' },
+      { value: 'Staff Quarter, CIT Kokrajhar', label: 'Staff Quarter' },
+      { value: 'Gambari Girls Hostel, CIT Kokrajhar', label: 'Gambari Girls Hostel' },
+      { value: 'Mtech Quarter, CIT Kokrajhar', label: 'Mtech Quarter [T1, T2]' },
+    ].map((opt) => (
+      <button key={opt.value} type="button" onClick={() => { setAddress(opt.value); setCity('Kokrajhar'); }}
+        className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm transition-all ${
+          address === opt.value ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
+        }`}
+      >
+        <span className="font-semibold text-ztext">{opt.label}</span>
+        {address === opt.value && <span className="float-right w-4 h-4 rounded-full bg-zred flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-zcard" /></span>}
+      </button>
+    ))}
+    <div className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm transition-all border-zborder opacity-50`}>
+      <span className="text-ztext-light font-semibold">Soon available for nearby PG</span>
+    </div>
+  </div>
+  </div>
  <div className="flex gap-3">
  <div className="flex-1">
  <label className="text-xs font-semibold text-ztext uppercase tracking-wide">City</label>
