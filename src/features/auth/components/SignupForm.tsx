@@ -7,7 +7,7 @@ import { authService } from '../services/auth-service';
 import { OAuthButtons } from './OAuthButtons';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
 import { showToast } from '@/components/shared/Toast';
-import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail, User, Lock } from 'lucide-react';
+import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail } from 'lucide-react';
 
 const COUNTDOWN_SECONDS = 300;
 
@@ -122,17 +122,11 @@ export default function SignupForm() {
           <form onSubmit={handleCreateAccount} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Full name</label>
-              <div className="relative">
-                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                <input type="text" className="input-z w-full pl-9" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-              </div>
+              <input type="text" className="input-z w-full" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Password</label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                <input type="password" className="input-z w-full pl-9" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-              </div>
+              <input type="password" className="input-z w-full" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             </div>
             {error && <p className="text-sm text-zred">{error}</p>}
             <button type="submit" className="button-z button-z-primary w-full h-12 text-sm flex items-center justify-center gap-2" disabled={loading}>
@@ -221,11 +215,8 @@ export default function SignupForm() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-            <div className="relative">
-              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-              <input type="email" className="input-z w-full pl-9" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendOtp(); }} />
-            </div>
+            <input type="email" className="input-z w-full" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSendOtp(); }} />
           </div>
           <button onClick={handleSendOtp} disabled={sending || !email.trim()}
             className="button-z button-z-primary w-full h-12 text-sm flex items-center justify-center gap-2"

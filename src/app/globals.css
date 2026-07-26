@@ -95,7 +95,8 @@ button, input, select, textarea { font: inherit; }
 .input-z {
   height: 3rem;
   width: 100%;
-  padding: 0 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   border-radius: var(--radius-z);
   border: 1px solid var(--color-zborder);
   background: var(--color-zcard);
