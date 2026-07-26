@@ -5,12 +5,12 @@ import { Plus, Minus, Flame } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
 const popularPicks = [
-  { id: 'offer-1', name: 'Kolkata Biryani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=200&h=200&fit=crop', price: 280, veg: false },
-  { id: 'offer-2', name: 'Macher Jhol', image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=200&h=200&fit=crop', price: 220, veg: false },
-  { id: 'offer-3', name: 'Shorshe Ilish', image: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=200&h=200&fit=crop', price: 350, veg: false },
-  { id: 'offer-4', name: 'Mutton Kosha', image: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=200&h=200&fit=crop', price: 320, veg: false },
-  { id: 'offer-5', name: 'Misti Doi', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=200&h=200&fit=crop', price: 80, veg: true },
-  { id: 'offer-6', name: 'Daal & Rice', image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&h=200&fit=crop', price: 160, veg: true },
+  { id: 'offer-1', name: 'Kolkata Biryani', image: '/images/Kolkata_biryani.jpg', price: 280, veg: false },
+  { id: 'offer-2', name: 'Macher Jhol', image: '/images/Macher Jhol.jpg', price: 220, veg: false },
+  { id: 'offer-3', name: 'Shorshe Ilish', image: '/images/Shorshe Ilish.jpg', price: 350, veg: false },
+  { id: 'offer-4', name: 'Mutton Kosha', image: '/images/Mutton Kosha.jpg', price: 320, veg: false },
+  { id: 'offer-5', name: 'Misti Doi', image: '/images/Misti Doi.jpg', price: 80, veg: true },
+  { id: 'offer-6', name: 'Daal & Rice', image: '/images/Daal-and-Rice.jpg', price: 160, veg: true },
 ];
 
 export default function OfferCards() {
