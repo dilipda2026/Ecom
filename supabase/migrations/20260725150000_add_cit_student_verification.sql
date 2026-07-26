@@ -6,7 +6,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS student_verified_at timesta
 -- CIT OTP verification requests
 CREATE TABLE IF NOT EXISTS public.cit_otp_requests (
   id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references auth.users(id) on delete cascade,
+  user_id     uuid references auth.users(id) on delete cascade,
   email       text not null,
   otp_hash    text not null,
   expires_at  timestamptz not null,

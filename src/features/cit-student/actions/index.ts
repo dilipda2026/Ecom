@@ -187,7 +187,12 @@ export async function sendSignupOtp(email: string) {
     expires_at: expiresAt,
   });
 
-  if (insertError) return { success: false, error: 'Failed to send OTP' };
+  if (insertError) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('sendSignupOtp insert error:', insertError);
+    }
+    return { success: false, error: 'Failed to send OTP' };
+  }
 
   const sent = await sendOtpEmail(email, otp);
   if (!sent) {
