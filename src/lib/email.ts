@@ -45,3 +45,53 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
     return false;
   }
 }
+
+interface OrderNotificationInfo {
+  trackingCode: string;
+  items: { name: string; quantity: number; price: number }[];
+  total: number;
+  paymentMethod: string;
+  address: string;
+  customerName: string | null;
+  customerPhone: string | null;
+}
+
+export async function sendOrderNotificationEmail(to: string, order: OrderNotificationInfo): Promise<boolean> {
+  if (!to) return false;
+  const t = getTransporter();
+  if (!t) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV EMAIL] Order notification for ${order.trackingCode}`);
+      return true;
+    }
+    return false;
+  }
+
+  const itemsHtml = order.items.map((i) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">${i.name}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${i.quantity}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">₹${i.price}</td></tr>`).join('');
+
+  try {
+    await t.sendMail({
+      from: process.env.SMTP_FROM || 'noreply@dilipda.com',
+      to,
+      subject: `🆕 New Order — ${order.trackingCode}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:#EF4444">🆕 New Order Received</h2>
+          <p><strong>Tracking:</strong> ${order.trackingCode}</p>
+          <p><strong>Customer:</strong> ${order.customerName || 'Guest'}</p>
+          <p><strong>Phone:</strong> ${order.customerPhone || 'N/A'}</p>
+          <p><strong>Payment:</strong> ${order.paymentMethod.toUpperCase()}</p>
+          <p><strong>Delivery:</strong> ${order.address}</p>
+          <table style="width:100%;border-collapse:collapse;margin:12px 0">
+            <thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Item</th><th style="padding:8px;text-align:center">Qty</th><th style="padding:8px;text-align:right">Price</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+          </table>
+          <p style="font-size:18px;font-weight:bold;text-align:right">Total: ₹${order.total}</p>
+        </div>
+      `,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

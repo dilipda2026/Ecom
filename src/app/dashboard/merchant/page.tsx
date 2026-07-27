@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { StatCard, Skeleton, DashboardCard, EmptyState } from '@/components/ui';
 import { getMerchantDashboard, getMerchantRestaurant, toggleRestaurantOpen } from '@/features/restaurants/actions';
+import { createClient } from '@/infrastructure/supabase/client';
 
 interface DashboardData {
   today_orders: number;
@@ -32,6 +33,12 @@ export default function MerchantDashboardPage() {
   const [restaurant, setRestaurant] = useState<{ id: string; name: string; slug: string; is_open: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +52,34 @@ export default function MerchantDashboardPage() {
     })();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('merchant-dashboard')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurant.id}` },
+        () => {
+          showToast('New order received! Check the Orders page.');
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+          } catch {}
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurant?.id, showToast]);
 
   const handleRefresh = useCallback(async () => {
     setLoading(true);
@@ -67,6 +102,11 @@ export default function MerchantDashboardPage() {
   if (loading && !data) {
     return (
       <div>
+        {toast && (
+          <div className="fixed top-4 right-4 z-50 bg-zred text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-slide-in">
+            {toast}
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-10 w-28" />
@@ -81,12 +121,19 @@ export default function MerchantDashboardPage() {
 
   if (!data) {
     return (
-      <EmptyState
-        icon={BarChart3}
-        title="No data yet"
-        description="Start accepting orders to see your dashboard."
-        action={<button onClick={handleRefresh} className="inline-flex items-center gap-1.5 px-4 py-2 bg-zred text-white text-sm font-medium rounded-xl hover:bg-zred-dark transition-colors"><RefreshCw size={15} /> Refresh</button>}
-      />
+      <div>
+        {toast && (
+          <div className="fixed top-4 right-4 z-50 bg-zred text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-slide-in">
+            {toast}
+          </div>
+        )}
+        <EmptyState
+          icon={BarChart3}
+          title="No data yet"
+          description="Start accepting orders to see your dashboard."
+          action={<button onClick={handleRefresh} className="inline-flex items-center gap-1.5 px-4 py-2 bg-zred text-white text-sm font-medium rounded-xl hover:bg-zred-dark transition-colors"><RefreshCw size={15} /> Refresh</button>}
+        />
+      </div>
     );
   }
 
@@ -107,6 +154,12 @@ export default function MerchantDashboardPage() {
 
   return (
     <div>
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-zred text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-slide-in">
+          {toast}
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-ztext">Dashboard</h1>

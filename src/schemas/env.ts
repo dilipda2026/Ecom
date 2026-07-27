@@ -18,6 +18,9 @@ export const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_CHAT_ID: z.string().optional(),
+  NOTIFICATION_EMAIL: z.string().email().optional(),
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Search, ShoppingBag, RefreshCw, Check, X, ChefHat, PackageCheck, Ban } from 'lucide-react';
 import { getOrders, updateOrderStatus, getOrderCounts } from '@/features/orders/actions';
 import type { Order, OrderStatus, OrdersFilter } from '@/features/orders/types';
 import { canTransition } from '@/features/orders/types';
 import { Skeleton, EmptyState, StatusBadge } from '@/components/ui';
+import { getMerchantRestaurant } from '@/features/restaurants/actions';
+import { createClient } from '@/infrastructure/supabase/client';
 
 const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
@@ -35,26 +37,68 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const showToastRef = useRef<(msg: string) => void>(() => {});
+  const silentFetchRef = useRef<() => Promise<void>>(async () => {});
 
-  const fetchOrders = async () => {
-    setIsLoading(true);
+  showToastRef.current = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const fetchOrders = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoading(true);
     const filter: OrdersFilter = { status: currentTab, page, pageSize: 20, sortBy: 'created_at', sortOrder: 'desc' };
     if (search) filter.search = search;
     const [oRes, cRes] = await Promise.all([getOrders(filter), getOrderCounts()]);
     if (oRes.success && oRes.data) { setOrders(oRes.data.orders); setTotalPages(oRes.data.totalPages); }
     if (cRes.success && cRes.data) setCounts(cRes.data);
-    setIsLoading(false);
+    if (isInitial) setIsLoading(false);
+  }, [currentTab, page, search]);
+
+  silentFetchRef.current = async () => {
+    const filter: OrdersFilter = { status: currentTab, page, pageSize: 20, sortBy: 'created_at', sortOrder: 'desc' };
+    if (search) filter.search = search;
+    const [oRes, cRes] = await Promise.all([getOrders(filter), getOrderCounts()]);
+    if (oRes.success && oRes.data) { setOrders(oRes.data.orders); setTotalPages(oRes.data.totalPages); }
+    if (cRes.success && cRes.data) setCounts(cRes.data);
   };
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      await fetchOrders();
+      await fetchOrders(true);
       if (!mounted) return;
     })();
     return () => { mounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTab, page, search]);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const res = await getMerchantRestaurant();
+      if (!mounted) return;
+      if (res.success && res.data) setRestaurantId(res.data.id);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('merchant-orders-page')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          showToastRef.current('New order received!');
+          silentFetchRef.current();
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurantId]);
 
   const handleAction = async (orderId: string, status: OrderStatus, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,9 +120,15 @@ export default function OrdersPage() {
 
   return (
     <div>
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-zred text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-slide-in">
+          {toast}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-ztext">Orders</h1>
-        <button onClick={fetchOrders} aria-label="Refresh orders" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
+        <button onClick={() => fetchOrders()} aria-label="Refresh orders" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
           <RefreshCw size={18} />
         </button>
       </div>

@@ -4,6 +4,7 @@ import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
 import type { CartItem } from '@/features/cart/types';
 import type { Order } from '../types';
+import { notifyNewOrder } from '@/lib/notifications';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -123,6 +124,17 @@ export async function createOrder(params: CreateOrderParams) {
     await supabase.from('orders').delete().eq('id', order.id);
     return { success: false, error: 'Failed to save order items' };
   }
+
+  await notifyNewOrder({
+    id: order.id,
+    trackingCode: order.tracking_code,
+    items: items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+    total,
+    paymentMethod,
+    address,
+    customerName: customerName || null,
+    customerPhone: customerPhone || null,
+  });
 
   return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
 }
