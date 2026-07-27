@@ -42,11 +42,6 @@ export default function OrdersPage() {
   const showToastRef = useRef<(msg: string) => void>(() => {});
   const silentFetchRef = useRef<() => Promise<void>>(async () => {});
 
-  showToastRef.current = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 4000);
-  };
-
   const fetchOrders = useCallback(async (isInitial = false) => {
     if (isInitial) setIsLoading(true);
     const filter: OrdersFilter = { status: currentTab, page, pageSize: 20, sortBy: 'created_at', sortOrder: 'desc' };
@@ -57,13 +52,22 @@ export default function OrdersPage() {
     if (isInitial) setIsLoading(false);
   }, [currentTab, page, search]);
 
-  silentFetchRef.current = async () => {
-    const filter: OrdersFilter = { status: currentTab, page, pageSize: 20, sortBy: 'created_at', sortOrder: 'desc' };
-    if (search) filter.search = search;
-    const [oRes, cRes] = await Promise.all([getOrders(filter), getOrderCounts()]);
-    if (oRes.success && oRes.data) { setOrders(oRes.data.orders); setTotalPages(oRes.data.totalPages); }
-    if (cRes.success && cRes.data) setCounts(cRes.data);
-  };
+  useEffect(() => {
+    showToastRef.current = (msg: string) => {
+      setToast(msg);
+      setTimeout(() => setToast(null), 4000);
+    };
+  });
+
+  useEffect(() => {
+    silentFetchRef.current = async () => {
+      const filter: OrdersFilter = { status: currentTab, page, pageSize: 20, sortBy: 'created_at', sortOrder: 'desc' };
+      if (search) filter.search = search;
+      const [oRes, cRes] = await Promise.all([getOrders(filter), getOrderCounts()]);
+      if (oRes.success && oRes.data) { setOrders(oRes.data.orders); setTotalPages(oRes.data.totalPages); }
+      if (cRes.success && cRes.data) setCounts(cRes.data);
+    };
+  });
 
   useEffect(() => {
     let mounted = true;
