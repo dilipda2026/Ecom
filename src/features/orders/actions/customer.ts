@@ -13,8 +13,8 @@ interface CreateOrderParams {
   total: number;
   paymentMethod: string;
   address: string;
-  city: string;
-  pincode: string;
+  city?: string;
+  pincode?: string;
   notes?: string;
   customerPhone?: string;
   customerName?: string;
@@ -43,7 +43,7 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Restaurant not available' };
   }
 
-  const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, city, pincode, notes, customerPhone, customerName, customerEmail } = params;
+  const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, notes, customerPhone, customerName, customerEmail } = params;
 
   const orderPayload = {
     user_id: user?.id ?? null,
@@ -59,7 +59,7 @@ export async function createOrder(params: CreateOrderParams) {
     customer_name: customerName || user?.fullName || null,
     customer_email: customerEmail || user?.email || null,
     customer_phone: customerPhone || null,
-    delivery_address: { address, city, pincode },
+    delivery_address: { address, city: params.city ?? '', pincode: params.pincode ?? '' },
     delivery_notes: notes ?? null,
   };
 
@@ -194,13 +194,18 @@ export async function cancelUserOrder(orderId: string, reason: string) {
 
   const { data: order, error: fetchError } = await supabase
     .from('orders')
-    .select('user_id, status, status_history')
+    .select('user_id, status, status_history, created_at')
     .eq('id', orderId)
     .maybeSingle();
 
   if (fetchError || !order) return { success: false, error: 'Order not found' };
   if (order.user_id !== user.id) return { success: false, error: 'Unauthorized' };
   if (order.status !== 'pending' && order.status !== 'accepted') return { success: false, error: 'Order can no longer be cancelled' };
+
+  const elapsed = Date.now() - new Date(order.created_at).getTime();
+  if (elapsed > 240_000) {
+    return { success: false, error: 'Cancellation window has expired (4 minutes)' };
+  }
 
   const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };
   const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;

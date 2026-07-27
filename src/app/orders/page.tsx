@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle } from 'lucide-react';
+import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -9,6 +9,28 @@ import { useCartStore } from '@/features/cart/store';
 import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
+
+const CANCELLATION_WINDOW_MS = 240_000;
+
+function useCountdown(createdAt: string) {
+  const [remaining, setRemaining] = useState(() => CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime()));
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const id = setInterval(() => {
+      const r = CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime());
+      setRemaining(r);
+      if (r <= 0) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [createdAt, remaining]);
+
+  return Math.max(0, remaining);
+}
+
+function canCancelByTime(createdAt: string): boolean {
+  return Date.now() - new Date(createdAt).getTime() < CANCELLATION_WINDOW_MS;
+}
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/15 text-yellow-500',
@@ -21,13 +43,14 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/15 text-red-400',
 };
 
-const cancellableStatuses = ['pending', 'accepted'];
-
 function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, reason: string) => void }) {
   const itemCount = order.order_items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
   const [cancelling, setCancelling] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const remaining = useCountdown(order.created_at);
+  const timeCanCancel = canCancelByTime(order.created_at);
+  const canCancel = timeCanCancel && (order.status === 'pending' || order.status === 'accepted');
 
   async function handleConfirm() {
     setCancelling(true);
@@ -35,8 +58,6 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
     setCancelling(false);
     setShowConfirm(false);
   }
-
-  const canCancel = cancellableStatuses.includes(order.status);
 
   return (
     <div className="bg-zcard rounded-xl border border-zborder p-4 sm:p-5 hover:shadow-z-hover transition-shadow">
@@ -69,10 +90,20 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
         </div>
       </Link>
 
-      {canCancel && !showConfirm && (
-        <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/5 transition-colors">
-          <XCircle size={13} /> Cancel
-        </button>
+      {(order.status === 'pending' || order.status === 'accepted') && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-[10px] text-ztext-lighter flex items-center gap-1">
+            <Clock size={10} />
+            {timeCanCancel
+              ? `You have ${Math.floor(remaining / 60000)}m ${Math.floor((remaining % 60000) / 1000)}s remaining to cancel`
+              : 'Cancellation window has expired. This order can no longer be cancelled.'}
+          </p>
+          {canCancel && !showConfirm && (
+            <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/5 transition-colors">
+              <XCircle size={13} /> Cancel
+            </button>
+          )}
+        </div>
       )}
 
       {showConfirm && (

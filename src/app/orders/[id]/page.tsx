@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
 import { getOrderTimelineEvent } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
+
+const CANCELLATION_WINDOW_MS = 240_000;
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,14 +19,27 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelInput, setShowCancelInput] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
     if (!id) return;
     getUserOrder(id).then((res) => {
-      if (res.success && res.data) setOrder(res.data);
+      if (res.success && res.data) { setOrder(res.data); setRemaining(CANCELLATION_WINDOW_MS - (Date.now() - new Date(res.data.created_at).getTime())); }
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const interval = setInterval(() => {
+      setRemaining((r) => {
+        const next = Math.max(0, r - 1000);
+        if (next <= 0) clearInterval(interval);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [remaining]);
 
   async function handleCancel() {
     if (!order || cancelling) return;
@@ -128,11 +143,23 @@ export default function OrderDetailPage() {
         )}
 
         {timeline.length > 0 && (
-          <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
-            <div className="flex items-center gap-2 text-sm mb-4">
-              <Clock size={16} className="text-zred" />
-              <p className="font-semibold text-ztext">Order timeline</p>
+        <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
+          {(order.status === 'pending' || order.status === 'accepted') && (
+            <div className="flex items-center gap-2 text-sm mb-4 pb-4 border-b border-zborder">
+              <Timer size={16} className="text-zred shrink-0" />
+              <div>
+                <p className="font-semibold text-ztext text-xs">
+                  {remaining > 0
+                    ? `You have ${Math.floor(remaining / 60000)}m ${Math.floor((remaining % 60000) / 1000)}s remaining to cancel this order`
+                    : 'Cancellation window has expired. This order can no longer be cancelled.'}
+                </p>
+              </div>
             </div>
+          )}
+          <div className="flex items-center gap-2 text-sm mb-4">
+            <Clock size={16} className="text-zred" />
+            <p className="font-semibold text-ztext">Order timeline</p>
+          </div>
             <div className="space-y-3">
               {timeline.map((event, idx) => (
                 <div key={idx} className="flex gap-3">
@@ -152,7 +179,7 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {(order.status === 'pending' || order.status === 'accepted') && !showCancelInput && (
+        {(order.status === 'pending' || order.status === 'accepted') && remaining > 0 && !showCancelInput && (
           <button onClick={() => setShowCancelInput(true)} className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/30 text-sm font-medium text-red-400 hover:bg-red-500/5 transition-colors">
             <XCircle size={16} /> Cancel order
           </button>

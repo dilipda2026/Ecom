@@ -1,22 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, CreditCard, Banknote, ArrowLeft, ShieldCheck, Loader2, ShoppingBag, Wallet } from 'lucide-react';
+import { MapPin, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
-import { processBNPLCheckout } from '@/features/bnpl/actions';
-import BNPLPaymentOption from '@/features/bnpl/components/BNPLPaymentOption';
 import { createOrder, confirmPayment, failPayment } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
-import { getWalletBalance, deductWalletBalance } from '@/features/wallet/actions';
-import { getCitStudentStatus } from '@/features/cit-student/actions';
 
 const paymentMethods = [
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
-  { id: 'wallet', label: 'Wallet', desc: 'Pay with your wallet balance', icon: Wallet },
-  { id: 'bnpl', label: 'Ethics Pay BNPL', desc: 'Pay in 15 days. Zero interest. ₹5,000 limit', icon: ShieldCheck },
   { id: 'cod', label: 'Pay on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
 
@@ -26,46 +20,10 @@ export default function CheckoutPage() {
  const { items, subtotal, deliveryFee, taxAmount, total, clearCart } = store;
  const [paymentMethod, setPaymentMethod] = useState('razorpay');
  const [address, setAddress] = useState('');
- const [city, setCity] = useState('Kolkata');
- const [pincode, setPincode] = useState('');
  const [notes, setNotes] = useState('');
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [walletError, setWalletError] = useState(false);
-
-  const [citVerified, setCitVerified] = useState<boolean | null>(null);
-  const walletLoading = paymentMethod === 'wallet' && walletBalance === null && !walletError;
   const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-  const citChecked = useRef(false);
-
-  useEffect(() => {
-    if (citChecked.current) return;
-    getCitStudentStatus().then((res) => {
-      citChecked.current = true;
-      const isVerified = res.status?.isVerified ?? false;
-      setCitVerified(isVerified);
-      if (!isVerified && (paymentMethod === 'wallet' || paymentMethod === 'bnpl')) {
-        setPaymentMethod('razorpay');
-      }
-    });
-  }, [paymentMethod]);
-
-  const restrictedMethods = citVerified === false ? ['wallet', 'bnpl'] : [];
-  const allowedMethods = paymentMethods.filter((pm) => !restrictedMethods.includes(pm.id));
-
-  useEffect(() => {
-    if (paymentMethod === 'wallet') {
-      getWalletBalance().then((res) => {
-        if (res.success) {
-          setWalletBalance(res.balance);
-        } else {
-          setWalletError(true);
-        }
-      });
-    }
-  }, [paymentMethod]);
 
   if (items.length === 0) {
  return (
@@ -94,8 +52,6 @@ async function handlePlaceOrder() {
       total: total(),
       paymentMethod,
       address,
-      city,
-      pincode,
       notes,
     });
 
@@ -106,40 +62,6 @@ async function handlePlaceOrder() {
     }
 
     const { orderId } = orderResult.data!;
-
-    if (paymentMethod === 'wallet') {
-      const deductResult = await deductWalletBalance(total(), orderId);
-      if (deductResult.success) {
-        await confirmPayment(orderId);
-        clearCart();
-        router.push(`/order/confirmed?orderId=${orderId}`);
-      } else {
-        await failPayment(orderId);
-        setError(deductResult.error || 'Wallet payment failed');
-        setPlacing(false);
-      }
-      return;
-    }
-
-    if (paymentMethod === 'bnpl') {
-      try {
-        const result = await processBNPLCheckout(orderId, total());
-        if (result.success) {
-          await confirmPayment(orderId);
-          clearCart();
-          router.push(`/order/confirmed?orderId=${orderId}`);
-        } else {
-          await failPayment(orderId);
-          setError(result.error || 'BNPL checkout failed');
-          setPlacing(false);
-        }
-      } catch (err) {
-        await failPayment(orderId);
-        setError(err instanceof Error ? err.message : 'BNPL checkout failed');
-        setPlacing(false);
-      }
-      return;
-    }
 
     if (paymentMethod === 'razorpay') {
       const loaded = await loadRazorpayScript();
@@ -211,7 +133,7 @@ async function handlePlaceOrder() {
       { value: 'Gambari Girls Hostel, CIT Kokrajhar', label: 'Gambari Girls Hostel' },
       { value: 'Mtech Quarter, CIT Kokrajhar', label: 'Mtech Quarter [T1, T2]' },
     ].map((opt) => (
-      <button key={opt.value} type="button" onClick={() => { setAddress(opt.value); setCity('Kokrajhar'); }}
+      <button key={opt.value} type="button" onClick={() => setAddress(opt.value)}
         className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm transition-all ${
           address === opt.value ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
         }`}
@@ -225,51 +147,15 @@ async function handlePlaceOrder() {
     </div>
   </div>
   </div>
- <div className="flex gap-3">
- <div className="flex-1">
- <label className="text-xs font-semibold text-ztext uppercase tracking-wide">City</label>
- <input className="input-z mt-1.5" value={city} onChange={(e) => setCity(e.target.value)} />
- </div>
- <div className="w-28">
- <label className="text-xs font-semibold text-ztext uppercase tracking-wide">Pincode</label>
- <input className="input-z mt-1.5" value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="700091" />
- </div>
- </div>
- </div>
- </div>
+  </div>
+  </div>
 
  <div className="bg-zcard rounded-xl border border-zborder p-6">
  <h2 className="font-bold text-ztext mb-4 flex items-center gap-2">
   <CreditCard size={18} className="text-zred shrink-0" /> Payment method
  </h2>
- <div className="space-y-3">
-   {allowedMethods.map((pm) =>
-  pm.id === 'bnpl' ? (
-  <BNPLPaymentOption
-  key={pm.id}
-  selected={paymentMethod === pm.id}
-  onSelect={() => setPaymentMethod(pm.id)}
-  orderTotal={total()}
-  />
-  ) : pm.id === 'wallet' ? (
-  <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
-  className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
-  paymentMethod === pm.id ? 'border-zred bg-red-500/10 shadow-z' : 'border-zborder hover:border-ztext-light hover:bg-zgray '
-  }`}>
-  <Wallet size={20} className={`mt-0.5 shrink-0 ${paymentMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
-  <div className="flex-1">
-  <p className="font-semibold text-ztext text-sm">Wallet</p>
-  <p className="text-xs text-ztext-light mt-0.5">
-  {walletLoading ? 'Loading...' : walletBalance !== null ? `₹${walletBalance.toLocaleString('en-IN')} available` : 'Pay with wallet balance'}
-  </p>
-  </div>
-  {paymentMethod === pm.id && (
-  <span className="ml-auto w-5 h-5 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
-  <span className="w-2 h-2 rounded-full bg-zcard" />
-  </span>
-  )}
-  </button>
-  ) : (
+  <div className="space-y-3">
+    {paymentMethods.map((pm) => (
   <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
   className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
   paymentMethod === pm.id
@@ -287,8 +173,7 @@ async function handlePlaceOrder() {
   </span>
   )}
   </button>
-  )
-  )}
+  ))}
  </div>
  </div>
 
