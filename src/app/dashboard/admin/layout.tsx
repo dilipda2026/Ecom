@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard, Users, UserCog, Store, ShoppingBag, Banknote,
   Settings, LogOut, Menu, X, Bell,
-  ClipboardList, Wallet,
+  ClipboardList,
 } from 'lucide-react';
 import { getServerSession } from '@/features/auth/actions';
 
@@ -23,7 +23,7 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Students', href: '/dashboard/admin/students', icon: Users },
   { label: 'Merchants', href: '/dashboard/admin/merchants', icon: Store },
   { label: 'Orders', href: '/dashboard/admin/orders', icon: ShoppingBag },
-  { label: 'BNPL', href: '/dashboard/admin/bnpl', icon: Wallet },
+  // { label: 'BNPL', href: '/dashboard/admin/bnpl', icon: Wallet },
   { label: 'Payments', href: '/dashboard/admin/payments', icon: Banknote },
   { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
   { label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ClipboardList },

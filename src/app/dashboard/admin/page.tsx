@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Users, ShoppingBag, IndianRupee, Wallet, TrendingUp, Clock, Store, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, Store, AlertTriangle } from 'lucide-react';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ export default function AdminDashboardPage() {
     { label: 'Total Users', value: stats?.total_users ?? 0, icon: Users, desc: 'Registered accounts' },
     { label: 'Total Orders', value: stats?.total_orders ?? 0, icon: ShoppingBag, desc: 'All time' },
     { label: 'Total Revenue', value: fmt(stats?.total_revenue ?? 0), icon: IndianRupee, desc: 'All time revenue' },
-    { label: 'BNPL Outstanding', value: fmt(stats?.bnpl_outstanding ?? 0), icon: Wallet, desc: 'Active credit' },
+    // { label: 'BNPL Outstanding', value: fmt(stats?.bnpl_outstanding ?? 0), icon: Wallet, desc: 'Active credit' },
   ];
 
   const secondaryCards = [
@@ -117,9 +117,11 @@ export default function AdminDashboardPage() {
                   </td>
                   <td className="px-5 py-3">
                     <p className="text-sm text-ztext-light">{order.user?.full_name ?? order.customer_name ?? 'Guest'}</p>
+                    {/* BNPL badge — disabled
                     {order.payment_method === 'bnpl' && (
                       <span className="text-[10px] font-medium text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">BNPL</span>
                     )}
+                    */}
                   </td>
                   <td className="px-5 py-3">
                     <span className="font-medium text-ztext">{fmt(Number(order.total))}</span>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, Wallet, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
 import ThemeToggle from '@/components/shared/ThemeToggle';
@@ -9,7 +9,6 @@ import { showToast } from '@/components/shared/Toast';
 import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
-import { getWalletBalance } from '@/features/wallet/actions';
 
 export default function ProfilePage() {
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
@@ -24,12 +23,10 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadAddress();
-      getWalletBalance().then((res) => { if (res.success) setWalletBalance(res.balance); });
     }
   }, [isAuthenticated]);
 
@@ -293,7 +290,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Wallet balance */}
+              {/* Wallet balance — disabled
               <div className="p-4 flex items-center gap-3">
                 <Wallet size={18} className="text-zred shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -303,6 +300,7 @@ export default function ProfilePage() {
                   </p>
                 </div>
               </div>
+              */}
 
               {/* Orders link */}
               <Link href="/orders" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
@@ -396,7 +394,7 @@ export default function ProfilePage() {
                     { label: 'Users', value: stats?.total_users ?? 0, icon: Users },
                     { label: 'Orders', value: stats?.total_orders ?? 0, icon: ShoppingBag },
                     { label: 'Revenue', value: fmt(stats?.total_revenue ?? 0), icon: IndianRupee },
-                    { label: 'BNPL', value: fmt(stats?.bnpl_outstanding ?? 0), icon: Wallet },
+                    // { label: 'BNPL', value: fmt(stats?.bnpl_outstanding ?? 0), icon: Wallet },
                   ].map((card) => (
                     <div key={card.label} className="bg-zcard rounded-xl shadow-z p-4">
                       <div className="flex items-center justify-between mb-2">
