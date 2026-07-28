@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { UserRound, Home, UtensilsCrossed, ClipboardList, Heart, ChevronLeft } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
 import { useRouter } from 'next/navigation';
+import ThemeToggle from '@/components/shared/ThemeToggle';
 
 const navLinks = [
   { label: 'Home', href: '/', icon: Home },
@@ -57,6 +58,7 @@ export default function Navbar() {
 
         {/* Desktop right icons */}
         <div className="hidden sm:flex items-center gap-1">
+          <ThemeToggle className="icon-button-z" />
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-zgray animate-pulse" />
           ) : isAuthenticated ? (
@@ -70,8 +72,9 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile: just logo + favorites (bottom nav handles navigation) */}
+        {/* Mobile: logo + theme + favorites (bottom nav handles navigation) */}
         <div className="flex items-center gap-1 sm:hidden ml-auto">
+          <ThemeToggle className="icon-button-z" />
           <Link href="/favorites" className="icon-button-z text-zred" aria-label="Favorites">
             <Heart size={20} className="fill-zred/20" />
           </Link>

@@ -42,7 +42,7 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F6F6F6]">
+      <div className="min-h-screen bg-zgray">
         <div className="page-pad">
           <div className="container-z mx-auto max-w-xl text-center py-16">
             <h1 className="text-2xl font-bold text-ztext">Your bag is empty</h1>
@@ -136,7 +136,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F6F6]">
+    <div className="min-h-screen bg-zgray">
       <div className="page-pad">
         <div className="container-z mx-auto max-w-4xl">
           <Link href="/cart" className="inline-flex items-center gap-1 text-xs text-ztext-light hover:text-zred mb-3 transition-colors">

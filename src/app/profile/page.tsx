@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
-import ThemeToggle from '@/components/shared/ThemeToggle';
 import { showToast } from '@/components/shared/Toast';
 import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
@@ -322,10 +321,7 @@ export default function ProfilePage() {
                 <ChevronRight size={16} className="text-ztext-muted shrink-0" />
               </Link>
 
-              {/* Theme toggle */}
-              <div className="p-4 flex items-center gap-3">
-                <ThemeToggle className="flex items-center gap-3 flex-1 text-sm font-semibold text-ztext" />
-              </div>
+              {/* Theme toggle — moved to Navbar */}
             </div>
 
             {/* About section */}
