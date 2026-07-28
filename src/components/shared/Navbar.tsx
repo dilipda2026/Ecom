@@ -32,7 +32,7 @@ export default function Navbar() {
           </button>
         ) : (
           <Link href="/" className="flex items-center gap-1.5 shrink-0" aria-label="Dilip Da">
-            <span className="text-xl sm:text-2xl font-black tracking-tight">
+            <span className="text-xl sm:text-2xl font-semibold tracking-tight">
               <span className="text-ztext">Dilip</span> <span className="text-zred">Da</span>
             </span>
           </Link>

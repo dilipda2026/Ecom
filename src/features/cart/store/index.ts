@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { CartItem, CartStore } from '@/features/cart/types';
 
-const DELIVERY_FEE = 20;
+const DELIVERY_FEE = 10;
 const TAX_RATE = 0.05;
 
 export const useCartStore = create<CartStore>((set, get) => ({

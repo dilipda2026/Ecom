@@ -11,7 +11,7 @@ export default function Hero() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-ztext tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-ztext tracking-tight">
               Order your <span className="text-zred">favorites</span>
             </h1>
             <div className="flex items-center gap-2 mt-1">

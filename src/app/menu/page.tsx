@@ -8,6 +8,27 @@ export const metadata: Metadata = { title: 'Menu' };
 
 const sections = [
   {
+    category: 'Thali',
+    items: [
+      { id: 'thali-chicken', name: 'Chicken Thali', price: 70, desc: 'Complete thali with rice, dal, sabzi & chicken curry', veg: false, popular: true, img: '/images/Chicken Curry.jpg' },
+      { id: 'thali-pork', name: 'Pork Thali', price: 70, desc: 'Complete thali with rice, dal, sabzi & pork curry', veg: false, popular: true, img: '/images/Pork Thali.webp' },
+      { id: 'thali-veg', name: 'Veg Thali', price: 60, desc: 'Complete thali with rice, dal, sabzi & papad', veg: true, popular: true, img: '/images/Aloo Posto.jpg' },
+    ],
+  },
+  {
+    category: 'Gravy',
+    items: [
+      { id: 'gravy-chicken', name: 'Chicken (5 pcs) Gravy', price: 40, desc: '5 pieces of chicken in rich gravy', veg: false, popular: false, img: '/images/Chicken (5 pcs) Gravy.webp' },
+      { id: 'gravy-pork', name: 'Pork (5 pcs) Gravy', price: 40, desc: '5 pieces of pork in rich gravy', veg: false, popular: false, img: '/images/Pork(5 pcs) Gravy.jpg' },
+    ],
+  },
+];
+
+/*
+ * Previous menu items — preserved for future use
+ *
+const sectionsOld = [
+  {
     category: 'Biryani & Rice',
     items: [
       { id: 'biryani-1', name: 'Kolkata Biryani', price: 280, desc: 'Fragrant basmati rice with tender chicken, potato & egg', veg: false, popular: true, img: '/images/Kolkata_biryani.jpg' },
@@ -52,6 +73,7 @@ const sections = [
     ],
   },
 ];
+*/
 
 export default function MenuPage() {
   return (
@@ -67,7 +89,7 @@ export default function MenuPage() {
             sizes="(max-width: 1024px) 100vw, 1024px"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-5 sm:p-8">
-            <h1 className="text-2xl sm:text-3xl font-black text-white">Our Menu</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-white">Our Menu</h1>
             <p className="text-sm text-white/80 mt-1 max-w-md">Explore our complete range of culinary delights prepared fresh daily.</p>
           </div>
         </div>

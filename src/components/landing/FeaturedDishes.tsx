@@ -7,12 +7,11 @@ import { ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import FavoriteButton from '@/components/shared/FavoriteButton';
 
 const dishes = [
-  { id: 'featured-1', name: 'Kolkata Biryani', image: '/images/Kolkata_biryani.jpg', price: 280, veg: false, desc: 'Fragrant basmati rice with tender chicken' },
-  { id: 'featured-2', name: 'Macher Jhol', image: '/images/Macher-Jhol.webp', price: 220, veg: false, desc: 'Traditional Bengali fish curry' },
-  { id: 'featured-3', name: 'Shorshe Ilish', image: '/images/Shorshe Ilish.jpg', price: 350, veg: false, desc: 'Hilsa fish in mustard gravy' },
-  { id: 'featured-4', name: 'Mutton Kosha', image: '/images/Mutton Kosha.jpg', price: 320, veg: false, desc: 'Slow-cooked mutton in thick gravy' },
-  { id: 'featured-5', name: 'Misti Doi', image: '/images/Misti Doi.jpg', price: 80, veg: true, desc: 'Traditional Bengali sweet yogurt' },
-  { id: 'featured-6', name: 'Daal & Rice', image: '/images/Daal-and-Rice.jpg', price: 160, veg: true, desc: 'Comforting dal chawal with ghee' },
+  { id: 'featured-1', name: 'Chicken Thali', image: '/images/Chicken Curry.jpg', price: 70, veg: false, desc: 'Complete thali with rice, dal & chicken curry' },
+  { id: 'featured-5', name: 'Pork Thali', image: '/images/Pork Thali.webp', price: 70, veg: false, desc: 'Complete thali with rice, dal & pork curry' },
+  { id: 'featured-2', name: 'Veg Thali', image: '/images/Aloo Posto.jpg', price: 60, veg: true, desc: 'Complete thali with rice, dal & sabzi' },
+  { id: 'featured-3', name: 'Chicken (5 pcs) Gravy', image: '/images/Chicken (5 pcs) Gravy.webp', price: 40, veg: false, desc: '5 pieces of chicken in rich gravy' },
+  { id: 'featured-4', name: 'Pork (5 pcs) Gravy', image: '/images/Pork(5 pcs) Gravy.jpg', price: 40, veg: false, desc: '5 pieces of pork in rich gravy' },
 ];
 
 export default function FeaturedDishes() {

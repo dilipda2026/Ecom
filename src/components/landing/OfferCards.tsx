@@ -5,12 +5,11 @@ import { Plus, Minus, Flame } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
 const popularPicks = [
-  { id: 'offer-1', name: 'Kolkata Biryani', image: '/images/Kolkata_biryani.jpg', price: 280, veg: false },
-  { id: 'offer-2', name: 'Macher Jhol', image: '/images/Macher-Jhol.webp', price: 220, veg: false },
-  { id: 'offer-3', name: 'Shorshe Ilish', image: '/images/Shorshe Ilish.jpg', price: 350, veg: false },
-  { id: 'offer-4', name: 'Mutton Kosha', image: '/images/Mutton Kosha.jpg', price: 320, veg: false },
-  { id: 'offer-5', name: 'Misti Doi', image: '/images/Misti Doi.jpg', price: 80, veg: true },
-  { id: 'offer-6', name: 'Daal & Rice', image: '/images/Daal-and-Rice.jpg', price: 160, veg: true },
+  { id: 'offer-1', name: 'Chicken Thali', image: '/images/Chicken Curry.jpg', price: 70, veg: false },
+  { id: 'offer-5', name: 'Pork Thali', image: '/images/Pork Thali.webp', price: 70, veg: false },
+  { id: 'offer-2', name: 'Veg Thali', image: '/images/Aloo Posto.jpg', price: 60, veg: true },
+  { id: 'offer-3', name: 'Chicken (5 pcs) Gravy', image: '/images/Chicken (5 pcs) Gravy.webp', price: 40, veg: false },
+  { id: 'offer-4', name: 'Pork (5 pcs) Gravy', image: '/images/Pork(5 pcs) Gravy.jpg', price: 40, veg: false },
 ];
 
 export default function OfferCards() {
