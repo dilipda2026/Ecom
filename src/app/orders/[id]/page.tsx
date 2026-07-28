@@ -9,7 +9,7 @@ import { getOrderTimelineEvent } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
-const CANCELLATION_WINDOW_MS = 240_000;
+const CANCELLATION_WINDOW_MS = 60_000;
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();

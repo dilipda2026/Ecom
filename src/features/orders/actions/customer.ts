@@ -219,8 +219,8 @@ export async function cancelUserOrder(orderId: string, reason: string) {
   if (order.status !== 'pending' && order.status !== 'accepted') return { success: false, error: 'Order can no longer be cancelled' };
 
   const elapsed = Date.now() - new Date(order.created_at).getTime();
-  if (elapsed > 240_000) {
-    return { success: false, error: 'Cancellation window has expired (4 minutes)' };
+  if (elapsed > 60_000) {
+    return { success: false, error: 'Cancellation window has expired (1 minute)' };
   }
 
   const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };

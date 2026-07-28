@@ -19,13 +19,13 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
-  { label: 'All Users', href: '/dashboard/admin/users', icon: UserCog },
+  // { label: 'All Users', href: '/dashboard/admin/users', icon: UserCog },
   { label: 'Students', href: '/dashboard/admin/students', icon: Users },
-  { label: 'Merchants', href: '/dashboard/admin/merchants', icon: Store },
+  // { label: 'Merchants', href: '/dashboard/admin/merchants', icon: Store },
   { label: 'Orders', href: '/dashboard/admin/orders', icon: ShoppingBag },
   // { label: 'BNPL', href: '/dashboard/admin/bnpl', icon: Wallet },
   { label: 'Payments', href: '/dashboard/admin/payments', icon: Banknote },
-  { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
+  // { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
   { label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ClipboardList },
 ];
 

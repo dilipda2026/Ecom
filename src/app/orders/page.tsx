@@ -10,7 +10,7 @@ import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/custom
 import type { Order } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 
-const CANCELLATION_WINDOW_MS = 240_000;
+const CANCELLATION_WINDOW_MS = 60_000;
 
 function useCountdown(createdAt: string) {
   const [remaining, setRemaining] = useState(() => CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime()));
