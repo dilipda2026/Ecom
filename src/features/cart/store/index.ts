@@ -1,12 +1,15 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { CartItem, CartStore } from '@/features/cart/types';
 
 const DELIVERY_FEE = 10;
 const TAX_RATE = 0.05;
 
-export const useCartStore = create<CartStore>((set, get) => ({
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
   items: [] as CartItem[],
   lastAddedAt: null as number | null,
   lastAddedRect: null as { left: number; top: number; width: number; height: number } | null,
@@ -38,4 +41,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   deliveryFee: () => get().items.length > 0 ? DELIVERY_FEE : 0,
   taxAmount: () => Math.round(get().subtotal() * TAX_RATE),
   total: () => get().subtotal() + get().deliveryFee() + get().taxAmount(),
-}));
+}),
+    { name: 'dilipda-cart', partialize: (state) => ({ items: state.items }) },
+  ),
+);

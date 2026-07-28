@@ -153,3 +153,15 @@ export async function completeOnboarding(formData: FormData) {
 
   return { error: null, redirect: dashboards[role] ?? '/' };
 }
+
+export async function sendPasswordResetEmail(email: string) {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return { error: 'Service not configured' };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`,
+  });
+
+  if (error) return { error: error.message };
+  return { error: null };
+}
