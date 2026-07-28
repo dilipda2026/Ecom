@@ -1,4 +1,4 @@
-import { sendTelegramMessage } from './telegram';
+import { sendTelegramMessageWithButtons } from './telegram';
 import { sendOrderNotificationEmail } from './email';
 
 interface OrderInfo {
@@ -30,7 +30,14 @@ function formatTelegram(order: OrderInfo): string {
 }
 
 export async function notifyNewOrder(order: OrderInfo) {
-  await sendTelegramMessage(formatTelegram(order));
+  const buttons = [
+    [
+      { text: '✅ Accept', callback_data: `accept:${order.id}` },
+      { text: '❌ Reject', callback_data: `reject:${order.id}` },
+    ],
+  ];
+
+  await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n⏳ <b>Pending</b>`, buttons);
 
   const emailTo = process.env.NOTIFICATION_EMAIL;
   if (emailTo) {

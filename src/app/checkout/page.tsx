@@ -7,7 +7,7 @@ import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, Shopping
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
-import { createOrder, confirmPayment, failPayment } from '@/features/orders/actions/customer';
+import { createOrder, confirmPayment, failPayment, sendOrderNotification } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
 
 const paymentMethods = [
@@ -106,6 +106,7 @@ export default function CheckoutPage() {
         orderId: rzpResult.data.id,
         onSuccess: async () => {
           await confirmPayment(orderId);
+          await sendOrderNotification(orderId);
           clearCart();
           router.push(`/order/confirmed?orderId=${orderId}`);
         },
@@ -119,6 +120,7 @@ export default function CheckoutPage() {
     }
 
     await confirmPayment(orderId);
+    await sendOrderNotification(orderId);
     clearCart();
     router.push(`/order/confirmed?orderId=${orderId}`);
   }

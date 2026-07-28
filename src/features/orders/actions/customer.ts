@@ -129,18 +129,39 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Failed to save order items' };
   }
 
-  await notifyNewOrder({
-    id: order.id,
-    trackingCode: order.tracking_code,
-    items: items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
-    total,
-    paymentMethod,
-    address,
-    customerName: customerName || null,
-    customerPhone: customerPhone || null,
-  });
-
   return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
+}
+
+export async function sendOrderNotification(orderId: string) {
+  const supabase = createServiceClient();
+  if (!supabase) return;
+
+  const { data } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('id', orderId)
+    .single();
+
+  if (!data) return;
+
+  const items = (data.order_items ?? []).map((i: { product_name: string; quantity: number; subtotal: number }) => ({
+    name: i.product_name,
+    quantity: i.quantity,
+    price: Math.round(i.subtotal / i.quantity),
+  }));
+
+  const address = (data.delivery_address as Record<string, string> | null)?.address ?? '';
+
+  await notifyNewOrder({
+    id: data.id,
+    trackingCode: data.tracking_code,
+    items,
+    total: data.total,
+    paymentMethod: data.payment_method ?? 'cod',
+    address,
+    customerName: data.customer_name,
+    customerPhone: data.customer_phone,
+  });
 }
 
 export async function confirmPayment(orderId: string) {
