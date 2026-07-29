@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
+function useIsClient() {
+  return useSyncExternalStore(() => () => {}, () => true, () => false);
+}
+
 const HIDE_DELAY = 5000;
 
 export default function FloatingCart() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const isClient = useIsClient();
 
   const pathname = usePathname();
   const { totalItems, lastAddedAt } = useCartStore();
-  const cartCount = mounted ? totalItems() : 0;
+  const cartCount = isClient ? totalItems() : 0;
 
   const shouldShow = cartCount > 0 &&
     pathname !== '/orders' && pathname !== '/checkout' && !pathname?.startsWith('/admin');

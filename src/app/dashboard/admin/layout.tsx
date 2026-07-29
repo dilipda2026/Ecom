@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutDashboard, Users, UserCog, Store, ShoppingBag, Banknote,
-  Settings, LogOut, Menu, X, Bell,
+  LayoutDashboard, Users, ShoppingBag, Banknote,
+  LogOut, Menu, X, Bell,
   ClipboardList,
 } from 'lucide-react';
 import { getServerSession } from '@/features/auth/actions';
