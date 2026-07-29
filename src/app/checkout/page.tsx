@@ -55,7 +55,7 @@ export default function CheckoutPage() {
     );
   }
 
-  async function initiateRazorpayPayment(orderId: string) {
+  async function initiateRazorpayPayment(orderId: string, opts?: { method?: string; description?: string }) {
     const loaded = await loadRazorpayScript();
     if (!loaded || !razorpayKey) {
       await failPayment(orderId);
@@ -76,8 +76,10 @@ export default function CheckoutPage() {
       key: razorpayKey,
       amount: rzpResult.data.amount,
       name: 'Dilipda',
-      description: 'Food order',
+      description: opts?.description ?? 'Food order',
+      method: opts?.method,
       orderId: rzpResult.data.id,
+      prefill: { contact: customerPhone },
       onSuccess: async () => {
         await confirmPayment(orderId);
         await sendOrderNotification(orderId);
@@ -138,7 +140,7 @@ export default function CheckoutPage() {
   async function handleUpiPayment() {
     const orderId = await validateAndPlace('razorpay');
     if (!orderId) return;
-    await initiateRazorpayPayment(orderId);
+    await initiateRazorpayPayment(orderId, { method: 'upi', description: 'Pay via UPI' });
   }
 
   function handleLocationSelect(value: string) {

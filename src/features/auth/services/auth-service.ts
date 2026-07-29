@@ -13,12 +13,12 @@ function mapUser(data: { id: string; email?: string | null; user_metadata?: Reco
 }
 
 export const authService = {
-  async signUp(email: string, password: string, fullName: string) {
+  async signUp(email: string, password: string, fullName: string, phone?: string) {
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName, phone: phone ?? '' } },
     });
     if (error) return { user: null, error: error.message };
     return { user: data.user ? mapUser(data.user) : null, error: null };

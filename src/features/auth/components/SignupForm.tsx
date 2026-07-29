@@ -14,6 +14,7 @@ export default function SignupForm() {
   const [step, setStep] = useState<'email' | 'otp' | 'account'>('email');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,23 +86,26 @@ export default function SignupForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { user, error: err } = await authService.signUp(email, password, fullName);
+    const { user, error: err } = await authService.signUp(email, password, fullName, phone || undefined);
     setLoading(false);
     if (err) { setError(err); return; }
     if (!user) { setError('Check your email for a confirmation link.'); return; }
 
-    if (isCitEmail) {
-      try {
-        const supabase = (await import('@/infrastructure/supabase/service')).createServiceClient();
-        if (supabase) {
-          await supabase.from('profiles').update({
-            is_cit_student: true,
-            student_email: email.toLowerCase(),
-            student_verified_at: new Date().toISOString(),
-          }).eq('id', user.id);
+    try {
+      const supabase = (await import('@/infrastructure/supabase/service')).createServiceClient();
+      if (supabase) {
+        const profileUpdates: Record<string, unknown> = {};
+        if (phone) profileUpdates.phone = phone;
+        if (isCitEmail) {
+          profileUpdates.is_cit_student = true;
+          profileUpdates.student_email = email.toLowerCase();
+          profileUpdates.student_verified_at = new Date().toISOString();
         }
-      } catch {}
-    }
+        if (Object.keys(profileUpdates).length > 0) {
+          await supabase.from('profiles').update(profileUpdates).eq('id', user.id);
+        }
+      }
+    } catch {}
 
     useAuthStore.getState().setUser(user);
     window.location.href = '/';
@@ -125,6 +129,10 @@ export default function SignupForm() {
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Full name</label>
               <input type="text" className="input-z w-full" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ztext mb-1.5">Phone number</label>
+              <input type="tel" className="input-z w-full" placeholder="Enter your phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Password</label>

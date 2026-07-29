@@ -2,15 +2,109 @@ import { createAdminClient } from '@/infrastructure/supabase/admin';
 import type {
   DashboardStats, AdminStudent, AdminMerchant, AdminOrder, AdminUser,
   CreditAccountAdmin, PaymentAdmin, AuditEntry, SystemSetting,
-  PaginatedResponse, AdminFilter,
+  PaginatedResponse, AdminFilter, ActivityEntry,
 } from '../types';
 
 export class AdminRepository {
   async getDashboardStats(): Promise<DashboardStats | null> {
     const admin = createAdminClient();
-    const { data, error } = await admin.rpc('get_admin_dashboard');
-    if (error) return null;
-    return data as unknown as DashboardStats;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+      const weekStartStr = weekStart.toISOString();
+      const monthStartStr = monthStart.toISOString();
+
+      const nonTerminal = ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'];
+
+      const [
+        { count: totalUsers },
+        { count: totalStudents },
+        { count: totalMerchants },
+        { count: totalRestaurants },
+        { count: totalOrders },
+        { data: revenueRows },
+        { data: todayRevenueRows },
+        { data: weeklyRevenueRows },
+        { data: monthlyRevenueRows },
+        { data: activeOrdersRows },
+        { data: completedOrdersRows },
+        { data: cancelledOrdersRows },
+        { data: bnplData },
+        { data: repaidData },
+        { data: overdueRows },
+        { data: activeMerchantRows },
+        { count: pendingApprovals },
+        { data: activityRows },
+      ] = await Promise.all([
+        admin.from('profiles').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').is('deleted_at', null),
+        admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'merchant').is('deleted_at', null),
+        admin.from('restaurants').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        admin.from('orders').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null),
+        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', today),
+        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', weekStartStr),
+        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', monthStartStr),
+        admin.from('orders').select('id').in('status', nonTerminal).is('deleted_at', null),
+        admin.from('orders').select('id').in('status', ['completed', 'delivered']).is('deleted_at', null),
+        admin.from('orders').select('id').eq('status', 'cancelled').is('deleted_at', null),
+        admin.from('credit_accounts').select('outstanding, credit_limit').is('deleted_at', null),
+        admin.from('credit_transactions').select('amount').eq('type', 'repayment'),
+        admin.from('credit_repayments').select('credit_account_id').eq('status', 'pending').lt('due_date', today),
+        admin.from('restaurants').select('owner_id').eq('status', 'active').is('deleted_at', null),
+        admin.from('restaurants').select('*', { count: 'exact', head: true }).eq('status', 'pending').is('deleted_at', null),
+        admin.from('audit_logs').select('id, action, table_name, record_id, created_at, profiles!changed_by(full_name)').order('created_at', { ascending: false }).limit(10),
+      ]);
+
+      const totalRevenue = (revenueRows ?? []).reduce((s, r) => s + Number(r.total || 0), 0);
+      const todayRevenue = (todayRevenueRows ?? []).reduce((s, r) => s + Number(r.total || 0), 0);
+      const weeklyRevenue = (weeklyRevenueRows ?? []).reduce((s, r) => s + Number(r.total || 0), 0);
+      const monthlyRevenue = (monthlyRevenueRows ?? []).reduce((s, r) => s + Number(r.total || 0), 0);
+      const bnplOutstanding = (bnplData ?? []).reduce((s, r) => s + Number(r.outstanding || 0), 0);
+      const totalCreditIssued = (bnplData ?? []).reduce((s, r) => s + Number(r.credit_limit || 0), 0);
+      const totalRepaid = (repaidData ?? []).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const activeMerchantIds = new Set((activeMerchantRows ?? []).map((r: { owner_id: string }) => r.owner_id));
+      const overdueAccountIds = new Set((overdueRows ?? []).map((r: { credit_account_id: string }) => r.credit_account_id));
+      const overdueCount = overdueAccountIds.size;
+
+      const recentActivity: ActivityEntry[] = (activityRows ?? []).map((r: Record<string, unknown>) => {
+        const profileArr = r.profiles as { full_name: string }[] | null;
+        return {
+          id: r.id as string,
+          action: r.action as string,
+          entity_type: r.table_name as string,
+          entity_id: (r.record_id as string) ?? '',
+          user_name: profileArr?.[0]?.full_name ?? 'System',
+          created_at: r.created_at as string,
+        };
+      });
+
+      return {
+        total_users: totalUsers ?? 0,
+        total_students: totalStudents ?? 0,
+        total_merchants: totalMerchants ?? 0,
+        total_restaurants: totalRestaurants ?? 0,
+        total_orders: totalOrders ?? 0,
+        active_orders: (activeOrdersRows ?? []).length,
+        completed_orders: (completedOrdersRows ?? []).length,
+        cancelled_orders: (cancelledOrdersRows ?? []).length,
+        total_revenue: totalRevenue,
+        today_revenue: todayRevenue,
+        weekly_revenue: weeklyRevenue,
+        monthly_revenue: monthlyRevenue,
+        bnpl_outstanding: bnplOutstanding,
+        total_credit_issued: totalCreditIssued,
+        total_credit_repaid: totalRepaid,
+        total_overdue_accounts: overdueCount,
+        active_merchants: activeMerchantIds.size,
+        pending_merchant_approvals: pendingApprovals ?? 0,
+        recent_activity: recentActivity,
+      };
+    } catch (e) {
+      console.error('getDashboardStats error:', e);
+      return null;
+    }
   }
 
   async getStudents(filter: AdminFilter = {}): Promise<PaginatedResponse<AdminStudent>> {

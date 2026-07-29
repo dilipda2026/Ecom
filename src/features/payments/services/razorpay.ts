@@ -9,6 +9,7 @@ interface RazorpayOptions {
   name: string;
   description: string;
   order_id?: string;
+  method?: string;
   prefill?: { name?: string; email?: string; contact?: string };
   handler: (response: RazorpayResponse) => void;
   modal: { ondismiss: () => void };
@@ -46,6 +47,7 @@ export function openRazorpayCheckout(options: {
   name: string;
   description?: string;
   orderId?: string;
+  method?: string;
   prefill?: { name?: string; email?: string; contact?: string };
   onSuccess: (response: RazorpayResponse) => void;
   onFailure: (error: string) => void;
@@ -57,6 +59,7 @@ export function openRazorpayCheckout(options: {
     name: options.name,
     description: options.description ?? '',
     order_id: options.orderId,
+    method: options.method,
     prefill: options.prefill ?? {},
     handler(response: RazorpayResponse) {
       options.onSuccess(response);
