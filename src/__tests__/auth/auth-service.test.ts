@@ -41,7 +41,7 @@ describe('AuthService', () => {
         error: null,
       });
 
-      const result = await authService.signUp('test@example.com', 'password123', 'Test User');
+      const result = await authService.signUp('test@example.com', 'password123', 'Test User', '');
 
       expect(result.user).not.toBeNull();
       expect(result.user?.email).toBe('test@example.com');
@@ -49,7 +49,7 @@ describe('AuthService', () => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123',
-        options: { data: { full_name: 'Test User' } },
+        options: { data: { full_name: 'Test User', phone: '' } },
       });
     });
 
