@@ -9,9 +9,12 @@ import { useCartStore } from '@/features/cart/store';
 const HIDE_DELAY = 5000;
 
 export default function FloatingCart() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const pathname = usePathname();
   const { totalItems, lastAddedAt } = useCartStore();
-  const cartCount = totalItems();
+  const cartCount = mounted ? totalItems() : 0;
 
   const shouldShow = cartCount > 0 &&
     pathname !== '/orders' && pathname !== '/checkout' && !pathname?.startsWith('/admin');

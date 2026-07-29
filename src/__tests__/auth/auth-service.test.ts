@@ -6,7 +6,6 @@ vi.mock('@/infrastructure/supabase/client', () => ({
 
 const mockSignUp = vi.fn();
 const mockSignInWithPassword = vi.fn();
-const mockSignInWithOAuth = vi.fn();
 const mockSignOut = vi.fn();
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
@@ -15,7 +14,6 @@ const mockSupabase = {
   auth: {
     signUp: mockSignUp,
     signInWithPassword: mockSignInWithPassword,
-    signInWithOAuth: mockSignInWithOAuth,
     signOut: mockSignOut,
     getUser: mockGetUser,
     updateUser: vi.fn(),
@@ -97,30 +95,6 @@ describe('AuthService', () => {
 
       expect(result.user).toBeNull();
       expect(result.error).toBe('Invalid credentials');
-    });
-  });
-
-  describe('signInWithGoogle', () => {
-    it('initiates Google OAuth and returns URL', async () => {
-      mockSignInWithOAuth.mockResolvedValue({
-        data: { url: 'https://oauth.google.com/callback' },
-        error: null,
-      });
-
-      const result = await authService.signInWithGoogle();
-
-      expect(result.url).toBe('https://oauth.google.com/callback');
-    });
-
-    it('returns error when OAuth fails', async () => {
-      mockSignInWithOAuth.mockResolvedValue({
-        data: { url: null },
-        error: { message: 'OAuth error' },
-      });
-
-      const result = await authService.signInWithGoogle();
-
-      expect(result.error).toBe('OAuth error');
     });
   });
 

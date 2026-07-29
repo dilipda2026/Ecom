@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
-import { OAuthButtons } from './OAuthButtons';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
 export default function LoginForm() {
@@ -17,9 +16,16 @@ export default function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail.endsWith('@cit.ac.in')) {
+      setError('Only @cit.ac.in email addresses are allowed to sign in.');
+      return;
+    }
+
     setLoading(true);
 
-    const { user, error: err } = await authService.signIn(email, password);
+    const { user, error: err } = await authService.signIn(normalizedEmail, password);
     setLoading(false);
     if (err) {
       if (err.toLowerCase().includes('email not confirmed')) {
@@ -49,17 +55,10 @@ export default function LoginForm() {
             <h1 className="text-2xl font-bold text-ztext mb-1">Welcome back</h1>
             <p className="text-ztext-light text-sm mb-6">Sign in to your Dilip Da account</p>
 
-            <OAuthButtons />
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zborder" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-zcard px-2 text-ztext-lighter">or continue with email</span></div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-                <input id="email" type="email" className="input-z" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input id="email" type="email" className="input-z" placeholder="youremail@cit.ac.in" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-ztext mb-1.5">Password</label>

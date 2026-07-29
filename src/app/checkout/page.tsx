@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield } from 'lucide-react';
+import { PhonePeIcon, GooglePayIcon, PaytmIcon, BHIMIcon, UPIIcon } from '@/components/shared/UpiAppIcons';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -245,6 +246,29 @@ export default function CheckoutPage() {
                     </button>
                   ))}
                 </div>
+
+                {paymentMethod === 'razorpay' && (
+                  <div className="mt-4 pt-4 border-t border-zborder">
+                    <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { icon: PhonePeIcon, name: 'PhonePe' },
+                        { icon: GooglePayIcon, name: 'Google Pay' },
+                        { icon: PaytmIcon, name: 'Paytm' },
+                        { icon: BHIMIcon, name: 'BHIM' },
+                        { icon: UPIIcon, name: 'UPI' },
+                      ].map((app) => (
+                        <div key={app.name} className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-zborder hover:border-ztext-muted transition-colors duration-200 group">
+                          <app.icon className="w-8 h-8" />
+                          <span className="text-[9px] text-ztext-light text-center leading-tight group-hover:text-ztext transition-colors duration-200">{app.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-ztext-lighter text-center mt-3 flex items-center justify-center gap-1">
+                      <Shield size={10} /> Secure payments powered by Razorpay
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
-import { OAuthButtons } from './OAuthButtons';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
 import { showToast } from '@/components/shared/Toast';
 import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail } from 'lucide-react';
@@ -50,10 +49,13 @@ export default function SignupForm() {
   }
 
   async function handleSendOtp() {
-    if (!email.trim() || !email.includes('@')) { showToast('Enter a valid email'); return; }
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail.includes('@')) { showToast('Enter a valid email'); return; }
+    if (!normalizedEmail.endsWith('@cit.ac.in')) { showToast('Only @cit.ac.in email addresses are allowed to sign up.'); return; }
     setSending(true);
     setDevOtp(null);
-    const res = await sendSignupOtp(email);
+    const res = await sendSignupOtp(normalizedEmail);
+    setEmail(normalizedEmail);
     setSending(false);
     if (res.success) {
       setStep('otp');
@@ -205,17 +207,10 @@ export default function SignupForm() {
         <h1 className="text-2xl font-bold text-ztext mb-1">Create account</h1>
         <p className="text-ztext-light text-sm mb-6">Join Dilip Da and start ordering</p>
 
-        <OAuthButtons />
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zborder" /></div>
-          <div className="relative flex justify-center text-xs"><span className="bg-zcard px-2 text-ztext-lighter">or sign up with email</span></div>
-        </div>
-
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-            <input type="email" className="input-z w-full" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
+            <input type="email" className="input-z w-full" placeholder="youremail@cit.ac.in" value={email} onChange={(e) => setEmail(e.target.value)} required
               onKeyDown={(e) => { if (e.key === 'Enter') handleSendOtp(); }} />
           </div>
           <button onClick={handleSendOtp} disabled={sending || !email.trim()}

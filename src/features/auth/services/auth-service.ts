@@ -31,16 +31,6 @@ export const authService = {
     return { user: data.user ? mapUser(data.user) : null, error: null };
   },
 
-  async signInWithGoogle() {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) return { user: null, error: error.message };
-    return { user: null, error: null, url: data.url };
-  },
-
   async signOut() {
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
