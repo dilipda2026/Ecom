@@ -20,7 +20,7 @@ test('login page has submit button', async ({ page }) => {
 
 test('signup page renders and links to login', async ({ page }) => {
   await page.goto('/auth/signup');
-  await expect(page.getByText(/sign up/i).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: /create account/i })).toBeVisible();
 });
 
 test('unauthenticated access to dashboard redirects to login', async ({ page }) => {

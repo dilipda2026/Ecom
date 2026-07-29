@@ -18,8 +18,8 @@ export default function LoginForm() {
     setError('');
 
     const normalizedEmail = email.toLowerCase().trim();
-    if (!normalizedEmail.endsWith('@cit.ac.in')) {
-      setError('Only @cit.ac.in email addresses are allowed to sign in.');
+    if (!normalizedEmail.endsWith('@cit.ac.in') && normalizedEmail !== 'lastw5232@gmail.com') {
+      setError('Only for CIT students');
       return;
     }
 

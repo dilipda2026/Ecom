@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield } from 'lucide-react';
-import { PhonePeIcon, GooglePayIcon, PaytmIcon, BHIMIcon, UPIIcon } from '@/components/shared/UpiAppIcons';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -55,10 +55,47 @@ export default function CheckoutPage() {
     );
   }
 
-  async function handlePlaceOrder() {
+  async function initiateRazorpayPayment(orderId: string) {
+    const loaded = await loadRazorpayScript();
+    if (!loaded || !razorpayKey) {
+      await failPayment(orderId);
+      clearCart();
+      router.push(`/order/confirmed?orderId=${orderId}`);
+      return;
+    }
+
+    const rzpResult = await createRazorpayOrder(total() * 100);
+    if (!rzpResult.success) {
+      await failPayment(orderId);
+      setError(rzpResult.error || 'Failed to initiate payment');
+      setPlacing(false);
+      return;
+    }
+
+    openRazorpayCheckout({
+      key: razorpayKey,
+      amount: rzpResult.data.amount,
+      name: 'Dilipda',
+      description: 'Food order',
+      orderId: rzpResult.data.id,
+      onSuccess: async () => {
+        await confirmPayment(orderId);
+        await sendOrderNotification(orderId);
+        clearCart();
+        router.push(`/order/confirmed?orderId=${orderId}`);
+      },
+      onFailure: (err) => {
+        failPayment(orderId);
+        setError(err);
+        setPlacing(false);
+      },
+    });
+  }
+
+  async function validateAndPlace(pm: string) {
     setError('');
-    if (!address.trim()) { setError('Please enter your delivery address'); return; }
-    if (!customerPhone.trim()) { setError('Please enter your phone number'); return; }
+    if (!address.trim()) { setError('Please enter your delivery address'); return false; }
+    if (!customerPhone.trim()) { setError('Please enter your phone number'); return false; }
     setPlacing(true);
 
     const orderResult = await createOrder({
@@ -67,7 +104,7 @@ export default function CheckoutPage() {
       deliveryFee: deliveryFee(),
       taxAmount: taxAmount(),
       total: total(),
-      paymentMethod,
+      paymentMethod: pm,
       address,
       notes,
       customerPhone,
@@ -77,46 +114,18 @@ export default function CheckoutPage() {
     if (!orderResult.success) {
       setError(orderResult.error ?? 'Failed to place order');
       setPlacing(false);
-      return;
+      return false;
     }
 
-    const { orderId } = orderResult.data!;
+    return orderResult.data!.orderId;
+  }
+
+  async function handlePlaceOrder() {
+    const orderId = await validateAndPlace(paymentMethod);
+    if (!orderId) return;
 
     if (paymentMethod === 'razorpay') {
-      const loaded = await loadRazorpayScript();
-      if (!loaded || !razorpayKey) {
-        await failPayment(orderId);
-        clearCart();
-        router.push(`/order/confirmed?orderId=${orderId}`);
-        return;
-      }
-
-      const rzpResult = await createRazorpayOrder(total() * 100);
-      if (!rzpResult.success) {
-        await failPayment(orderId);
-        setError(rzpResult.error || 'Failed to initiate payment');
-        setPlacing(false);
-        return;
-      }
-
-      openRazorpayCheckout({
-        key: razorpayKey,
-        amount: rzpResult.data.amount,
-        name: 'Dilipda',
-        description: 'Food order',
-        orderId: rzpResult.data.id,
-        onSuccess: async () => {
-          await confirmPayment(orderId);
-          await sendOrderNotification(orderId);
-          clearCart();
-          router.push(`/order/confirmed?orderId=${orderId}`);
-        },
-        onFailure: (err) => {
-          failPayment(orderId);
-          setError(err);
-          setPlacing(false);
-        },
-      });
+      await initiateRazorpayPayment(orderId);
       return;
     }
 
@@ -124,6 +133,12 @@ export default function CheckoutPage() {
     await sendOrderNotification(orderId);
     clearCart();
     router.push(`/order/confirmed?orderId=${orderId}`);
+  }
+
+  async function handleUpiPayment() {
+    const orderId = await validateAndPlace('razorpay');
+    if (!orderId) return;
+    await initiateRazorpayPayment(orderId);
   }
 
   function handleLocationSelect(value: string) {
@@ -250,19 +265,23 @@ export default function CheckoutPage() {
                 {paymentMethod === 'razorpay' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
-                    <div className="grid grid-cols-5 gap-2">
-                      {[
-                        { icon: PhonePeIcon, name: 'PhonePe' },
-                        { icon: GooglePayIcon, name: 'Google Pay' },
-                        { icon: PaytmIcon, name: 'Paytm' },
-                        { icon: BHIMIcon, name: 'BHIM' },
-                        { icon: UPIIcon, name: 'UPI' },
-                      ].map((app) => (
-                        <div key={app.name} className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-zborder hover:border-ztext-muted transition-colors duration-200 group">
-                          <app.icon className="w-8 h-8" />
-                          <span className="text-[9px] text-ztext-light text-center leading-tight group-hover:text-ztext transition-colors duration-200">{app.name}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={handleUpiPayment} disabled={placing}
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zborder hover:border-zred hover:bg-red-500/5 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2">
+                          <Image src="/images/Phonepay.png" alt="PhonePe" width={56} height={56} className="object-contain" />
                         </div>
-                      ))}
+                        <span className="text-xs font-medium text-ztext-light group-hover:text-ztext transition-colors">PhonePe</span>
+                      </button>
+                      <button type="button" onClick={handleUpiPayment} disabled={placing}
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zborder hover:border-zred hover:bg-red-500/5 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2">
+                          <Image src="/images/gpay.jpg" alt="Google Pay" width={56} height={56} className="object-contain" />
+                        </div>
+                        <span className="text-xs font-medium text-ztext-light group-hover:text-ztext transition-colors">Google Pay</span>
+                      </button>
                     </div>
                     <p className="text-[10px] text-ztext-lighter text-center mt-3 flex items-center justify-center gap-1">
                       <Shield size={10} /> Secure payments powered by Razorpay
