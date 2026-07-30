@@ -100,7 +100,7 @@ export default function CheckoutPage() {
 
   async function validateAndPlace(pm: string) {
     setError('');
-    if (!address.trim()) { setError('Please enter your delivery address'); return false; }
+    if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
     if (!customerPhone.trim()) { setError('Please enter your phone number'); return false; }
     setPlacing(true);
 
@@ -148,6 +148,8 @@ export default function CheckoutPage() {
     await initiateRazorpayPayment(orderId, { method: 'upi', description: 'Pay via UPI' });
   }
 
+  const isDelivery = orderType === 'room_delivery';
+
   function handleLocationSelect(value: string) {
     setIsCustomAddress(false);
     setAddress(value);
@@ -169,47 +171,60 @@ export default function CheckoutPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <div className="lg:col-span-3 space-y-3">
-              <div className="bg-zcard rounded-xl border border-zborder p-4">
-                <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
-                  <MapPin size={15} className="text-zred shrink-0" /> Delivery address
-                </h2>
-                <div>
-                  <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1.5 block">Delivery location</label>
-                  <div className="space-y-1.5">
-                    {locations.map((opt) => (
-                      <button key={opt.value} type="button" onClick={() => handleLocationSelect(opt.value)}
+              {isDelivery ? (
+                <div className="bg-zcard rounded-xl border border-zborder p-4">
+                  <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
+                    <MapPin size={15} className="text-zred shrink-0" /> Delivery address
+                  </h2>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1.5 block">Delivery location</label>
+                    <div className="space-y-1.5">
+                      {locations.map((opt) => (
+                        <button key={opt.value} type="button" onClick={() => handleLocationSelect(opt.value)}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                            address === opt.value && !isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
+                          }`}
+                        >
+                          <span className="font-medium text-ztext">{opt.label}</span>
+                          {address === opt.value && !isCustomAddress && <span className="float-right w-3.5 h-3.5 rounded-full bg-zred flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-zcard" /></span>}
+                        </button>
+                      ))}
+                      <div className="w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all border-zborder opacity-50">
+                        <span className="text-ztext-light font-medium text-xs">Soon available for nearby PG</span>
+                      </div>
+                      <button type="button" onClick={handleCustomToggle}
                         className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
-                          address === opt.value && !isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
+                          isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
                         }`}
                       >
-                        <span className="font-medium text-ztext">{opt.label}</span>
-                        {address === opt.value && !isCustomAddress && <span className="float-right w-3.5 h-3.5 rounded-full bg-zred flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-zcard" /></span>}
+                        <span className="font-medium text-ztext">Other (write your own)</span>
+                        {isCustomAddress && <span className="float-right w-3.5 h-3.5 rounded-full bg-zred flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-zcard" /></span>}
                       </button>
-                    ))}
-                    <div className="w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all border-zborder opacity-50">
-                      <span className="text-ztext-light font-medium text-xs">Soon available for nearby PG</span>
+                      {isCustomAddress && (
+                        <input
+                          type="text"
+                          value={customAddress}
+                          onChange={(e) => { setCustomAddress(e.target.value); setAddress(e.target.value); }}
+                          placeholder="Type your full address..."
+                          className="input-z text-sm"
+                          autoFocus
+                        />
+                      )}
                     </div>
-                    <button type="button" onClick={handleCustomToggle}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
-                        isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
-                      }`}
-                    >
-                      <span className="font-medium text-ztext">Other (write your own)</span>
-                      {isCustomAddress && <span className="float-right w-3.5 h-3.5 rounded-full bg-zred flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full bg-zcard" /></span>}
-                    </button>
-                    {isCustomAddress && (
-                      <input
-                        type="text"
-                        value={customAddress}
-                        onChange={(e) => { setCustomAddress(e.target.value); setAddress(e.target.value); }}
-                        placeholder="Type your full address..."
-                        className="input-z text-sm"
-                        autoFocus
-                      />
-                    )}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-zcard rounded-xl border border-zborder p-4">
+                  <h2 className="font-semibold text-ztext mb-1 flex items-center gap-1.5 text-sm">
+                    <MapPin size={15} className="text-zred shrink-0" /> Pickup
+                  </h2>
+                  <p className="text-xs text-ztext-light">
+                    {orderType === 'takeaway'
+                      ? 'Your order will be ready for pickup at the restaurant. We will notify you when it\'s ready.'
+                      : 'Come to the restaurant and enjoy your meal. We\'ll prepare it fresh for you.'}
+                  </p>
+                </div>
+              )}
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
@@ -326,7 +341,7 @@ export default function CheckoutPage() {
                   <div className="border-t border-zborder pt-2.5 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
                 </div>
                 {error && <p className="text-xs mt-2 flex items-center gap-1 text-zred"><span className="w-1.5 h-1.5 rounded-full bg-zred" />{error}</p>}
-                <button onClick={handlePlaceOrder} disabled={placing || !address.trim() || !customerPhone.trim()} className="button-z button-z-primary w-full mt-3 h-10 text-xs font-bold" style={{ opacity: (!address.trim() || !customerPhone.trim()) && !placing ? 0.6 : 1 }}>
+                <button onClick={handlePlaceOrder} disabled={placing || (isDelivery && !address.trim()) || !customerPhone.trim()} className="button-z button-z-primary w-full mt-3 h-10 text-xs font-bold" style={{ opacity: ((isDelivery && !address.trim()) || !customerPhone.trim()) && !placing ? 0.6 : 1 }}>
                   {placing ? (
                     <span className="flex items-center justify-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing...</span>
                   ) : (

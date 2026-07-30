@@ -65,7 +65,9 @@ export async function createOrder(params: CreateOrderParams) {
     customer_name: customerName || user?.fullName || null,
     customer_email: customerEmail || user?.email || null,
     customer_phone: customerPhone || null,
-    delivery_address: { address, city: params.city ?? '', pincode: params.pincode ?? '' },
+    delivery_address: orderType === 'room_delivery'
+      ? { address, city: params.city ?? '', pincode: params.pincode ?? '' }
+      : { address: orderType === 'takeaway' ? 'Take away from restaurant' : 'Dine in at restaurant' },
     delivery_notes: notes ?? null,
     order_type: orderType ?? null,
   };
