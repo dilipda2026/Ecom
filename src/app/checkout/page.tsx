@@ -10,8 +10,11 @@ import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { createOrder, confirmPayment, failPayment, sendOrderNotification } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
+import { canPayOnDelivery } from '@/features/orders/types';
+import type { OrderType } from '@/features/orders/types';
+import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
 
-const paymentMethods = [
+const allPaymentMethods = [
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
@@ -30,6 +33,7 @@ export default function CheckoutPage() {
   const store = useCartStore();
   const { items, subtotal, deliveryFee, taxAmount, total, clearCart } = store;
   const { user } = useAuthStore();
+  const [orderType, setOrderType] = useState<OrderType | null>('room_delivery');
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [address, setAddress] = useState('');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
@@ -111,6 +115,7 @@ export default function CheckoutPage() {
       notes,
       customerPhone,
       customerName: customerName || undefined,
+      orderType: orderType ?? undefined,
     });
 
     if (!orderResult.success) {
@@ -237,12 +242,14 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v)) setPaymentMethod('razorpay'); }} />
+
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
                   <CreditCard size={15} className="text-zred shrink-0" /> Payment method
                 </h2>
                 <div className="space-y-2">
-                  {paymentMethods.map((pm) => (
+                  {allPaymentMethods.filter((pm) => pm.id !== 'cod' || canPayOnDelivery(orderType)).map((pm) => (
                     <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
                       className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
                         paymentMethod === pm.id

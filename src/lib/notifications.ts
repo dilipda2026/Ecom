@@ -10,6 +10,16 @@ interface OrderInfo {
   address: string;
   customerName: string | null;
   customerPhone: string | null;
+  orderType?: string | null;
+}
+
+function orderTypeBadge(type: string | null | undefined): string {
+  switch (type) {
+    case 'room_delivery': return '🚚 Room Delivery';
+    case 'takeaway': return '🥡 Take Away';
+    case 'dine_in': return '🍽️ Dine In';
+    default: return '';
+  }
 }
 
 function formatTelegram(order: OrderInfo): string {
@@ -22,6 +32,7 @@ function formatTelegram(order: OrderInfo): string {
     `📦 <b>#${order.trackingCode}</b>\n` +
     (order.customerName ? `👤 ${order.customerName}\n` : '') +
     (order.customerPhone ? `📞 ${order.customerPhone}\n` : '') +
+    (order.orderType ? `🎯 ${orderTypeBadge(order.orderType)}\n` : '') +
     `💳 ${order.paymentMethod.toUpperCase()}\n` +
     `💰 <b>₹${order.total}</b>\n` +
     `📍 ${order.address}\n\n` +

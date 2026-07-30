@@ -4,6 +4,24 @@ export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
 
 export type PaymentMethod = 'razorpay' | 'bnpl' | 'cod';
 
+export type OrderType = 'room_delivery' | 'takeaway' | 'dine_in';
+
+export const ORDER_TYPES = [
+  { id: 'room_delivery' as const, label: 'Room Delivery', icon: '🚚', description: 'Delivered to your room' },
+  { id: 'takeaway' as const, label: 'Take Away', icon: '🥡', description: 'Pick up your order' },
+  { id: 'dine_in' as const, label: 'Dine In', icon: '🍽️', description: 'Come and eat at the restaurant' },
+] as const;
+
+export function orderTypeLabel(type: OrderType | string | null | undefined): string {
+  if (!type) return '';
+  const found = ORDER_TYPES.find((ot) => ot.id === type);
+  return found ? `${found.icon} ${found.label}` : type;
+}
+
+export function canPayOnDelivery(orderType: OrderType | null | undefined): boolean {
+  return orderType === 'room_delivery' || !orderType;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -38,6 +56,7 @@ export interface Order {
   delivery_notes: string | null;
   payment_method: PaymentMethod | null;
   payment_status: PaymentStatus;
+  order_type: OrderType | null;
   scheduled_at: string | null;
   accepted_at: string | null;
   prepared_at: string | null;

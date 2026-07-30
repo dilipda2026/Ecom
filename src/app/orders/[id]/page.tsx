@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
-import { getOrderTimelineEvent } from '@/features/orders/types';
+import { getOrderTimelineEvent, orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
@@ -117,9 +117,12 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
-          <p className="font-semibold text-ztext text-sm mb-3">Payment</p>
+          <p className="font-semibold text-ztext text-sm mb-3">Order details</p>
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-ztext-light"><span>Method</span><span className="font-medium text-ztext capitalize">{order.payment_method ?? '-'}</span></div>
+            {order.order_type && (
+              <div className="flex justify-between text-ztext-light"><span>Order type</span><span className="font-medium text-ztext">{orderTypeLabel(order.order_type)}</span></div>
+            )}
+            <div className="flex justify-between text-ztext-light"><span>Payment</span><span className="font-medium text-ztext capitalize">{order.payment_method ?? '-'}</span></div>
             <div className="flex justify-between text-ztext-light"><span>Status</span>
               <span className={`font-medium ${order.payment_status === 'confirmed' ? 'text-green-500' : order.payment_status === 'failed' ? 'text-red-500' : 'text-yellow-500'}`}>
                 {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Search, ShoppingBag, RefreshCw, Check, X, ChefHat, PackageCheck, Ban } from 'lucide-react';
 import { getOrders, updateOrderStatus, getOrderCounts } from '@/features/orders/actions';
 import type { Order, OrderStatus, OrdersFilter } from '@/features/orders/types';
-import { canTransition } from '@/features/orders/types';
+import { canTransition, orderTypeLabel } from '@/features/orders/types';
 import { Skeleton, EmptyState, StatusBadge } from '@/components/ui';
 import { getMerchantRestaurant } from '@/features/restaurants/actions';
 import { createClient } from '@/infrastructure/supabase/client';
@@ -171,6 +171,7 @@ export default function OrdersPage() {
                     <span>₹{order.total}</span>
                     <span>{order.order_items?.length ?? 0} items</span>
                     <span>{order.payment_method?.toUpperCase() ?? 'N/A'}</span>
+                    {order.order_type && <span className="text-ztext-muted">{orderTypeLabel(order.order_type)}</span>}
                     {order.customer_name && <span className="truncate">{order.customer_name}</span>}
                   </div>
                   <p className="text-xs text-ztext-muted mt-1.5">{new Date(order.created_at).toLocaleString()}</p>

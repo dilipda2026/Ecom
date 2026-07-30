@@ -5,6 +5,7 @@ import { RefreshCw, Eye, XCircle, Clock } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
 import { getAdminOrders, forceUpdateOrderStatus, cancelOrderByAdmin, getAdminOrderById } from '@/features/admin/actions';
 import type { AdminOrder } from '@/features/admin/types';
+import { orderTypeLabel } from '@/features/orders/types';
 
 const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
 
@@ -81,6 +82,9 @@ export default function AdminOrdersPage() {
     { key: 'total', header: 'Total', sortable: true, render: (o: AdminOrder) => (
       <span className="font-medium text-ztext">₹{Number(o.total).toLocaleString('en-IN')}</span>
     )},
+    { key: 'orderType', header: 'Order Type', render: (o: AdminOrder) => (
+      <span className="text-xs text-ztext-light">{o.order_type ? orderTypeLabel(o.order_type) : '-'}</span>
+    ), hideOnMobile: true},
     { key: 'payment', header: 'Payment', render: (o: AdminOrder) => (
       <div className="flex flex-col gap-0.5">
         <span className="text-xs text-ztext-lighter capitalize">{o.payment_method ?? 'N/A'}</span>
@@ -166,6 +170,7 @@ export default function AdminOrdersPage() {
             </div>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-ztext-lighter">Tracking</span><span className="font-mono font-medium">{selectedOrder.tracking_code}</span></div>
+              {selectedOrder.order_type && <div className="flex justify-between"><span className="text-ztext-lighter">Order Type</span><span>{orderTypeLabel(selectedOrder.order_type)}</span></div>}
               <div className="flex justify-between"><span className="text-ztext-lighter">Customer</span><span>{selectedOrder.user?.full_name ?? selectedOrder.customer_name ?? 'Guest'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Restaurant</span><span>{selectedOrder.restaurant?.name ?? 'Unknown'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Total</span><span className="font-bold">₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>

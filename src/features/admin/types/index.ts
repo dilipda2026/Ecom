@@ -96,6 +96,7 @@ export interface AdminOrder {
   payment_status: string;
   delivery_address: Record<string, unknown> | null;
   cancellation_reason: string | null;
+  order_type: string | null;
   created_at: string;
   updated_at: string;
   restaurant_name?: string;

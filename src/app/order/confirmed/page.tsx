@@ -6,6 +6,7 @@ import { CheckCircle, Bike, MapPin, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder } from '@/features/orders/actions/customer';
 import type { Order, OrderItem } from '@/features/orders/types';
+import { orderTypeLabel } from '@/features/orders/types';
 
 function OrderConfirmedContent() {
   const searchParams = useSearchParams();
@@ -45,6 +46,11 @@ function OrderConfirmedContent() {
                 </div>
               ))}
             </div>
+            {order.order_type && (
+              <div className="mt-2 text-xs text-ztext-muted font-medium">
+                {orderTypeLabel(order.order_type)}
+              </div>
+            )}
             <div className="border-t border-zborder mt-3 pt-3 space-y-1 text-sm">
               <div className="flex justify-between text-ztext-light"><span>Subtotal</span><span>₹{order.subtotal}</span></div>
               <div className="flex justify-between text-ztext-light"><span>Delivery</span><span>{order.delivery_fee > 0 ? `₹${order.delivery_fee}` : 'Free'}</span></div>

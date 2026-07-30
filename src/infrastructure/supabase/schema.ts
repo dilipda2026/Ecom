@@ -198,6 +198,7 @@ export interface orders {
   delivery_notes?: string | null;
   payment_method?: string | null;
   payment_status: string;
+  order_type?: string | null;
   scheduled_at?: string | null;
   accepted_at?: string | null;
   prepared_at?: string | null;

@@ -20,6 +20,7 @@ interface CreateOrderParams {
   customerPhone?: string;
   customerName?: string;
   customerEmail?: string;
+  orderType?: string;
 }
 
 export async function createOrder(params: CreateOrderParams) {
@@ -44,7 +45,11 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Restaurant not available' };
   }
 
-  const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, notes, customerPhone, customerName, customerEmail } = params;
+  const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
+
+  if (paymentMethod === 'cod' && orderType && orderType !== 'room_delivery') {
+    return { success: false, error: 'Pay on Delivery is only available for Room Delivery orders' };
+  }
 
   const orderPayload = {
     user_id: user?.id ?? null,
@@ -62,6 +67,7 @@ export async function createOrder(params: CreateOrderParams) {
     customer_phone: customerPhone || null,
     delivery_address: { address, city: params.city ?? '', pincode: params.pincode ?? '' },
     delivery_notes: notes ?? null,
+    order_type: orderType ?? null,
   };
 
   const { data: order, error: orderError } = await supabase
@@ -71,7 +77,7 @@ export async function createOrder(params: CreateOrderParams) {
     .single();
 
   if (orderError || !order) {
-    return { success: false, error: 'Failed to create order' };
+    return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
   const productIds: Record<string, string> = {
@@ -161,6 +167,7 @@ export async function sendOrderNotification(orderId: string) {
     address,
     customerName: data.customer_name,
     customerPhone: data.customer_phone,
+    orderType: data.order_type,
   });
 }
 

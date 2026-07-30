@@ -8,6 +8,7 @@ import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
 import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
+import { orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 
 const CANCELLATION_WINDOW_MS = 60_000;
@@ -81,7 +82,12 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
           <p className="text-xs text-ztext-light line-clamp-2">
             {order.order_items?.map((i) => `${i.quantity}x ${i.product_name}`).join(' • ') || `${itemCount} item(s)`}
           </p>
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-2">
+            {order.order_type && (
+              <span className="text-[10px] text-ztext-muted font-medium">{orderTypeLabel(order.order_type)}</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-1">
             <p className="text-sm font-bold text-ztext">₹{order.total}</p>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-ztext-lighter font-medium">{order.tracking_code}</span>
