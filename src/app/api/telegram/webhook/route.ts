@@ -1,41 +1,55 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { editTelegramMessage, answerCallbackQuery } from '@/lib/telegram';
+import { getStatusButtons } from '@/lib/notifications';
 
-async function transitionOrder(
+const STATUS_BADGE: Record<string, string> = {
+  pending: '⏳ Pending',
+  accepted: '✅ Accepted',
+  declined: '❌ Rejected',
+  preparing: '👨‍🍳 Preparing',
+  ready: '🍽️ Ready',
+  assigned: '🛵 Assigned',
+  out_for_delivery: '🚚 Out for Delivery',
+  delivered: '📦 Delivered',
+  completed: '✅ Completed',
+  cancelled: '❌ Cancelled',
+};
+
+async function updateOrderStatus(
   supabase: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
-  statuses: string[]
-): Promise<boolean> {
-  for (const status of statuses) {
-    const { data: current } = await supabase
-      .from('orders')
-      .select('status, status_history')
-      .eq('id', orderId)
-      .single();
+  newStatus: string
+): Promise<{ success: boolean; error?: string }> {
+  const { data: current } = await supabase
+    .from('orders')
+    .select('status, status_history, prepared_at')
+    .eq('id', orderId)
+    .single();
 
-    if (!current) return false;
+  if (!current) return { success: false, error: 'Order not found' };
 
-    const ts = new Date().toISOString();
-    const historyEntry = { status, timestamp: ts, note: null };
-    const existingHistory = (current.status_history ?? []) as Array<Record<string, unknown>>;
-    const timestamps: Record<string, string> = {};
-    if (status === 'accepted') timestamps.accepted_at = ts;
-    if (status === 'preparing') timestamps.prepared_at = ts;
-    if (status === 'cancelled' || status === 'declined') timestamps.cancelled_at = ts;
+  const ts = new Date().toISOString();
+  const historyEntry = { status: newStatus, timestamp: ts, note: 'Telegram update' };
+  const existingHistory = (current.status_history ?? []) as Array<Record<string, unknown>>;
+  const timestamps: Record<string, string> = {};
+  if (newStatus === 'accepted') timestamps.accepted_at = ts;
+  if (newStatus === 'preparing') timestamps.prepared_at = ts;
+  if (newStatus === 'ready') timestamps.prepared_at = current.prepared_at ?? ts;
+  if (newStatus === 'delivered') timestamps.delivered_at = ts;
+  if (newStatus === 'cancelled' || newStatus === 'declined') timestamps.cancelled_at = ts;
 
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status,
-        status_history: [...existingHistory, historyEntry],
-        ...timestamps,
-      })
-      .eq('id', orderId);
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: newStatus,
+      status_history: [...existingHistory, historyEntry],
+      ...timestamps,
+    })
+    .eq('id', orderId);
 
-    if (error) return false;
-  }
-  return true;
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
 
 export async function POST(req: Request) {
@@ -59,9 +73,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Invalid action' });
     }
 
-    const [action, orderId] = data.split(':') as [string, string];
+    const [newStatus, orderId] = data.split(':') as [string, string];
     const chatId = message.chat.id;
     const msgId = message.message_id;
+
+    const validStatuses = ['accepted', 'declined', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
+    if (!validStatuses.includes(newStatus)) {
+      await answerCallbackQuery(callbackId, 'Invalid status');
+      return NextResponse.json({ ok: false, error: 'Invalid status' });
+    }
 
     const supabase = createServiceClient();
     if (!supabase) {
@@ -80,60 +100,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Order not found' });
     }
 
-    let success = false;
-    let newStatus = '';
-    let label = '';
-
-    if (action === 'accept') {
-      if (orderData.status !== 'pending') {
-        await answerCallbackQuery(callbackId, 'Order is no longer pending');
-        return NextResponse.json({ ok: false });
-      }
-      success = await transitionOrder(supabase, orderId, ['accepted']);
-      newStatus = 'accepted';
-      label = '✅ Accepted';
-    } else if (action === 'reject') {
-      if (orderData.status !== 'pending') {
-        await answerCallbackQuery(callbackId, 'Order is no longer pending');
-        return NextResponse.json({ ok: false });
-      }
-      success = await transitionOrder(supabase, orderId, ['declined']);
-      newStatus = 'declined';
-      label = '❌ Rejected';
-    } else if (action === 'out_for_delivery') {
-      if (orderData.status !== 'accepted') {
-        await answerCallbackQuery(callbackId, 'Order must be accepted first');
-        return NextResponse.json({ ok: false });
-      }
-      success = await transitionOrder(supabase, orderId, ['preparing', 'ready', 'out_for_delivery']);
-      newStatus = 'out_for_delivery';
-      label = '🚚 Out for Delivery';
-    }
-
-    if (!success) {
-      await answerCallbackQuery(callbackId, 'Failed to update order');
+    const result = await updateOrderStatus(supabase, orderId, newStatus);
+    if (!result.success) {
+      await answerCallbackQuery(callbackId, result.error || 'Failed to update order');
       return NextResponse.json({ ok: false });
     }
 
-    const updatedText = message.text.replace(
-      /\n\n⏳ <b>Pending<\/b>$/,
-      `\n\n${label}`
-    );
+    const badge = STATUS_BADGE[newStatus] ?? newStatus;
+    const updatedText = message.text.replace(/\n\n[^\n]+$/, `\n\n${badge}`);
 
-    if (newStatus === 'accepted') {
-      await editTelegramMessage(chatId, msgId, updatedText, [
-        [{ text: '🚚 Out for Delivery', callback_data: `out_for_delivery:${orderId}` }],
-      ]);
-    } else {
-      await editTelegramMessage(chatId, msgId, updatedText);
-    }
+    const nextButtons = getStatusButtons(orderId, newStatus);
+    await editTelegramMessage(chatId, msgId, updatedText, nextButtons);
 
-    const answerLabels: Record<string, string> = {
-      accept: 'Order accepted ✅',
-      reject: 'Order rejected ❌',
+    const toastLabels: Record<string, string> = {
+      accepted: 'Order accepted ✅',
+      declined: 'Order rejected ❌',
+      preparing: 'Preparing 👨‍🍳',
+      ready: 'Order ready 🍽️',
       out_for_delivery: 'Out for delivery 🚚',
+      delivered: 'Delivered 📦',
+      completed: 'Completed ✅',
+      cancelled: 'Cancelled ❌',
     };
-    await answerCallbackQuery(callbackId, answerLabels[action] ?? 'Done');
+    await answerCallbackQuery(callbackId, toastLabels[newStatus] ?? 'Done');
 
     return NextResponse.json({ ok: true });
   } catch {

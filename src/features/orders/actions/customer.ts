@@ -170,7 +170,7 @@ export async function sendOrderNotification(orderId: string) {
     customerName: data.customer_name,
     customerPhone: data.customer_phone,
     orderType: data.order_type,
-  });
+  }, data.status);
 }
 
 export async function confirmPayment(orderId: string) {

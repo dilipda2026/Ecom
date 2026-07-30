@@ -40,15 +40,61 @@ function formatTelegram(order: OrderInfo): string {
   );
 }
 
-export async function notifyNewOrder(order: OrderInfo) {
-  const buttons = [
-    [
-      { text: '✅ Accept', callback_data: `accept:${order.id}` },
-      { text: '❌ Reject', callback_data: `reject:${order.id}` },
-    ],
-  ];
+const STATUS_BADGE: Record<string, string> = {
+  pending: '⏳ Pending',
+  accepted: '✅ Accepted',
+  declined: '❌ Rejected',
+  preparing: '👨‍🍳 Preparing',
+  ready: '🍽️ Ready',
+  assigned: '🛵 Assigned',
+  out_for_delivery: '🚚 Out for Delivery',
+  delivered: '📦 Delivered',
+  completed: '✅ Completed',
+  cancelled: '❌ Cancelled',
+};
 
-  await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n⏳ <b>Pending</b>`, buttons);
+interface ButtonDef {
+  text: string;
+  status: string;
+}
+
+const STATUS_ACTIONS: Record<string, ButtonDef[]> = {
+  pending: [
+    { text: '✅ Accept', status: 'accepted' },
+    { text: '👨‍🍳 Preparing', status: 'preparing' },
+    { text: '❌ Reject', status: 'declined' },
+  ],
+  accepted: [
+    { text: '👨‍🍳 Preparing', status: 'preparing' },
+    { text: '❌ Cancel', status: 'cancelled' },
+  ],
+  preparing: [
+    { text: '🍽️ Ready', status: 'ready' },
+    { text: '❌ Cancel', status: 'cancelled' },
+  ],
+  ready: [
+    { text: '🚚 Out for Delivery', status: 'out_for_delivery' },
+    { text: '✅ Complete', status: 'completed' },
+  ],
+  out_for_delivery: [
+    { text: '📦 Delivered', status: 'delivered' },
+  ],
+  delivered: [
+    { text: '✅ Complete', status: 'completed' },
+  ],
+};
+
+export function getStatusButtons(orderId: string, currentStatus: string): Array<Array<{ text: string; callback_data: string }>> {
+  const actions = STATUS_ACTIONS[currentStatus];
+  if (!actions || actions.length === 0) return [];
+  return [actions.map((a) => ({ text: a.text, callback_data: `${a.status}:${orderId}` }))];
+}
+
+export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending') {
+  const buttons = getStatusButtons(order.id, currentStatus);
+  const badge = STATUS_BADGE[currentStatus] ?? currentStatus;
+
+  await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n${badge}`, buttons);
 
   const emailTo = process.env.NOTIFICATION_EMAIL;
   if (emailTo) {

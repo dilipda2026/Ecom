@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { sendTelegramMessage } from '@/lib/telegram';
 
+const STATUS_LABELS: Record<string, string> = {
+  accepted: '✅ Accepted',
+  declined: '❌ Rejected',
+  preparing: '👨‍🍳 Preparing',
+  ready: '🍽️ Ready',
+  out_for_delivery: '🚚 Out for Delivery',
+  delivered: '📦 Delivered',
+  completed: '✅ Completed',
+  cancelled: '❌ Cancelled',
+};
+
+const VALID_STATUSES = ['accepted', 'declined', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
+
 export async function GET(req: Request) {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Dev only' }, { status: 403 });
@@ -15,45 +28,18 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Missing action or orderId' }, { status: 400 });
   }
 
+  if (!VALID_STATUSES.includes(action)) {
+    return NextResponse.json({ error: `Invalid action. Valid: ${VALID_STATUSES.join(', ')}` }, { status: 400 });
+  }
+
   const supabase = createServiceClient();
   if (!supabase) {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 500 });
   }
-  const db = supabase;
 
-  async function transitionThrough(statuses: string[]): Promise<boolean> {
-    for (const status of statuses) {
-      const { data: current } = await db
-        .from('orders')
-        .select('status, status_history')
-        .eq('id', orderId)
-        .single();
-      if (!current) return false;
-
-      const ts = new Date().toISOString();
-      const historyEntry = { status, timestamp: ts, note: null };
-      const existingHistory = (current.status_history ?? []) as Array<Record<string, unknown>>;
-      const timestamps: Record<string, string> = {};
-      if (status === 'accepted') timestamps.accepted_at = ts;
-      if (status === 'preparing') timestamps.prepared_at = ts;
-      if (status === 'cancelled' || status === 'declined') timestamps.cancelled_at = ts;
-
-      const { error } = await db
-        .from('orders')
-        .update({
-          status,
-          status_history: [...existingHistory, historyEntry],
-          ...timestamps,
-        })
-        .eq('id', orderId);
-      if (error) return false;
-    }
-    return true;
-  }
-
-  const { data: order } = await db
+  const { data: order } = await supabase
     .from('orders')
-    .select('status')
+    .select('status, status_history')
     .eq('id', orderId)
     .single();
 
@@ -61,36 +47,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  let success = false;
-  let label = '';
+  const ts = new Date().toISOString();
+  const historyEntry = { status: action, timestamp: ts, note: 'Dev test' };
+  const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;
+  const timestamps: Record<string, string> = {};
+  if (action === 'accepted') timestamps.accepted_at = ts;
+  if (action === 'preparing') timestamps.prepared_at = ts;
+  if (action === 'delivered') timestamps.delivered_at = ts;
+  if (action === 'cancelled' || action === 'declined') timestamps.cancelled_at = ts;
 
-  if (action === 'accept') {
-    if (order.status !== 'pending') {
-      return NextResponse.json({ error: 'Order is no longer pending' });
-    }
-    success = await transitionThrough(['accepted']);
-    label = '✅ Accepted';
-  } else if (action === 'reject') {
-    if (order.status !== 'pending') {
-      return NextResponse.json({ error: 'Order is no longer pending' });
-    }
-    success = await transitionThrough(['declined']);
-    label = '❌ Rejected';
-  } else if (action === 'out_for_delivery') {
-    if (order.status !== 'accepted') {
-      return NextResponse.json({ error: 'Order must be accepted first' });
-    }
-    success = await transitionThrough(['preparing', 'ready', 'out_for_delivery']);
-    label = '🚚 Out for Delivery';
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: action,
+      status_history: [...existingHistory, historyEntry],
+      ...timestamps,
+    })
+    .eq('id', orderId);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!success) {
-    return NextResponse.json({ error: 'Failed to update order' });
-  }
-
-  await sendTelegramMessage(
-    `<b>Dev Test:</b> Order <code>${orderId}</code> → ${label}`
-  );
+  const label = STATUS_LABELS[action] ?? action;
+  await sendTelegramMessage(`<b>Dev Test:</b> Order <code>${orderId}</code> → ${label}`);
 
   return NextResponse.json({ success: true, action, orderId, status: label });
 }
