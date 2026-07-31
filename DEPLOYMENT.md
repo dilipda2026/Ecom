@@ -1,93 +1,52 @@
-# Deployment Guide
+# Deployment
 
-## Prerequisites
+## Overview
 
-- Node.js 20+
-- A Supabase project (production)
-- A Razorpay account (for payments)
-- Vercel account (recommended) or a Node.js server
+| Item | Value |
+|---|---|
+| Host | Vercel (region `bom1`) |
+| Production URL | `https://dilip-da-ecom-mu.vercel.app` |
+| Vercel project | `dilip-da-ecom` (team `itzsubham2006s-projects`) |
+| Git integration | GitHub repo `itzsubham2006/Dilip-Da-Ecom`, production branch `main` |
+| CI | GitHub Actions — `ci.yml` (lint, typecheck, tests, coverage, E2E, build) on push/PR; `deploy.yml` (lint + typecheck + tests) on push to main |
 
-## Vercel Deployment (Recommended)
+## Two ways to deploy
 
-1. **Push your code** to a GitHub repository.
-
-2. **Import the project** in Vercel dashboard.
-
-3. **Set environment variables** in Vercel Project Settings:
-   - `NEXT_PUBLIC_SUPABASE_URL` — Your Supabase project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Your Supabase anon key
-   - `SUPABASE_SERVICE_ROLE_KEY` — Your Supabase service role key
-   - `NEXT_PUBLIC_RAZORPAY_KEY_ID` — Razorpay key ID
-   - `RAZORPAY_KEY_SECRET` — Razorpay key secret
-   - `NEXT_PUBLIC_APP_URL` — Your production URL (e.g., `https://dilipda.com`)
-
-4. **Deploy**: Vercel automatically deploys on push to `main`.
-
-### Region Selection
-
-Choose `bom1` (Mumbai) for lowest latency in India.
-
-## Database Migration
-
-Run migrations against your production Supabase database:
+### 1. Git push (recommended for day-to-day)
 
 ```bash
-# Using Supabase CLI
-supabase db push --linked
-
-# Or manually via Supabase SQL editor
-# Run migrations/schema.sql, then migrations/*.sql in order
+git add .
+git commit -m "description"
+git push origin main
 ```
 
-## Environment Files
+- Pushing to `main` triggers Vercel's Git integration → **production deployment** to `https://dilip-da-ecom-mu.vercel.app` (alias never changes, so the Telegram webhook URL stays valid).
+- GitHub Actions CI runs in parallel (lint → typecheck → tests → coverage → E2E → build).
 
-| File | Purpose |
-|---|---|
-| `.env.example` | Reference template with all variables documented |
-| `.env.local` | Local development (not committed) |
-| `.env.staging` | Staging environment reference |
-| `.env.production` | Production environment reference |
-
-## CI/CD Pipeline
-
-The project includes GitHub Actions workflows:
-
-- **`.github/workflows/ci.yml`** — Runs lint, typecheck, test, and build on every PR and push to `main`/`develop`.
-- **`.github/workflows/deploy.yml`** — Deploys to Vercel production on push to `main`.
-
-### Required GitHub Secrets
-
-| Secret | Description |
-|---|---|
-| `VERCEL_TOKEN` | Vercel API token |
-| `VERCEL_ORG_ID` | Vercel organization ID |
-| `VERCEL_PROJECT_ID` | Vercel project ID |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-
-## Manual Server Deployment
+### 2. Vercel CLI (local files, without pushing)
 
 ```bash
-# Build
-npm ci
-npm run build
-
-# Start
-npm run start
+vercel --prod
 ```
 
-Ensure all environment variables are set in the server environment.
+- Deploys the **local working tree** (uncommitted changes included).
+- Uploads your local `.env.local` values into the build environment.
 
-## Monitoring
+## ⚠ Critical: environment variables
 
-- **Vercel Analytics** — Enable in Vercel dashboard
-- **Supabase Logs** — Monitor database queries and auth events
-- **Error Tracking** — Add Sentry or similar for production error monitoring
+- **Git builds only read env vars set in the Vercel dashboard** (Project → Settings → Environment Variables). They never see `.env.local`.
+- `vercel --prod` **uploads local `.env.local` values** — this is why a CLI deploy can succeed while a git deploy lacks vars.
+- **Rule:** keep the dashboard's Production (and Preview/Development) environments in sync with `.env.local`. Full checklist: SETUP.md → "Vercel Environment Variables".
 
-## Rollback
+## Rollout checklist (after any deploy)
 
-To rollback a Vercel deployment:
-1. Go to Vercel dashboard > Deployments
-2. Find the last working deployment
-3. Click the three dots menu > Promote to Production
+1. Vercel dashboard → Deployments → newest commit shows `Ready`.
+2. Open the production URL — homepage renders.
+3. Place a test order (Razorpay or COD) → order appears in `/dashboard/admin/orders` and Telegram gets the message with buttons.
+4. Click a button in Telegram → status updates on the site within 15–30s (polling).
+
+## Not production-ready notes
+
+- `/api/telegram/dev-callback` returns 403 unless `NODE_ENV=development` (never exposed on Vercel builds).
+- Webhook re-registration after domain changes: see SETUP.md → Telegram webhook.
+- The bot token used in SETUP.md was exposed in chat during debugging — **rotate it via @BotFather and update the webhook + `TELEGRAM_BOT_TOKEN` after any security review.**

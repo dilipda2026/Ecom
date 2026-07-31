@@ -1,66 +1,53 @@
-# Security Overview
+# Security
+
+Current security measures implemented across the platform.
+
+## Transport & Headers (`vercel.json`)
+
+- `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff` · `Referrer-Policy: strict-origin-when-cross-origin` · `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- Static image caching (`max-age=31536000, immutable`) for `/images/*` and `/_next/static/*`
+
+## CSRF — `src/lib/csrf.ts`
+
+- `validateCsrf` compares `Origin` (or `Referer`) against the `Host` header; `csrfGuard` wraps API routes with a 403 on mismatch.
+- Allow-list includes `NEXT_PUBLIC_APP_URL` origins.
+
+## Rate Limiting — `src/lib/rate-limit.ts`
+
+- Sliding-window counter; **Upstash Redis** when `UPSTASH_REDIS_REST_URL`/`TOKEN` are set, otherwise an **in-memory Map** (per-process; fine for single-instance dev, weak for multi-region scale).
+- Presets: `strict` 10/min · `default` 30/min · `relaxed` 100/min · `generous` 300/min.
+- Applied to: CIT OTP sending (3/hour, server action).
+
+## Database & RLS
+
+- 60 Row-Level Security policies (see DATABASE.md) — public reads limited to active rows; mutations ownership-scoped.
+- **Service-role client** (`src/infrastructure/supabase/service.ts`, `admin.ts`) bypasses RLS and is server-only. Every code path using it re-authorizes:
+  - Admin actions → `authorizeAdmin()` (role ∈ {admin, super_admin}).
+  - Checkout/Telegram → operate on IDs the caller controls (order ids come from the DB/Telegram callback, never from unvalidated user input).
+- Checkout uses the service key directly over Supabase REST (`/rest/v1/restaurants`) — the key is never exposed to the client.
 
 ## Authentication
 
-- **Supabase SSR Auth** — Server-side session management with HTTP-only cookies
-- **Google OAuth** — Optional OAuth provider for social login
-- **Email/Password** — Standard auth with Supabase's built-in email auth
-- **Onboarding** — Role assignment (student/merchant/delivery) required before dashboard access
+- Supabase Auth + SSR cookies (`@supabase/ssr`); client Zustand session mirrors the auth state.
+- **CIT email gate** on login (`@cit.ac.in` domain or hardcoded dev exception).
+- Signup OTP: 6-digit code stored **SHA-256 hashed** in `cit_otp_requests` (10-min expiry, max 5 attempts, 3/hour rate limit); dev mode returns the OTP inline.
+- Password reset via email link.
 
-## Authorization (RBAC)
+## Telegram Webhook
 
-Roles: `student`, `merchant`, `delivery`, `admin`, `super_admin`
+- **Authorization:** only callbacks with `from.id === TELEGRAM_CHAT_ID` are processed; others get `answerCallbackQuery('Unauthorized')` + 401.
+- Status values whitelisted; unknown actions rejected.
+- **⚠ Known exposure:** the bot token (`8257429384:...`) was shared in plaintext during debugging. **Rotate it** via @BotFather (`/revoke`), update `TELEGRAM_BOT_TOKEN` + Vercel env, and re-register the webhook (SETUP.md).
 
-- **Middleware** enforces role-based dashboard routing (`/dashboard/<role>`)
-- **Server Actions** include `authorizeAdmin()` checks for admin-only operations
-- **Row Level Security (RLS)** on all Supabase tables
+## Secrets Handling
 
-### RLS Policies
+- Service-role key and Razorpay secret live only in env vars (Vercel dashboard / `.env.local` gitignored).
+- `src/lib/logger.ts` redacts known secret fields (passwords, tokens, razorpay ids) in log output.
+- `src/config/env.ts` + `src/schemas/env.ts` fail fast in production when required vars are missing.
 
-| Table | Policy |
-|---|---|
-| `profiles` | Users read/update own; admins read all |
-| `orders` | Students see own; merchants see own restaurant orders; delivery sees assigned |
-| `restaurants` | Public read active; merchants manage own; admins read all |
-| `payments` | Users read own; merchants see own restaurant payments |
-| `credit_accounts` | Users read own; admins read all |
+## Known Gaps (documented, not fixed)
 
-## API Security
-
-- **CSRF Protection** — Origin header validation for all POST requests via `src/lib/csrf.ts`
-- **Rate Limiting** — Path-based and IP-based rate limiting via `src/lib/rate-limit.ts`
-  - Auth endpoints: 10 requests/minute
-  - Dashboard: 30 requests/minute
-  - Repayment API: 10 requests/minute
-- **Input Validation** — Zod schemas validate all API inputs (`src/schemas/api.ts`)
-- **Environment Validation** — Zod schema validates all required environment variables at boot (`src/schemas/env.ts`)
-
-## HTTP Security Headers
-
-Configured in `next.config.ts` and `vercel.json`:
-
-| Header | Value |
-|---|---|
-| `X-Frame-Options` | `DENY` |
-| `X-Content-Type-Options` | `nosniff` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
-| `Content-Security-Policy-Report-Only` | Restricted to trusted origins (report-only mode) |
-
-## Data Protection
-
-- **Supabase** — Data encrypted at rest and in transit
-- **Environment Variables** — Secrets never committed; use Vercel environment variables or server env
-- **Log Redaction** — Structured JSON logger in `src/lib/logger.ts` redacts sensitive fields (passwords, tokens, keys)
-- **Input Sanitization** — Zod validation prevents injection attacks
-
-## BNPL Security
-
-- **Service Role Key** — Used server-side only for admin operations (never exposed to client)
-- **Audit Trail** — All credit actions logged immutably in `credit_audit_logs`
-- **Ledger Integrity** — Transactions use balance_before/balance_after for double-entry accounting
-- **Verification** — Student verification required before credit assignment
-
-## Reporting Vulnerabilities
-
-For security issues, contact the development team directly. Do not file public issues for security vulnerabilities.
+- **No middleware/edge auth guard** — route protection is client-side + server-action checks; sensitive data actions all call `authorizeAdmin()`, but page-level reads can render for unauthenticated visitors until the client redirects.
+- In-memory rate limiting is per-process, not shared across Vercel regions — enable Upstash for hard limits.
+- Cancellation window (2 min) is frontend-only; a crafted request could bypass it (`cancelUserOrder` only checks status pending/accepted).
+- `delivery_*` / `reviews` / `ratings` / `reports` / `analytics` tables exist but are unused by app code (schema surface, not an active risk).

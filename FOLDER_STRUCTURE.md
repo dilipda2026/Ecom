@@ -1,298 +1,154 @@
-# Project Structure
+# Folder Structure
 
-Feature-based module pattern: each domain has `actions/`, `components/`, `repositories/`, `schemas/`, `services/`, `types/`.
+Actual project tree with purpose annotations. Empty directories noted at the bottom are intentional scaffolding.
 
----
+```
+dilip-da/
+├── .env.example                  # Documented env template (required + optional vars)
+├── .env.local                    # Local env (gitignored) — loaded by scripts & `vercel --prod`
+├── .env.staging / .env.production # Env snapshots (not auto-loaded by Next)
+├── .github/workflows/
+│   ├── ci.yml                     # Lint, typecheck, unit tests, coverage, E2E, build (push/PR)
+│   └── deploy.yml                 # Lint + typecheck + tests on push to main
+├── .vercel/repo.json              # Vercel Git-link config (project dilip-da-ecom)
+├── e2e/                           # Playwright specs
+│   ├── auth.spec.ts               #   login/signup flows
+│   ├── cart.spec.ts               #   cart add/remove
+│   ├── dashboard-merchant.spec.ts #   merchant dashboard
+│   ├── home.spec.ts               #   homepage
+│   └── menu.spec.ts               #   menu browsing
+├── public/                        # Static assets (images, Phonepay.png, gpay.jpg, favicon)
+├── scripts/
+│   └── seed-admin.mjs             # npm run seed:admin <email> — promote user to admin
+├── src/
+│   ├── app/                       # Next.js App Router (pages + API)
+│   ├── components/                # Shared UI components
+│   ├── config/                    # env.ts — cached validated env accessor
+│   ├── features/                  # Feature-sliced modules (actions/repositories/services/types)
+│   ├── hooks/                     # Client hooks: usePolling, useServerAction
+│   ├── infrastructure/            # Supabase clients + DB schema types
+│   ├── lib/                       # Telegram, email, notifications, security utilities
+│   ├── schemas/                   # Zod schemas: env.ts, api.ts
+│   ├── types/                     # Global types (Role, UserProfile, Address, ApiResponse…)
+│   └── __tests__/                 # Vitest unit tests (214 tests, 30 files)
+├── supabase/
+│   ├── migrations/                # SQL migrations — SOURCE OF TRUTH for the DB
+│   ├── schema.sql                 # ⚠ STALE full-schema snapshot (missing CIT/order_type)
+│   └── config.toml                # Local Supabase CLI config
+├── e2e/ (see above)
+├── next.config.ts
+├── vercel.json                    # Security headers, image config, redirect /home → /, region bom1
+├── playwright.config.ts
+├── vitest.config.ts
+└── package.json
+```
 
-## `src/app/` — Next.js App Router
+## src/app — Routes
 
 ```
 src/app/
-├── layout.tsx              Root layout (fonts, providers, globals)
-├── page.tsx                Home page (landing)
-├── loading.tsx             Root loading state
-├── globals.css             Tailwind CSS v4
-├── (auth)/                 Shared auth layout group
-├── (dashboard)/            Dashboard sub-layouts
-├── (menu)/                 Menu layout group
-├── (public)/               Public layout group
+├── layout.tsx                     # Root layout (fonts, AuthProvider, NavbarWrapper, Toasts)
+├── page.tsx                       # Homepage (hero, featured dishes, offer cards)
+├── loading.tsx                    # Global loading UI
+├── globals.css                    # Tailwind 4 + theme tokens
 │
-├── auth/                   Public auth routes
-│   ├── login/page.tsx
-│   ├── signup/page.tsx
-│   ├── onboarding/page.tsx
-│   └── callback/route.ts   OAuth callback handler
+├── (auth)/, (public)/, (dashboard)/admin|delivery|merchant|student   # EMPTY route groups (scaffolding)
+├── (menu)/MenuItems.tsx           # Shared menu item component
 │
-├── cart/page.tsx           Shopping cart
-├── checkout/page.tsx       Checkout flow
-├── menu/page.tsx           Menu listing
+├── auth/
+│   ├── login/page.tsx             # Login (CIT email gate)
+│   ├── signup/page.tsx            # 3-step OTP signup
+│   ├── onboarding/page.tsx        # Post-login role onboarding (student/merchant/delivery)
+│   ├── reset-password/page.tsx    # Password reset
+│   └── callback/route.ts          # Supabase auth code exchange (GET)
 │
+├── cart/page.tsx                  # Cart view
+├── checkout/page.tsx              # Checkout: order type, address, contact, payment
+├── favorites/page.tsx             # Wishlist page
+├── menu/page.tsx                  # Full menu listing
+├── profile/page.tsx               # Profile + admin dashboard stats tab
+├── orders/
+│   ├── page.tsx                   # My orders (30s polling)
+│   └── [id]/page.tsx              # Order detail + timeline + cancel (15s polling)
 ├── order/
-│   ├── confirmed/page.tsx  Order confirmation
-│   └── track/page.tsx      Order tracking by code
+│   ├── confirmed/page.tsx         # Order confirmation (tracking code)
+│   └── track/page.tsx             # Track by tracking code
+│
+├── admin/page.tsx                 # Legacy admin shell (redirects to /dashboard/admin)
+├── admin/menu/                    # Legacy admin menu editor
 │
 ├── dashboard/
-│   ├── layout.tsx          Dashboard shell (sidebar, nav)
-│   ├── loading.tsx
-│   ├── page.tsx            Dashboard homepage
-│   │
-│   ├── student/
-│   │   ├── page.tsx        Student home
-│   │   ├── loading.tsx
-│   │   └── credit/page.tsx BNPL credit dashboard
-│   │
+│   ├── layout.tsx                 # Dashboard shell (role tabs, navbar)
+│   ├── page.tsx                   # Role-based redirect
+│   ├── admin/                     # Admin dashboard + stats
+│   │   ├── page.tsx
+│   │   ├── orders/                #   All orders, force status, cancel (30s polling)
+│   │   ├── users/, students/, merchants/, payments/, audit-logs/, settings/
 │   ├── merchant/
-│   │   ├── layout.tsx      Merchant sub-nav
-│   │   ├── page.tsx        Merchant home
-│   │   ├── loading.tsx
-│   │   ├── orders/page.tsx
-│   │   ├── products/page.tsx + new/ + [id]/edit/
-│   │   ├── categories/page.tsx
-│   │   ├── inventory/page.tsx
-│   │   ├── analytics/page.tsx
-│   │   ├── notifications/page.tsx
-│   │   └── settings/page.tsx
-│   │
-│   ├── admin/
-│   │   ├── layout.tsx      Admin sub-nav
-│   │   ├── page.tsx        Admin home
-│   │   ├── loading.tsx
-│   │   ├── students/page.tsx
-│   │   ├── merchants/page.tsx
-│   │   ├── orders/page.tsx
-│   │   ├── payments/page.tsx
-│   │   ├── bnpl/page.tsx
-│   │   ├── settings/page.tsx
-│   │   ├── audit-logs/page.tsx
-│   │   └──  ... (and more)
-│   │
-│   └── delivery/
-│       ├── page.tsx        Delivery home
-│       └── loading.tsx
+│   │   ├── page.tsx               #   Merchant dashboard (revenue overview)
+│   │   ├── orders/                #   Order queue + status buttons + realtime (30s polling)
+│   │   ├── products/ (+ new, [id], [id]/edit)
+│   │   ├── categories/, inventory/, analytics/, notifications/, settings/
+│   └── delivery/                  #   (empty — feature not implemented)
 │
 └── api/
-    └── bnpl/
-        └── repayment/route.ts  POST repayment endpoint
+    ├── telegram/
+    │   ├── webhook/route.ts       # POST — Telegram inline-button status control (PRODUCTION)
+    │   └── dev-callback/route.ts  # GET — dev-only status tester (?action=&orderId=)
 ```
 
----
+## src/features — Feature Slices
 
-## `src/features/` — Domain Modules
+| Folder | Purpose |
+|---|---|
+| `auth/` | Session store (Zustand), AuthProvider, login/signup/onboarding/forgot forms, server session actions, OTP auth service |
+| `admin/` | 44 super-admin actions + `AdminRepository` (dashboard stats, users, merchants, orders, refunds, audit, settings) |
+| `cart/` | Zustand persisted cart store (fee ₹10, 5% tax, fly animation) |
+| `cit-student/` | CIT college verification: send/verify OTP, signup OTP flow, status checks |
+| `delivery/` | Empty scaffold (not implemented) |
+| `favorites/` | Zustand persisted wishlist store |
+| `notifications/` | In-app notifications table (list, mark read, unread count) |
+| `orders/` | Customer actions (`customer.ts`), merchant actions, order repository, types (state machine, order types) |
+| `payments/` | Razorpay client service + `createRazorpayOrder` server action |
+| `products/` | Product/category CRUD, stock, low-stock, reorder |
+| `restaurants/` | Restaurant settings, open/close toggle, merchant dashboard via RPC |
 
-Each feature self-contains its logic:
+Each slice follows `actions/` (server actions) → `repositories/` (Supabase queries) → `services/` (business logic) → `types/`.
 
-```
-src/features/
-├── auth/                   Authentication & user management
-│   ├── actions/index.ts    Server actions (session, profile, onboarding)
-│   ├── components/         LoginForm, SignupForm, OAuthButtons, AuthProvider
-│   ├── schemas/index.ts    Zod validation
-│   ├── services/auth-service.ts  Business logic
-│   ├── store.ts            Zustand state
-│   └── types/index.ts
-│
-├── bnpl/                   BNPL credit system (largest module)
-│   ├── actions/index.ts    Credit dashboard, checkout, repayment
-│   ├── components/         BNPLPaymentOption, StudentCreditDashboard
-│   ├── repositories/       Data access (4 repos)
-│   ├── schemas/index.ts
-│   ├── services/           Business logic (9 services)
-│   │   ├── bnpl-checkout-service.ts
-│   │   ├── credit-ledger-service.ts
-│   │   ├── credit-limit-service.ts
-│   │   ├── credit-restoration-service.ts
-│   │   ├── credit-verification-service.ts
-│   │   ├── due-date-service.ts
-│   │   ├── late-fee-service.ts
-│   │   ├── repayment-service.ts
-│   │   └── audit-service.ts
-│   └── types/index.ts
-│
-├── cart/                   Shopping cart
-│   ├── store/index.ts      Zustand store
-│   └── types/index.ts
-│
-├── orders/                 Order lifecycle
-│   ├── actions/index.ts    CRUD + status transitions
-│   ├── repositories/index.ts
-│   └── types/index.ts
-│
-├── payments/               Payment processing
-│   ├── services/razorpay.ts
-│   └── types/
-│
-├── products/               Product & menu management
-│   ├── actions/index.ts    CRUD + categories
-│   ├── repositories/index.ts
-│   └── types/index.ts
-│
-├── restaurants/            Restaurant profiles
-│   ├── actions/index.ts    Settings, dashboard, revenue
-│   ├── repositories/index.ts
-│   └── types/index.ts
-│
-├── admin/                  Admin operations
-│   ├── actions/index.ts    ~35 functions (students, merchants, orders, BNPL, system)
-│   ├── repositories/index.ts
-│   └── types/index.ts
-│
-├── notifications/          Notifications
-│   ├── actions/index.ts    CRUD + unread count
-│   ├── repositories/index.ts
-│   └── types/index.ts
-│
-└── delivery/               Delivery management
-    └── types/index.ts
-```
-
----
-
-## `src/components/` — Shared UI
-
-```
-src/components/
-├── landing/                Public landing page sections
-│   ├── Hero.tsx
-│   ├── FeaturedDishes.tsx
-│   ├── AboutSection.tsx
-│   ├── Navbar.tsx
-│   └── Footer.tsx
-│
-├── shared/                 Reusable across features
-│   ├── Navbar.tsx
-│   ├── NavbarWrapper.tsx
-│   ├── Footer.tsx
-│   ├── LoadingSkeleton.tsx
-│   ├── ThemeToggle.tsx
-│   └── Toast.tsx
-│
-└── ui/                     Primitive UI components
-    ├── data-table.tsx
-    └── index.tsx
-```
-
----
-
-## `src/lib/` — Utilities
-
-```
-src/lib/
-├── utils.ts                General helpers (formatting, validation)
-├── errors.ts               Custom error classes (AppError, AuthError, etc.)
-├── logger.ts               Structured logging (PINO_INSTANCE)
-├── rate-limit.ts           Rate limiter (Upstash Redis + in-memory fallback)
-└── csrf.ts                 CSRF token generation & verification
-```
-
----
-
-## `src/infrastructure/` — External Service Connectors
-
-```
-src/infrastructure/
-├── supabase/
-│   ├── client.ts           Browser client (anon key)
-│   ├── server.ts           Server client (cookie-based SSR)
-│   ├── admin.ts            Admin client (service role key)
-│   ├── schema.ts           Generated DB types
-│   └── index.ts            Re-exports
-├── payments/               (empty — future payment provider abstraction)
-└── storage/                (empty — future file storage abstraction)
-```
-
----
-
-## `src/schemas/` — Global Validation
-
-```
-src/schemas/
-├── api.ts                  API request/response schemas (repayment, etc.)
-└── env.ts                  Environment variable validation
-```
-
----
-
-## `src/__tests__/` — Unit & Integration Tests (32 test files)
-
-```
-src/__tests__/
-├── setup.ts                Global mocks (vi.mock next/navigation)
-│
-├── admin/                  Admin dashboard tests
-│   ├── system-settings.test.ts
-│   ├── student-management.test.ts
-│   ├── merchant-approval.test.ts
-│   ├── bnpl-admin.test.ts
-│   ├── order-intervention.test.ts
-│   ├── refund.test.ts
-│   └── audit-logs.test.ts
-│
-├── api/                    API route integration tests
-│   ├── auth-callback.test.ts
-│   └── repayment-route.test.ts
-│
-├── auth/                   Auth logic tests
-│   ├── auth-flow.test.ts
-│   └── auth-service.test.ts
-│
-├── bnpl/                   BNPL financial logic tests (core module)
-│   ├── bnpl-checkout-service.test.ts
-│   ├── late-fee-service.test.ts
-│   ├── credit-restoration-service.test.ts
-│   ├── audit-service.test.ts
-│   ├── late-fee.test.ts
-│   ├── credit-calculations.test.ts
-│   ├── ledger-integrity.test.ts
-│   ├── eligibility.test.ts
-│   └── repayment.test.ts
-│
-├── lib/                    Utility & library tests
-│   ├── rate-limit.test.ts
-│   ├── csrf.test.ts
-│   ├── utils.test.ts
-│   ├── errors.test.ts
-│   ├── logger.test.ts
-│   └── zod-validation.test.ts
-│
-├── orders/
-│   └── state-machine.test.ts
-│
-├── payments/
-│   └── razorpay.test.ts
-│
-└── products/
-    ├── data-isolation.test.ts
-    └── validation.test.ts
-```
-
----
-
-## `e2e/` — E2E Tests (Playwright)
-
-```
-e2e/
-├── home.spec.ts            Landing page smoke test
-├── menu.spec.ts            Menu browsing
-├── auth.spec.ts            Login/signup/onboarding flow
-├── cart.spec.ts            Add to cart, update quantity
-└── dashboard-merchant.spec.ts  Merchant dashboard interactions
-```
-
----
-
-## Root Configuration
+## src/lib — Utilities
 
 | File | Purpose |
-|------|---------|
-| `next.config.ts` | Next.js 16 config (images, headers, webpack) |
-| `vitest.config.ts` | Vitest (globals, jsdom, coverage, setup) |
-| `playwright.config.ts` | Playwright (chromium only, webServer on port 3000) |
-| `tsconfig.json` | TypeScript (bundler resolution, path aliases) |
-| `eslint.config.mjs` | Flat ESLint config |
-| `tailwind.config.ts` | Tailwind CSS v4 |
-| `postcss.config.mjs` | PostCSS (Tailwind + autoprefixer) |
-| `vercel.json` | Vercel deployment config |
-| `.github/workflows/ci.yml` | CI (lint, typecheck, test, coverage, e2e) |
-| `.github/workflows/deploy.yml` | CD (Vercel deploy) |
-| `supabase/config.toml` | Supabase local dev config |
-| `supabase/migrations/` | 4 SQL migration files |
+|---|---|
+| `telegram.ts` | Telegram Bot API helpers (send message, buttons, edit message, answer callback) |
+| `email.ts` | Nodemailer SMTP (OTP email + order notification email) |
+| `notifications.ts` | `notifyNewOrder` — Telegram message + buttons + email; `STATUS_ACTIONS` button map |
+| `csrf.ts` | Origin/Host CSRF check (`validateCsrf`, `csrfGuard`) |
+| `rate-limit.ts` | Sliding-window limiter (Upstash Redis or in-memory fallback) |
+| `errors.ts` | AppError hierarchy (Validation, Auth, Authorization, NotFound, Conflict, RateLimit) |
+| `logger.ts` | JSON/pretty logger with secret redaction |
+| `utils.ts` | `cn`, `formatCurrency`, `slugify`, `generateId` |
+| `useServerAction.ts` | Client hook wrapper for server actions |
+
+## src/infrastructure — Supabase Clients
+
+| File | Env | Misconfig |
+|---|---|---|
+| `client.ts` | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Throws (browser) |
+| `server.ts` | same anon pair | Returns `null` (server, cookie-based SSR) |
+| `service.ts` | URL + `SUPABASE_SERVICE_ROLE_KEY` | Returns `null`; **not** in barrel export |
+| `admin.ts` | URL + service role (via `@/config/env`) | Throws; no session persistence |
+
+## src/schemas — Zod Validation
+
+- `env.ts` — env var schema (validated by `src/config/env.ts`)
+- `api.ts` — role, profile update, pagination, product schemas
+
+## Empty Scaffolding (intentional)
+
+```
+src/app/(auth)/, (public)/, (dashboard)/{admin,delivery,merchant,student}
+src/features/{delivery/services, delivery/types, auth/repositories, admin/services,
+              notifications/components, products/components, products/schemas,
+              payments/repositories, payments/types, restaurants/schemas, orders/schemas}
+src/infrastructure/{payments, storage}
+```
