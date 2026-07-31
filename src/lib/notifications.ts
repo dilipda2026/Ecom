@@ -15,9 +15,8 @@ interface OrderInfo {
 
 function orderTypeBadge(type: string | null | undefined): string {
   switch (type) {
-    case 'room_delivery': return '🚚 Room Delivery';
+    case 'room_delivery': return '🚚 Hostel Delivery';
     case 'takeaway': return '🥡 Take Away';
-    case 'dine_in': return '🍽️ Dine In';
     default: return '';
   }
 }

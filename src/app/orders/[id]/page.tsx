@@ -10,7 +10,7 @@ import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
-const CANCELLATION_WINDOW_MS = 60_000;
+const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 15_000;
 
 export default function OrderDetailPage() {

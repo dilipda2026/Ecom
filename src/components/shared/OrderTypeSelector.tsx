@@ -14,7 +14,7 @@ export function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
       <h2 className="font-semibold text-ztext mb-3 text-sm">
         How would you like to receive your order?
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {ORDER_TYPES.map((opt) => {
           const selected = value === opt.id;
           return (

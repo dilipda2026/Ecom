@@ -219,9 +219,7 @@ export default function CheckoutPage() {
                     <MapPin size={15} className="text-zred shrink-0" /> Pickup
                   </h2>
                   <p className="text-xs text-ztext-light">
-                    {orderType === 'takeaway'
-                      ? 'Your order will be ready for pickup at the restaurant. We will notify you when it\'s ready.'
-                      : 'Come to the restaurant and enjoy your meal. We\'ll prepare it fresh for you.'}
+                    Your order will be ready for pickup at the restaurant. We will notify you when it&apos;s ready.
                   </p>
                 </div>
               )}

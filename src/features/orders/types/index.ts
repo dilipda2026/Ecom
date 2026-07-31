@@ -4,12 +4,11 @@ export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
 
 export type PaymentMethod = 'razorpay' | 'bnpl' | 'cod';
 
-export type OrderType = 'room_delivery' | 'takeaway' | 'dine_in';
+export type OrderType = 'room_delivery' | 'takeaway';
 
 export const ORDER_TYPES = [
-  { id: 'room_delivery' as const, label: 'Room Delivery', icon: '🚚', description: 'Delivered to your room' },
+  { id: 'room_delivery' as const, label: 'Hostel Delivery', icon: '🚚', description: 'Delivered to your hostel' },
   { id: 'takeaway' as const, label: 'Take Away', icon: '🥡', description: 'Pick up your order' },
-  { id: 'dine_in' as const, label: 'Dine In', icon: '🍽️', description: 'Come and eat at the restaurant' },
 ] as const;
 
 export function orderTypeLabel(type: OrderType | string | null | undefined): string {

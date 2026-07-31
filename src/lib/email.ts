@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { orderTypeLabel } from '@/features/orders/types';
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -82,7 +83,7 @@ export async function sendOrderNotificationEmail(to: string, order: OrderNotific
           <p><strong>Customer:</strong> ${order.customerName || 'Guest'}</p>
           <p><strong>Phone:</strong> ${order.customerPhone || 'N/A'}</p>
           <p><strong>Payment:</strong> ${order.paymentMethod.toUpperCase()}</p>
-          ${order.orderType ? `<p><strong>Order Type:</strong> ${order.orderType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</p>` : ''}
+          ${order.orderType ? `<p><strong>Order Type:</strong> ${orderTypeLabel(order.orderType)}</p>` : ''}
           <p><strong>Delivery:</strong> ${order.address}</p>
           <table style="width:100%;border-collapse:collapse;margin:12px 0">
             <thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Item</th><th style="padding:8px;text-align:center">Qty</th><th style="padding:8px;text-align:right">Price</th></tr></thead>

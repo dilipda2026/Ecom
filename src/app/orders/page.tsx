@@ -12,7 +12,7 @@ import { orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
 
-const CANCELLATION_WINDOW_MS = 60_000;
+const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 30_000;
 
 function useCountdown(createdAt: string) {

@@ -48,7 +48,7 @@ export async function createOrder(params: CreateOrderParams) {
   const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
 
   if (paymentMethod === 'cod' && orderType && orderType !== 'room_delivery') {
-    return { success: false, error: 'Pay on Delivery is only available for Room Delivery orders' };
+    return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }
 
   const orderPayload = {
@@ -67,7 +67,7 @@ export async function createOrder(params: CreateOrderParams) {
     customer_phone: customerPhone || null,
     delivery_address: orderType === 'room_delivery'
       ? { address, city: params.city ?? '', pincode: params.pincode ?? '' }
-      : { address: orderType === 'takeaway' ? 'Take away from restaurant' : 'Dine in at restaurant' },
+      : { address: 'Take away from restaurant' },
     delivery_notes: notes ?? null,
     order_type: orderType ?? null,
   };
