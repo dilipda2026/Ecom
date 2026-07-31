@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import { useFavoritesStore, FavoriteItem } from '@/features/favorites/store';
 
@@ -12,7 +12,11 @@ interface FavoriteButtonProps {
 export default function FavoriteButton({ item, className = '' }: FavoriteButtonProps) {
   const { isFavorite, toggleFavorite } = useFavoritesStore();
   const [animate, setAnimate] = useState(false);
-  const favorited = isFavorite(item.id);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []); // eslint-disable-line react-hooks/set-state-in-effect
+
+  const favorited = mounted ? isFavorite(item.id) : false;
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

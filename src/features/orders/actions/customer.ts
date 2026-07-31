@@ -199,6 +199,24 @@ export async function failPayment(orderId: string) {
   return { success: true };
 }
 
+export async function cancelUnpaidOrder(orderId: string, reason = 'Payment not completed') {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason,
+    })
+    .eq('id', orderId)
+    .eq('status', 'pending');
+
+  if (error) return { success: false, error: 'Failed to cancel order' };
+  return { success: true };
+}
+
 export async function getUserOrders(page = 1, pageSize = 10) {
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service unavailable' };
@@ -249,8 +267,8 @@ export async function cancelUserOrder(orderId: string, reason: string) {
   if (order.status !== 'pending' && order.status !== 'accepted') return { success: false, error: 'Order can no longer be cancelled' };
 
   const elapsed = Date.now() - new Date(order.created_at).getTime();
-  if (elapsed > 60_000) {
-    return { success: false, error: 'Cancellation window has expired (1 minute)' };
+  if (elapsed > 120_000) {
+    return { success: false, error: 'Cancellation window has expired (2 minutes)' };
   }
 
   const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };

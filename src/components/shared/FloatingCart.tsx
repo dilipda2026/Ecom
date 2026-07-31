@@ -62,7 +62,7 @@ function CartPopup() {
             <p className="text-xs text-ztext-light mt-0.5">₹{total()}</p>
           </div>
         </div>
-        <Link href="/orders" className="button-z button-z-primary text-sm px-6 py-2.5 shadow-sm rounded-xl">
+        <Link href="/cart" className="button-z button-z-primary text-sm px-6 py-2.5 shadow-sm rounded-xl">
           View cart
         </Link>
       </div>

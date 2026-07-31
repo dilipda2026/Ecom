@@ -8,7 +8,7 @@ import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, Shopping
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
-import { createOrder, confirmPayment, failPayment, sendOrderNotification } from '@/features/orders/actions/customer';
+import { createOrder, confirmPayment, sendOrderNotification } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
 import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
@@ -59,18 +59,44 @@ export default function CheckoutPage() {
     );
   }
 
-  async function initiateRazorpayPayment(orderId: string, opts?: { method?: string; description?: string }) {
+  function buildOrderParams(pm: string) {
+    return {
+      items,
+      subtotal: subtotal(),
+      deliveryFee: deliveryFee(),
+      taxAmount: taxAmount(),
+      total: total(),
+      paymentMethod: pm,
+      address,
+      notes,
+      customerPhone,
+      customerName: customerName || undefined,
+      orderType: orderType ?? undefined,
+    };
+  }
+
+  async function validateAndPlace(pm: string) {
+    setError('');
+    if (pm === 'razorpay' && !razorpayKey) {
+      setError('Razorpay is not configured. Please choose Cash on Delivery.');
+      return false;
+    }
+    if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
+    if (!customerPhone.trim()) { setError('Please enter your phone number'); return false; }
+    setPlacing(true);
+    return true;
+  }
+
+  async function initiateRazorpayPayment(opts?: { method?: string; description?: string }) {
     const loaded = await loadRazorpayScript();
     if (!loaded || !razorpayKey) {
-      await failPayment(orderId);
-      clearCart();
-      router.push(`/order/confirmed?orderId=${orderId}`);
+      setError('Payment could not be initiated. Please try again.');
+      setPlacing(false);
       return;
     }
 
     const rzpResult = await createRazorpayOrder(total() * 100);
     if (!rzpResult.success) {
-      await failPayment(orderId);
       setError(rzpResult.error || 'Failed to initiate payment');
       setPlacing(false);
       return;
@@ -85,67 +111,54 @@ export default function CheckoutPage() {
       orderId: rzpResult.data.id,
       prefill: { contact: customerPhone },
       onSuccess: async () => {
-        await confirmPayment(orderId);
-        await sendOrderNotification(orderId);
+        const orderResult = await createOrder(buildOrderParams('razorpay'));
+        if (!orderResult.success) {
+          setError(orderResult.error ?? 'Payment succeeded but the order could not be saved. Please contact support.');
+          setPlacing(false);
+          return;
+        }
+        await confirmPayment(orderResult.data!.orderId);
+        await sendOrderNotification(orderResult.data!.orderId);
         clearCart();
-        router.push(`/order/confirmed?orderId=${orderId}`);
+        router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
       },
       onFailure: (err) => {
-        failPayment(orderId);
         setError(err);
         setPlacing(false);
       },
     });
   }
 
-  async function validateAndPlace(pm: string) {
-    setError('');
-    if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
-    if (!customerPhone.trim()) { setError('Please enter your phone number'); return false; }
-    setPlacing(true);
+  async function placeOrder(pm: string) {
+    const valid = await validateAndPlace(pm);
+    if (!valid) return;
 
-    const orderResult = await createOrder({
-      items,
-      subtotal: subtotal(),
-      deliveryFee: deliveryFee(),
-      taxAmount: taxAmount(),
-      total: total(),
-      paymentMethod: pm,
-      address,
-      notes,
-      customerPhone,
-      customerName: customerName || undefined,
-      orderType: orderType ?? undefined,
-    });
-
-    if (!orderResult.success) {
-      setError(orderResult.error ?? 'Failed to place order');
-      setPlacing(false);
-      return false;
-    }
-
-    return orderResult.data!.orderId;
-  }
-
-  async function handlePlaceOrder() {
-    const orderId = await validateAndPlace(paymentMethod);
-    if (!orderId) return;
-
-    if (paymentMethod === 'razorpay') {
-      await initiateRazorpayPayment(orderId);
+    if (pm === 'razorpay') {
+      await initiateRazorpayPayment();
       return;
     }
 
-    await confirmPayment(orderId);
-    await sendOrderNotification(orderId);
+    const orderResult = await createOrder(buildOrderParams(pm));
+    if (!orderResult.success) {
+      setError(orderResult.error ?? 'Failed to place order');
+      setPlacing(false);
+      return;
+    }
+
+    await confirmPayment(orderResult.data!.orderId);
+    await sendOrderNotification(orderResult.data!.orderId);
     clearCart();
-    router.push(`/order/confirmed?orderId=${orderId}`);
+    router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
+  }
+
+  async function handlePlaceOrder() {
+    await placeOrder(paymentMethod);
   }
 
   async function handleUpiPayment() {
-    const orderId = await validateAndPlace('razorpay');
-    if (!orderId) return;
-    await initiateRazorpayPayment(orderId, { method: 'upi', description: 'Pay via UPI' });
+    const valid = await validateAndPlace('razorpay');
+    if (!valid) return;
+    await initiateRazorpayPayment({ method: 'upi', description: 'Pay via UPI' });
   }
 
   const isDelivery = orderType === 'room_delivery';
