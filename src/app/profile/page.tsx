@@ -8,6 +8,9 @@ import { showToast } from '@/components/shared/Toast';
 import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
+import { usePolling } from '@/hooks/usePolling';
+
+const POLL_INTERVAL_MS = 30_000;
 
 export default function ProfilePage() {
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
@@ -44,16 +47,22 @@ export default function ProfilePage() {
     setAddressLoading(false);
   }
 
-  async function fetchDashboardData() {
-    setDashLoading(true);
+  async function fetchDashboardData(silent = false) {
+    if (!silent) setDashLoading(true);
     const [statsRes, ordersRes] = await Promise.all([
       getAdminDashboard(),
       getAdminOrders({ page: 1, pageSize: 10, sortBy: 'created_at', sortOrder: 'desc' }),
     ]);
     if (statsRes.success && statsRes.data) setStats(statsRes.data);
     if (ordersRes.success && ordersRes.data) setRecentOrders(ordersRes.data.data as AdminOrder[]);
-    setDashLoading(false);
+    if (!silent) setDashLoading(false);
   }
+
+  usePolling(
+    () => { fetchDashboardData(true); },
+    POLL_INTERVAL_MS,
+    tab === 'dashboard' && isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin'),
+  );
 
   function startEdit(field: string, currentValue: string) {
     setEditingField(field);
@@ -360,7 +369,7 @@ export default function ProfilePage() {
                 <h1 className="text-lg font-bold text-ztext">Dashboard</h1>
                 <p className="text-xs text-ztext-light">Platform overview</p>
               </div>
-              <button onClick={fetchDashboardData} className="p-2 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors" aria-label="Refresh">
+              <button onClick={() => fetchDashboardData()} className="p-2 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors" aria-label="Refresh">
                 <RefreshCw size={16} />
               </button>
             </div>

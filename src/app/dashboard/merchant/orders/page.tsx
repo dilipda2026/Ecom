@@ -8,6 +8,9 @@ import { canTransition, orderTypeLabel } from '@/features/orders/types';
 import { Skeleton, EmptyState, StatusBadge } from '@/components/ui';
 import { getMerchantRestaurant } from '@/features/restaurants/actions';
 import { createClient } from '@/infrastructure/supabase/client';
+import { usePolling } from '@/hooks/usePolling';
+
+const POLL_INTERVAL_MS = 30_000;
 
 const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
@@ -103,6 +106,8 @@ export default function OrdersPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [restaurantId]);
+
+  usePolling(() => { silentFetchRef.current(); }, POLL_INTERVAL_MS);
 
   const handleAction = async (orderId: string, status: OrderStatus, e: React.MouseEvent) => {
     e.stopPropagation();

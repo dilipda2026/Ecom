@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,8 +10,10 @@ import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/custom
 import type { Order } from '@/features/orders/types';
 import { orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
+import { usePolling } from '@/hooks/usePolling';
 
 const CANCELLATION_WINDOW_MS = 60_000;
+const POLL_INTERVAL_MS = 30_000;
 
 function useCountdown(createdAt: string) {
   const [remaining, setRemaining] = useState(() => CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime()));
@@ -145,17 +147,21 @@ export default function OrdersPage() {
   const loading = !ordersLoaded && activeTab === 'orders';
   const cartCount = totalItems();
 
-  useEffect(() => {
-    if (activeTab === 'orders' && isAuthenticated) {
-      getUserOrders(page, 5).then((res) => {
-        if (res.success && res.data) {
-          setOrders(res.data.orders);
-          setTotalPages(res.data.totalPages);
-        }
-        setOrdersLoaded(true);
-      });
+  const loadOrders = useCallback(async () => {
+    if (activeTab !== 'orders' || !isAuthenticated) return;
+    const res = await getUserOrders(page, 5);
+    if (res.success && res.data) {
+      setOrders(res.data.orders);
+      setTotalPages(res.data.totalPages);
     }
+    setOrdersLoaded(true);
   }, [activeTab, page, isAuthenticated]);
+
+  useEffect(() => {
+    loadOrders(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadOrders]);
+
+  usePolling(loadOrders, POLL_INTERVAL_MS, activeTab === 'orders' && isAuthenticated);
 
   async function handleCancelOrder(orderId: string, reason: string) {
     const res = await cancelUserOrder(orderId, reason);

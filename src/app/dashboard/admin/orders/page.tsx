@@ -6,8 +6,11 @@ import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastC
 import { getAdminOrders, forceUpdateOrderStatus, cancelOrderByAdmin, getAdminOrderById } from '@/features/admin/actions';
 import type { AdminOrder } from '@/features/admin/types';
 import { orderTypeLabel } from '@/features/orders/types';
+import { usePolling } from '@/hooks/usePolling';
 
 const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
+
+const POLL_INTERVAL_MS = 30_000;
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -25,8 +28,8 @@ export default function AdminOrdersPage() {
   const [forceReason, setForceReason] = useState('');
   const { toasts, addToast, removeToast } = useToast();
 
-  const fetchOrders = useCallback(async (p?: number) => {
-    setLoading(true);
+  const fetchOrders = useCallback(async (p?: number, silent = false) => {
+    if (!silent) setLoading(true);
     const res = await getAdminOrders({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
@@ -41,8 +44,10 @@ export default function AdminOrdersPage() {
       setTotalPages(res.data.totalPages);
       setPage(res.data.page);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [search, status, sortBy, sortOrder, page]);
+
+  usePolling(() => { fetchOrders(undefined, true); }, POLL_INTERVAL_MS);
 
   useEffect(() => {
     fetchOrders(1); // eslint-disable-line react-hooks/set-state-in-effect

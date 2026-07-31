@@ -16,6 +16,11 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: '❌ Cancelled',
 };
 
+const LEGACY_ACTION_ALIASES: Record<string, string> = {
+  accept: 'accepted',
+  reject: 'declined',
+};
+
 async function updateOrderStatus(
   supabase: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
@@ -73,9 +78,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Invalid action' });
     }
 
-    const [newStatus, orderId] = data.split(':') as [string, string];
+    const [rawStatus, orderId] = data.split(':') as [string, string];
     const chatId = message.chat.id;
     const msgId = message.message_id;
+
+    const newStatus = LEGACY_ACTION_ALIASES[rawStatus] ?? rawStatus;
 
     const validStatuses = ['accepted', 'declined', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
     if (!validStatuses.includes(newStatus)) {

@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
 import { getOrderTimelineEvent, orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
+import { usePolling } from '@/hooks/usePolling';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
 const CANCELLATION_WINDOW_MS = 60_000;
+const POLL_INTERVAL_MS = 15_000;
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,13 +23,21 @@ export default function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [remaining, setRemaining] = useState(0);
 
-  useEffect(() => {
+  const loadOrder = useCallback(async (silent = false) => {
     if (!id) return;
-    getUserOrder(id).then((res) => {
-      if (res.success && res.data) { setOrder(res.data); setRemaining(CANCELLATION_WINDOW_MS - (Date.now() - new Date(res.data.created_at).getTime())); }
-      setLoading(false);
-    });
+    const res = await getUserOrder(id);
+    if (res.success && res.data) {
+      setOrder(res.data);
+      if (!silent) setRemaining(CANCELLATION_WINDOW_MS - (Date.now() - new Date(res.data.created_at).getTime()));
+    }
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => {
+    loadOrder(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadOrder]);
+
+  usePolling(() => { loadOrder(true); }, POLL_INTERVAL_MS, !!id);
 
   useEffect(() => {
     if (remaining <= 0) return;
