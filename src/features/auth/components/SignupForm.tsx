@@ -128,7 +128,7 @@ export default function SignupForm() {
           <form onSubmit={handleCreateAccount} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Full name</label>
-              <input type="text" className="input-z w-full" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+              <input type="text" className="input-z w-full" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Phone number</label>

@@ -92,7 +92,7 @@ Optional: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_RAZORPAY_K
 
 | Doc | Contents |
 |---|---|
-| [SETUP.md](./SETUP.md) | **Runbook** — links, all SQL scripts in order, Telegram webhook commands, seed scripts, Vercel env checklist |
+<!-- | [SETUP.md](./SETUP.md) | **Runbook** — links, all SQL scripts in order, Telegram webhook commands, seed scripts, Vercel env checklist | -->
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Code flow: checkout, Telegram webhook, auth, polling, data layer |
 | [API.md](./API.md) | API routes + server action inventory + external API calls |
 | [DATABASE.md](./DATABASE.md) | Tables, RLS policies, RPCs, migrations |

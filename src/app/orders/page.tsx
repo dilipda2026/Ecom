@@ -137,7 +137,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
 }
 
 export default function OrdersPage() {
-  const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('cart');
+  const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('orders');
   const { isAuthenticated } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, taxAmount, total, totalItems } = useCartStore();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -196,16 +196,6 @@ export default function OrdersPage() {
         
         <div className="flex items-center gap-2 mb-8 bg-zcard p-1 rounded-2xl border border-zborder max-w-xs mx-auto">
           <button 
-            onClick={() => setActiveTab('cart')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'cart' 
-                ? 'bg-zgray text-ztext shadow-sm' 
-                : 'text-ztext-muted hover:text-ztext-light'
-            }`}
-          >
-            <ShoppingBag size={16} /> Cart {cartCount > 0 && <span className="w-5 h-5 rounded-full bg-zred text-white text-[10px] flex items-center justify-center ml-1">{cartCount}</span>}
-          </button>
-          <button 
             onClick={() => setActiveTab('orders')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'orders' 
@@ -214,6 +204,16 @@ export default function OrdersPage() {
             }`}
           >
             <ClipboardList size={16} /> Orders
+          </button>
+          <button 
+            onClick={() => setActiveTab('cart')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'cart' 
+                ? 'bg-zgray text-ztext shadow-sm' 
+                : 'text-ztext-muted hover:text-ztext-light'
+            }`}
+          >
+            <ShoppingBag size={16} /> Cart {cartCount > 0 && <span className="w-5 h-5 rounded-full bg-zred text-white text-[10px] flex items-center justify-center ml-1">{cartCount}</span>}
           </button>
         </div>
 
@@ -234,7 +234,7 @@ export default function OrdersPage() {
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex gap-3 items-center">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-zgray shrink-0 relative">
-                          <Image src={item.image} alt={item.name} fill className="object-cover" />
+                          <Image src={item.image} alt={item.name} fill sizes="(max-width: 640px) 56px, 64px" className="object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h2 className="font-semibold text-ztext text-sm truncate">{item.name}</h2>

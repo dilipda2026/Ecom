@@ -85,6 +85,7 @@ export default function MenuPage() {
             src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&h=600&fit=crop"
             alt="Delicious fresh food spread"
             fill
+            priority
             className="object-cover"
             sizes="(max-width: 1024px) 100vw, 1024px"
           />
