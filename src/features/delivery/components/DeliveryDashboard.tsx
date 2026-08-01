@@ -13,6 +13,7 @@ import {
   generateOtpForOrder,
   verifyOtpForDelivery,
   recordPaymentCollection,
+  recordDoorPayment,
   markOrderDelivered,
 } from '@/features/delivery/actions';
 import type { DeliveryDashboardData } from '@/features/delivery/types';
@@ -20,7 +21,8 @@ import { orderTypeLabel } from '@/features/orders/types';
 import { usePolling } from '@/hooks/usePolling';
 import { showToast } from '@/components/shared/Toast';
 import { useAuthStore } from '@/features/auth/store';
-import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin } from 'lucide-react';
+import { STORE_CONFIG } from '@/config/store';
+import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
@@ -57,6 +59,7 @@ type ModalState =
   | { type: 'otp'; orderId: string }
   | { type: 'verify'; orderId: string }
   | { type: 'pay'; orderId: string }
+  | { type: 'payqr'; orderId: string; total: number; trackingCode: string }
   | null;
 
 export default function DeliveryDashboard() {
@@ -232,6 +235,14 @@ export default function DeliveryDashboard() {
       {modal?.type === 'otp' && <OtpModal orderId={modal.orderId} onClose={() => setModal(null)} />}
       {modal?.type === 'verify' && <VerifyModal orderId={modal.orderId} onClose={() => setModal(null)} />}
       {modal?.type === 'pay' && <PayModal orderId={modal.orderId} onClose={() => setModal(null)} />}
+      {modal?.type === 'payqr' && (
+        <PayQrModal
+          orderId={modal.orderId}
+          total={modal.total}
+          trackingCode={modal.trackingCode}
+          onClose={() => { setModal(null); load(true); }}
+        />
+      )}
     </div>
   );
 }
@@ -390,7 +401,13 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
   const paymentCollected = isCod ? order.payment_status === 'confirmed' : true;
 
   const statusLabel = order.status.replace(/_/g, ' ');
-  const paymentLabel = isCod ? 'Pay on Delivery' : order.payment_method === 'razorpay' ? 'Paid online (Razorpay)' : order.payment_method === 'bnpl' ? 'BNPL credit' : (order.payment_method ?? '').toUpperCase();
+  const paymentLabel = isCod
+    ? 'Pay on Delivery'
+    : order.payment_method === 'razorpay'
+      ? paymentCollected ? 'Paid online' : 'Pay at door (UPI QR)'
+      : order.payment_method === 'bnpl'
+        ? 'BNPL credit'
+        : (order.payment_method ?? '').toUpperCase();
 
   return (
     <div className="bg-zcard rounded-xl shadow-z p-5">
@@ -400,7 +417,7 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
           <p className="text-xs text-ztext-light capitalize">{statusLabel} • {orderTypeLabel(order.order_type) || 'Delivery'}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${isCod ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${isCod || !paymentCollected ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
             {paymentLabel}
           </span>
           {order.customer_phone && (
@@ -454,6 +471,14 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
             </span>
           </div>
         )}
+        {!isCod && (
+          <div className="flex justify-between">
+            <span>Payment</span>
+            <span className={`font-medium ${paymentCollected ? 'text-green-500' : 'text-yellow-500'}`}>
+              {paymentCollected ? 'Paid at door ✓' : 'Pending — show the payment QR'}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>OTP check</span>
           <span className={`font-medium ${otpVerified ? 'text-green-500' : 'text-ztext-light'}`}>
@@ -479,8 +504,13 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
         )}
         {order.status === 'out_for_delivery' && (
           <>
+            {!isCod && !paymentCollected && (
+              <button onClick={() => setModal({ type: 'payqr', orderId: order.id, total: Number(order.total), trackingCode: order.tracking_code })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5">
+                <QrCode size={14} /> Payment QR
+              </button>
+            )}
             {!assignment.otp_value && (
-              <button onClick={() => setModal({ type: 'otp', orderId: order.id })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5">
+              <button onClick={() => setModal({ type: 'otp', orderId: order.id })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5 disabled:opacity-50" disabled={!isCod && !paymentCollected}>
                 <KeyRound size={14} /> Generate OTP
               </button>
             )}
@@ -667,7 +697,9 @@ function OtpModal({ orderId, onClose }: { orderId: string; onClose: () => void }
           <p className="text-xs text-ztext-light mt-3">
             {expiresIn > 0 ? `Valid for ${Math.floor(expiresIn / 60)}m ${expiresIn % 60}s` : 'Expired — generate a new one'}
           </p>
-          <p className="text-[11px] text-ztext-lighter mt-2">Tell the customer this code. They can see it on their order page too.</p>
+          <p className="text-[11px] text-ztext-lighter mt-2">
+            This code was emailed to the customer. Ask them to read it to you — or they can check it on their order page.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -746,6 +778,66 @@ function PayModal({ orderId, onClose }: { orderId: string; onClose: () => void }
         ))}
       </div>
       <p className="text-[11px] text-ztext-lighter mt-3">This marks the order as paid. Hand the customer their food afterwards.</p>
+    </ModalShell>
+  );
+}
+
+function PayQrModal({ orderId, total, trackingCode, onClose }: { orderId: string; total: number; trackingCode: string; onClose: () => void }) {
+  const [qrData, setQrData] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const upiId = STORE_CONFIG.upiId.trim();
+  const configError = upiId ? '' : 'Store UPI ID not configured yet.';
+
+  useEffect(() => {
+    if (!upiId) return;
+    let cancelled = false;
+    const upi = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(STORE_CONFIG.upiName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`DD ${trackingCode}`)}`;
+    QRCode.toDataURL(upi, { width: 640, margin: 2 })
+      .then((url) => { if (!cancelled) setQrData(url); })
+      .catch(() => { if (!cancelled) setError('Could not render the payment QR.'); });
+    return () => { cancelled = true; };
+  }, [upiId, total, trackingCode]);
+
+  async function confirmPaid() {
+    setBusy(true);
+    const res = await recordDoorPayment(orderId);
+    setBusy(false);
+    if (res.success) { setDone(true); showToast('Payment confirmed'); }
+    else setError(res.error ?? 'Failed to confirm payment');
+  }
+
+  return (
+    <ModalShell title="Payment QR" onClose={onClose}>
+      {done ? (
+        <div className="text-center space-y-3">
+          <p className="text-3xl">✅</p>
+          <p className="text-sm text-ztext font-medium">Payment confirmed</p>
+          <p className="text-xs text-ztext-light">The customer will receive their delivery OTP by email.</p>
+          <button onClick={onClose} className="button-z button-z-primary w-full h-11 text-sm">Continue</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-ztext font-medium">Ask the customer to scan this QR and pay ₹{total}</p>
+          {qrData ? (
+            <div className="flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrData} alt="Payment QR" className="w-56 h-56 rounded-xl border border-zborder bg-white p-2" />
+            </div>
+          ) : (
+            <div className="h-56 flex items-center justify-center text-xs text-ztext-lighter">
+              {configError || error || 'Preparing QR…'}
+            </div>
+          )}
+          <p className="text-[11px] text-ztext-lighter">After the customer pays, tap below — the delivery OTP will be emailed to them.</p>
+          {error && <p className="text-sm text-zred">{error}</p>}
+          <button onClick={confirmPaid} disabled={busy || !qrData} className="button-z button-z-primary w-full h-11 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            Payment received
+          </button>
+        </div>
+      )}
     </ModalShell>
   );
 }

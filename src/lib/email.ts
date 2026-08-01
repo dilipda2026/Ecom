@@ -47,6 +47,40 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
   }
 }
 
+export async function sendDeliveryOtpEmail(to: string, otp: string, trackingCode: string): Promise<boolean> {
+  if (!to) return false;
+  const t = getTransporter();
+  if (!t) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV EMAIL] To: ${to}, Delivery OTP for ${trackingCode}: ${otp}`);
+      return true;
+    }
+    return false;
+  }
+
+  try {
+    await t.sendMail({
+      from: process.env.SMTP_FROM || 'noreply@dilipda.com',
+      to,
+      subject: `Delivery OTP — Order ${trackingCode}`,
+      text: `Your delivery OTP for order ${trackingCode} is: ${otp}\n\nTell this code to your delivery partner to confirm delivery.\nThis OTP expires in 5 minutes.\n\n- Dilip Da`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:#EF4444">Delivery confirmation OTP</h2>
+          <p>Your delivery OTP for order <strong>${trackingCode}</strong> is:</p>
+          <p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#111">${otp}</p>
+          <p>Tell this code to your delivery partner to confirm your delivery.</p>
+          <p style="font-size:12px;color:#777">This OTP expires in <strong>5 minutes</strong>.</p>
+          <p>- Dilip Da</p>
+        </div>
+      `,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface OrderNotificationInfo {
   trackingCode: string;
   items: { name: string; quantity: number; price: number }[];

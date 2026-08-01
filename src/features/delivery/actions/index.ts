@@ -2,6 +2,7 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
+import { sendDeliveryOtpEmail } from '@/lib/email';
 import { deliveryRepository } from '../repositories';
 import {
   isQrConfigured,
@@ -245,6 +246,52 @@ export async function startPickupByTrackingCode(code: string) {
   return { success: true };
 }
 
+export async function recordDoorPayment(orderId: string) {
+  const user = await authorizeDeliveryPartner();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service not configured' };
+
+  const assignment = await deliveryRepository.getAssignmentByOrderId(orderId);
+  if (!assignment || assignment.delivery_partner_id !== user.id) {
+    return { success: false, error: 'This order is not assigned to you' };
+  }
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order) return { success: false, error: 'Order not found' };
+  if (order.payment_method === 'cod') {
+    return { success: false, error: 'Use the collect-payment flow for COD orders' };
+  }
+  if (order.payment_status === 'confirmed') {
+    return { success: false, error: 'Payment for this order is already confirmed' };
+  }
+
+  const { error: paymentError } = await supabase.from('payments').insert({
+    order_id: orderId,
+    user_id: order.user_id,
+    amount: order.total,
+    currency: 'INR',
+    payment_method: 'razorpay',
+    gateway: 'upi_qr',
+    status: 'confirmed',
+    metadata: { collection_method: 'upi_qr', collected_by: user.id },
+  });
+  if (paymentError) return { success: false, error: 'Failed to record payment' };
+
+  const { error: orderError } = await supabase
+    .from('orders')
+    .update({ payment_status: 'confirmed' })
+    .eq('id', orderId);
+  if (orderError) return { success: false, error: 'Failed to confirm payment' };
+
+  return { success: true };
+}
+
 export async function generateOtpForOrder(orderId: string) {
   const user = await authorizeDeliveryPartner();
   if (!user) return { success: false, error: 'Unauthorized' };
@@ -262,12 +309,15 @@ export async function generateOtpForOrder(orderId: string) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('status')
+    .select('status, payment_method, payment_status, customer_email, user_id, tracking_code')
     .eq('id', orderId)
     .maybeSingle();
   if (!order) return { success: false, error: 'Order not found' };
   if (order.status !== 'out_for_delivery') {
     return { success: false, error: 'Generate the OTP after picking up the order' };
+  }
+  if (order.payment_method !== 'cod' && order.payment_status !== 'confirmed') {
+    return { success: false, error: 'Confirm the door payment first (show the payment QR, then mark payment received)' };
   }
 
   const otp = generateDeliveryOtp();
@@ -285,7 +335,23 @@ export async function generateOtpForOrder(orderId: string) {
 
   if (error) return { success: false, error: 'Failed to generate OTP' };
 
-  return { success: true, data: { otp, expiresAt } };
+  let emailSent = false;
+  try {
+    let recipient = order.customer_email ?? null;
+    if (!recipient && order.user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', order.user_id)
+        .maybeSingle();
+      recipient = profile?.email ?? null;
+    }
+    if (recipient) {
+      emailSent = await sendDeliveryOtpEmail(recipient, otp, order.tracking_code);
+    }
+  } catch {}
+
+  return { success: true, data: { otp, expiresAt, emailSent } };
 }
 
 export async function verifyOtpForDelivery(orderId: string, otp: string) {

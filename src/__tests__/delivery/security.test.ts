@@ -92,3 +92,30 @@ describe('delivery OTP', () => {
     expect(DELIVERY_OTP_MAX_ATTEMPTS).toBe(3);
   });
 });
+
+describe('delivery OTP email', () => {
+  it('sends the OTP to the customer email and includes the tracking code', async () => {
+    const { sendDeliveryOtpEmail } = await import('@/lib/email');
+    process.env.NODE_ENV = 'development';
+    process.env.SMTP_HOST = '';
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const sent = await sendDeliveryOtpEmail('student@cit.ac.in', '482913', 'DD-X7K2L9P');
+    expect(sent).toBe(true);
+    const logged = consoleSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(logged).toContain('student@cit.ac.in');
+    expect(logged).toContain('482913');
+    expect(logged).toContain('DD-X7K2L9P');
+    consoleSpy.mockRestore();
+  });
+
+  it('returns false when there is no recipient', async () => {
+    const { sendDeliveryOtpEmail } = await import('@/lib/email');
+    process.env.NODE_ENV = 'development';
+    process.env.SMTP_HOST = '';
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const sent = await sendDeliveryOtpEmail('', '482913', 'DD-X7K2L9P');
+    expect(sent).toBe(false);
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+});
