@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
+import { isAllowedSigninEmail } from '@/config/auth-access';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
 export default function LoginForm() {
@@ -18,8 +19,8 @@ export default function LoginForm() {
     setError('');
 
     const normalizedEmail = email.toLowerCase().trim();
-    if (!normalizedEmail.endsWith('@cit.ac.in') && normalizedEmail !== 'lastw5232@gmail.com') {
-      setError('Only for CIT students');
+    if (!isAllowedSigninEmail(normalizedEmail)) {
+      setError('Only CIT students and authorized staff can sign in.');
       return;
     }
 
@@ -38,10 +39,16 @@ export default function LoginForm() {
 
     useAuthStore.getState().setUser(user);
 
-    if (user?.role === 'admin') {
-      window.location.href = '/admin';
+    const roleTarget: Record<string, string> = {
+      admin: '/admin',
+      super_admin: '/admin',
+      delivery: '/dashboard/delivery',
+    };
+
+    if (user?.role) {
+      window.location.href = roleTarget[user.role] ?? '/';
     } else {
-      window.location.href = user?.role ? '/' : '/auth/onboarding';
+      window.location.href = '/auth/onboarding';
     }
   }
 

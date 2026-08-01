@@ -5,17 +5,30 @@ import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
+import { setupDeliveryAccount, setupAdminAccount } from '@/features/auth/actions';
+import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 import { showToast } from '@/components/shared/Toast';
-import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail } from 'lucide-react';
+import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail, Bike } from 'lucide-react';
 
 const COUNTDOWN_SECONDS = 300;
 
+type AccountType = 'student' | 'delivery' | 'admin';
+
+const accountTypes: { value: AccountType; label: string; desc: string; emoji: string }[] = [
+  { value: 'student', label: 'Student', desc: 'CIT student, order food for delivery', emoji: '🎓' },
+  { value: 'delivery', label: 'Delivery Partner', desc: 'Deliver food and earn money', emoji: '🛵' },
+  { value: 'admin', label: 'Admin', desc: 'Manage orders and platform', emoji: '🔧' },
+];
+
 export default function SignupForm() {
   const [step, setStep] = useState<'email' | 'otp' | 'account'>('email');
+  const [accountType, setAccountType] = useState<AccountType>('student');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [vehicleType, setVehicleType] = useState('bike');
+  const [licensePlate, setLicensePlate] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState('');
@@ -52,7 +65,9 @@ export default function SignupForm() {
   async function handleSendOtp() {
     const normalizedEmail = email.toLowerCase().trim();
     if (!normalizedEmail.includes('@')) { showToast('Enter a valid email'); return; }
-    if (!normalizedEmail.endsWith('@cit.ac.in') && normalizedEmail !== 'lastw5232@gmail.com') { showToast('Only for CIT students'); return; }
+    if (accountType === 'student' && !isCitStudentEmail(normalizedEmail)) { showToast('Only for CIT students'); return; }
+    if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail)) { showToast('This email is not approved for delivery partners'); return; }
+    if (accountType === 'admin' && !isAdminEmail(normalizedEmail)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
     setDevOtp(null);
     const res = await sendSignupOtp(normalizedEmail);
@@ -61,7 +76,7 @@ export default function SignupForm() {
     if (res.success) {
       setStep('otp');
       setCountdown(COUNTDOWN_SECONDS);
-      setIsCitEmail(email.toLowerCase().endsWith('@cit.ac.in'));
+      setIsCitEmail(accountType === 'student' && isCitStudentEmail(normalizedEmail));
       showToast('OTP sent to your email');
       if ('devOtp' in res && res.devOtp) setDevOtp(res.devOtp as string);
     } else {
@@ -108,6 +123,27 @@ export default function SignupForm() {
     } catch {}
 
     useAuthStore.getState().setUser(user);
+
+    if (accountType === 'delivery') {
+      const formData = new FormData();
+      formData.set('vehicleType', vehicleType);
+      formData.set('licensePlate', licensePlate);
+      formData.set('phone', phone || '');
+      const result = await setupDeliveryAccount(formData);
+      if (result.error) { setError(result.error); return; }
+      window.location.href = result.redirect ?? '/dashboard/delivery';
+      return;
+    }
+
+    if (accountType === 'admin') {
+      const formData = new FormData();
+      formData.set('phone', phone || '');
+      const result = await setupAdminAccount(formData);
+      if (result.error) { setError(result.error); return; }
+      window.location.href = result.redirect ?? '/admin';
+      return;
+    }
+
     window.location.href = '/';
   }
 
@@ -134,6 +170,22 @@ export default function SignupForm() {
               <label className="block text-sm font-medium text-ztext mb-1.5">Phone number</label>
               <input type="tel" className="input-z w-full" placeholder="Enter your phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
+            {accountType === 'delivery' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-ztext mb-1.5">Vehicle type</label>
+                  <select className="input-z w-full" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+                    <option value="bike">Bike</option>
+                    <option value="scooter">Scooter</option>
+                    <option value="car">Car</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ztext mb-1.5">License plate <span className="text-ztext-lighter">(optional)</span></label>
+                  <input type="text" className="input-z w-full" placeholder="e.g. AS01 AB 1234" value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
+                </div>
+              </>
+            )}
             <div>
               <label className="block text-sm font-medium text-ztext mb-1.5">Password</label>
               <input type="password" className="input-z w-full" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
@@ -216,15 +268,25 @@ export default function SignupForm() {
         <p className="text-ztext-light text-sm mb-6">Join Dilip Da and start ordering</p>
 
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {accountTypes.map((t) => (
+              <button key={t.value} type="button" onClick={() => setAccountType(t.value)}
+                className={`text-left p-3 rounded-xl border-2 transition-all ${accountType === t.value ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'}`}>
+                <div className="text-xl">{t.emoji}</div>
+                <div className="font-semibold text-ztext text-sm mt-1">{t.label}</div>
+                <div className="text-xs text-ztext-light">{t.desc}</div>
+              </button>
+            ))}
+          </div>
           <div>
             <label className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-            <input type="email" className="input-z w-full" placeholder="youremail@cit.ac.in" value={email} onChange={(e) => setEmail(e.target.value)} required
+            <input type="email" className="input-z w-full" placeholder={accountType === 'student' ? 'youremail@cit.ac.in' : 'youremail@example.com'} value={email} onChange={(e) => setEmail(e.target.value)} required
               onKeyDown={(e) => { if (e.key === 'Enter') handleSendOtp(); }} />
           </div>
           <button onClick={handleSendOtp} disabled={sending || !email.trim()}
             className="button-z button-z-primary w-full h-12 text-sm flex items-center justify-center gap-2"
           >
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+            {sending ? <Loader2 size={16} className="animate-spin" /> : accountType === 'delivery' ? <Bike size={16} /> : <Mail size={16} />}
             {sending ? 'Sending OTP...' : 'Send OTP'}
           </button>
         </div>

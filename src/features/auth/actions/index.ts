@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
+import { isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -152,6 +153,82 @@ export async function completeOnboarding(formData: FormData) {
   };
 
   return { error: null, redirect: dashboards[role] ?? '/' };
+}
+
+export async function setupDeliveryAccount(formData: FormData) {
+  const supabase = createServiceClient();
+  if (!supabase) return { error: 'Supabase not configured', redirect: null };
+
+  const { user } = await getServerSession();
+  if (!user) return { error: 'Not authenticated', redirect: null };
+
+  if (!isDeliveryEmail(user.email)) {
+    return { error: 'This email is not approved for delivery partners', redirect: null };
+  }
+
+  const vehicleType = (formData.get('vehicleType') as string) || 'bike';
+  const licensePlate = (formData.get('licensePlate') as string)?.trim() || null;
+  const phone = (formData.get('phone') as string)?.trim() || null;
+
+  if (!['bike', 'scooter', 'car'].includes(vehicleType)) {
+    return { error: 'Invalid vehicle type', redirect: null };
+  }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role: 'delivery', phone });
+
+  if (profileError) return { error: profileError.message, redirect: null };
+
+  const { data: existing } = await supabase
+    .from('delivery_partners')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error: partnerError } = await supabase.from('delivery_partners').insert({
+      id: user.id,
+      vehicle_type: vehicleType,
+      license_plate: licensePlate,
+      is_available: true,
+    });
+    if (partnerError) return { error: partnerError.message, redirect: null };
+  }
+
+  const authSupabase = await createServerSupabaseClient();
+  if (authSupabase) {
+    await authSupabase.auth.updateUser({ data: { role: 'delivery' } });
+  }
+
+  return { error: null, redirect: '/dashboard/delivery' };
+}
+
+export async function setupAdminAccount(formData: FormData) {
+  const supabase = createServiceClient();
+  if (!supabase) return { error: 'Supabase not configured', redirect: null };
+
+  const { user } = await getServerSession();
+  if (!user) return { error: 'Not authenticated', redirect: null };
+
+  if (!isAdminEmail(user.email)) {
+    return { error: 'This email is not approved for admin access', redirect: null };
+  }
+
+  const phone = (formData.get('phone') as string)?.trim() || null;
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role: 'admin', phone });
+
+  if (profileError) return { error: profileError.message, redirect: null };
+
+  const authSupabase = await createServerSupabaseClient();
+  if (authSupabase) {
+    await authSupabase.auth.updateUser({ data: { role: 'admin' } });
+  }
+
+  return { error: null, redirect: '/admin' };
 }
 
 export async function sendPasswordResetEmail(email: string) {

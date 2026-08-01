@@ -1,0 +1,22 @@
+const DEFAULT_ADMIN_EMAILS = ['lastw5232@gmail.com'];
+const DEFAULT_DELIVERY_EMAILS = ['u24cse1034@cit.ac.in'];
+
+export const CIT_STUDENT_DOMAIN = 'cit.ac.in';
+export const ADMIN_EMAILS = DEFAULT_ADMIN_EMAILS.map((e) => e.toLowerCase());
+export const DELIVERY_EMAILS = DEFAULT_DELIVERY_EMAILS.map((e) => e.toLowerCase());
+
+export function isCitStudentEmail(email: string) {
+  return email.trim().toLowerCase().endsWith('@cit.ac.in');
+}
+
+export function isAdminEmail(email: string) {
+  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isDeliveryEmail(email: string) {
+  return DELIVERY_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isAllowedSigninEmail(email: string) {
+  return isCitStudentEmail(email) || isAdminEmail(email) || isDeliveryEmail(email);
+}
