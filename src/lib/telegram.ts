@@ -50,6 +50,27 @@ export async function sendTelegramMessageWithButtons(
   }) as Promise<TelegramMessageResult | null>;
 }
 
+export async function sendTelegramPhoto(caption: string, pngBuffer: Buffer, buttons: InlineButton[][] = []) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    if (process.env.NODE_ENV === 'development') console.log(`[DEV TELEGRAM PHOTO] ${caption}`);
+    return null;
+  }
+  try {
+    const form = new FormData();
+    form.append('chat_id', String(Number(chatId)));
+    form.append('photo', new Blob([new Uint8Array(pngBuffer)], { type: 'image/png' }), 'pickup-qr.png');
+    form.append('caption', caption);
+    form.append('parse_mode', 'HTML');
+    if (buttons.length > 0) form.append('reply_markup', JSON.stringify({ inline_keyboard: buttons }));
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form });
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export async function editTelegramMessage(
   chatId: number,
   messageId: number,

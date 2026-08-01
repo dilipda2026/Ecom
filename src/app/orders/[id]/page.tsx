@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer, Bike, KeyRound, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
+import { getCustomerDeliveryInfo } from '@/features/delivery/actions';
 import { getOrderTimelineEvent, orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
@@ -12,6 +13,20 @@ import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
 const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 15_000;
+
+interface DeliveryInfo {
+  hasDelivery: boolean;
+  orderStatus: string;
+  assignment: {
+    status: string;
+    otpValue: string | null;
+    otpExpiresAt: string | null;
+    otpVerifiedAt: string | null;
+  } | null;
+  partner: { fullName: string | null; phone: string | null } | null;
+  payment: { method: string | null; status: string };
+  total: number;
+}
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +37,8 @@ export default function OrderDetailPage() {
   const [showCancelInput, setShowCancelInput] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [remaining, setRemaining] = useState(0);
+  const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo | null>(null);
+  const [showOtp, setShowOtp] = useState(false);
 
   const loadOrder = useCallback(async (silent = false) => {
     if (!id) return;
@@ -30,6 +47,8 @@ export default function OrderDetailPage() {
       setOrder(res.data);
       if (!silent) setRemaining(CANCELLATION_WINDOW_MS - (Date.now() - new Date(res.data.created_at).getTime()));
     }
+    const deliveryRes = await getCustomerDeliveryInfo(id);
+    if (deliveryRes.success && deliveryRes.data) setDeliveryInfo(deliveryRes.data);
     setLoading(false);
   }, [id]);
 
@@ -140,6 +159,67 @@ export default function OrderDetailPage() {
             </div>
           </div>
         </div>
+
+        {deliveryInfo?.hasDelivery && (
+          <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
+            <div className="flex items-center gap-2 text-sm mb-3">
+              <Bike size={16} className="text-zred" />
+              <p className="font-semibold text-ztext">Delivery</p>
+            </div>
+
+            <div className="space-y-1.5 text-sm">
+              {deliveryInfo.partner && (
+                <div className="flex justify-between text-ztext-light">
+                  <span>Partner</span>
+                  <span className="font-medium text-ztext">
+                    {deliveryInfo.partner.fullName ?? 'Assigned'}
+                    {deliveryInfo.partner.phone && (
+                      <a href={`tel:${deliveryInfo.partner.phone}`} className="ml-2 text-zred hover:underline">Call</a>
+                    )}
+                  </span>
+                </div>
+              )}
+              {deliveryInfo.assignment && (
+                <div className="flex justify-between text-ztext-light">
+                  <span>Status</span>
+                  <span className="font-medium text-ztext capitalize">{deliveryInfo.assignment.status.replace(/_/g, ' ')}</span>
+                </div>
+              )}
+
+              {deliveryInfo.payment.method === 'cod' && (
+                <div className="flex justify-between text-ztext-light">
+                  <span>Payment at door</span>
+                  {deliveryInfo.payment.status === 'confirmed' ? (
+                    <span className="font-medium text-green-500 flex items-center gap-1"><BadgeCheck size={14} /> Collected</span>
+                  ) : (
+                    <span className="font-medium text-yellow-500">₹{deliveryInfo.total > 0 ? Number(deliveryInfo.total).toLocaleString('en-IN') : ''} — Cash / UPI / Card</span>
+                  )}
+                </div>
+              )}
+
+              {deliveryInfo.assignment?.otpValue && deliveryInfo.assignment.otpExpiresAt && new Date(deliveryInfo.assignment.otpExpiresAt) > new Date() && !deliveryInfo.assignment.otpVerifiedAt && (
+                <div className="pt-2 mt-1 border-t border-zborder">
+                  {showOtp ? (
+                    <div className="text-center py-1">
+                      <p className="font-mono text-3xl font-bold tracking-[0.3em] text-ztext">{deliveryInfo.assignment.otpValue}</p>
+                      <p className="text-[11px] text-ztext-lighter mt-2">Share this code with your delivery partner to confirm delivery.</p>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowOtp(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-zred/30 text-sm font-medium text-zred hover:bg-red-500/5 transition-colors">
+                      <KeyRound size={14} /> Show delivery OTP
+                    </button>
+                  )}
+                </div>
+              )}
+              {deliveryInfo.assignment?.otpVerifiedAt && (
+                <div className="flex justify-between text-ztext-light">
+                  <span>OTP check</span>
+                  <span className="font-medium text-green-500 flex items-center gap-1"><BadgeCheck size={14} /> Verified</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {address && (
           <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">

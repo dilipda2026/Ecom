@@ -22,7 +22,29 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser();
+  const role = data.user?.user_metadata?.role as string | undefined;
+
+  if (role === 'delivery') {
+    const { pathname } = request.nextUrl;
+    const isStorePath =
+      pathname === '/' ||
+      pathname === '/menu' ||
+      pathname === '/cart' ||
+      pathname === '/checkout' ||
+      pathname === '/orders' ||
+      pathname === '/favorites' ||
+      pathname === '/profile' ||
+      pathname.startsWith('/order/') ||
+      pathname.startsWith('/restaurant/');
+    if (isStorePath) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard/delivery';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return response;
 }
 

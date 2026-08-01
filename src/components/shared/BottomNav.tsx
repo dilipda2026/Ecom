@@ -14,9 +14,10 @@ const tabs = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   if (pathname?.startsWith('/admin')) return null;
+  if (user?.role === 'delivery') return null;
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';

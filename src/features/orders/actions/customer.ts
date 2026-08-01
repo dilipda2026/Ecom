@@ -5,6 +5,7 @@ import { getServerSession } from '@/features/auth/actions';
 import type { CartItem } from '@/features/cart/types';
 import type { Order } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
+import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -137,6 +138,17 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Failed to save order items' };
   }
 
+  try {
+    if (isQrConfigured()) {
+      const qrToken = signQrToken(order.tracking_code);
+      const qrExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      await supabase
+        .from('orders')
+        .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: qrExpiresAt })
+        .eq('id', order.id);
+    }
+  } catch {}
+
   return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
 }
 
@@ -170,7 +182,7 @@ export async function sendOrderNotification(orderId: string) {
     customerName: data.customer_name,
     customerPhone: data.customer_phone,
     orderType: data.order_type,
-  }, data.status);
+  }, data.status, data.pickup_qr_token ?? null);
 }
 
 export async function confirmPayment(orderId: string) {

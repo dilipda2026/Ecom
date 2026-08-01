@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Eye, XCircle, Clock } from 'lucide-react';
+import { RefreshCw, Eye, XCircle, Clock, Bike, Loader2, QrCode } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
-import { getAdminOrders, forceUpdateOrderStatus, cancelOrderByAdmin, getAdminOrderById } from '@/features/admin/actions';
+import { getAdminOrders, forceUpdateOrderStatus, cancelOrderByAdmin, getAdminOrderById, getAvailableDeliveryPartners, assignDeliveryPartner, regenerateOrderQr } from '@/features/admin/actions';
 import type { AdminOrder } from '@/features/admin/types';
 import { orderTypeLabel } from '@/features/orders/types';
 import { usePolling } from '@/hooks/usePolling';
+import QRCode from 'qrcode';
 
 const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
 
@@ -26,7 +27,68 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [forceStatus, setForceStatus] = useState('');
   const [forceReason, setForceReason] = useState('');
+  const [assignTarget, setAssignTarget] = useState<AdminOrder | null>(null);
+  const [partners, setPartners] = useState<Array<{ id: string; full_name: string | null; phone: string | null; vehicle_type: string; total_deliveries: number }>>([]);
+  const [assigning, setAssigning] = useState(false);
+  const [qrTarget, setQrTarget] = useState<AdminOrder | null>(null);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrExpiresAt, setQrExpiresAt] = useState<string>('');
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrSecondsLeft, setQrSecondsLeft] = useState(0);
   const { toasts, addToast, removeToast } = useToast();
+
+  const openAssign = async (o: AdminOrder) => {
+    setAssignTarget(o);
+    setAssigning(true);
+    const res = await getAvailableDeliveryPartners();
+    setAssigning(false);
+    if (res.success && res.data) setPartners(res.data);
+    else addToast(res.error ?? 'Failed to load partners', 'error');
+  };
+
+  const openQr = async (o: AdminOrder) => {
+    setQrTarget(o);
+    setQrLoading(true);
+    const hasFreshToken = o.pickup_qr_token && o.pickup_qr_expires_at && new Date(o.pickup_qr_expires_at).getTime() > Date.now();
+    if (hasFreshToken) {
+      setQrToken(o.pickup_qr_token ?? null);
+      setQrExpiresAt(o.pickup_qr_expires_at ?? '');
+    } else {
+      const res = await regenerateOrderQr(o.id);
+      if (res.success && res.data) {
+        setQrToken(res.data.token);
+        setQrExpiresAt(res.data.expiresAt);
+      } else {
+        addToast(res.error ?? 'Failed to generate QR', 'error');
+        setQrTarget(null);
+      }
+    }
+    setQrLoading(false);
+  };
+
+  const handleRegenerateQr = async () => {
+    if (!qrTarget) return;
+    setQrLoading(true);
+    const res = await regenerateOrderQr(qrTarget.id);
+    setQrLoading(false);
+    if (res.success && res.data) {
+      setQrToken(res.data.token);
+      setQrExpiresAt(res.data.expiresAt);
+      addToast('New QR generated', 'success');
+      fetchOrders();
+    } else {
+      addToast(res.error ?? 'Failed to regenerate', 'error');
+    }
+  };
+
+  const handleAssign = async (partnerId: string) => {
+    if (!assignTarget) return;
+    setAssigning(true);
+    const res = await assignDeliveryPartner(assignTarget.id, partnerId);
+    setAssigning(false);
+    if (res.success) { addToast('Delivery partner assigned', 'success'); setAssignTarget(null); fetchOrders(); }
+    else addToast(res.error ?? 'Failed to assign', 'error');
+  };
 
   const fetchOrders = useCallback(async (p?: number, silent = false) => {
     if (!silent) setLoading(true);
@@ -50,7 +112,7 @@ export default function AdminOrdersPage() {
   usePolling(() => { fetchOrders(undefined, true); }, POLL_INTERVAL_MS);
 
   useEffect(() => {
-    fetchOrders(1); // eslint-disable-line react-hooks/set-state-in-effect
+    fetchOrders(1);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCancel = async (id: string, reason: string) => {
@@ -70,6 +132,27 @@ export default function AdminOrdersPage() {
     const res = await getAdminOrderById(id);
     if (res.success && res.data) setSelectedOrder(res.data as AdminOrder);
   };
+
+  useEffect(() => {
+    if (!qrTarget) return;
+    const tick = () => {
+      const left = qrExpiresAt ? Math.max(0, Math.floor((new Date(qrExpiresAt).getTime() - Date.now()) / 1000)) : 0;
+      setQrSecondsLeft(left);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [qrTarget, qrExpiresAt]);
+
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (!qrToken) return;
+    QRCode.toDataURL(qrToken, { width: 384, margin: 2 })
+      .then((url) => { if (active) setQrDataUrl(url); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [qrToken]);
 
   const columns = [
     { key: 'tracking', header: 'Tracking', render: (o: AdminOrder) => (
@@ -118,6 +201,14 @@ export default function AdminOrdersPage() {
         </button>
         {o.status !== 'cancelled' && o.status !== 'completed' && o.status !== 'delivered' && (
           <>
+            <button onClick={() => openQr(o)} className="p-1.5 hover:bg-purple-500/10 rounded-lg text-ztext-muted hover:text-purple-600 transition-colors" title="Show pickup QR">
+              <QrCode size={14} />
+            </button>
+            {o.status === 'ready' && (
+              <button onClick={() => openAssign(o)} className="p-1.5 hover:bg-green-500/10 rounded-lg text-ztext-muted hover:text-green-600 transition-colors" title="Assign delivery partner">
+                <Bike size={14} />
+              </button>
+            )}
             <button onClick={() => setConfirmAction({ type: 'force', id: o.id })} className="p-1.5 hover:bg-blue-500/10 rounded-lg text-ztext-muted hover:text-blue-600 transition-colors" title="Force update">
               <Clock size={14} />
             </button>
@@ -202,6 +293,69 @@ export default function AdminOrdersPage() {
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pickup QR modal */}
+      {qrTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setQrTarget(null)}>
+          <div className="bg-zcard rounded-2xl p-6 max-w-sm w-full shadow-z-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-ztext">Pickup QR</h3>
+              <button onClick={() => setQrTarget(null)} aria-label="Close QR" className="p-1 hover:bg-zgray rounded-lg">&times;</button>
+            </div>
+            <p className="text-sm text-ztext-lighter mt-1">Order {qrTarget.tracking_code} • ₹{Number(qrTarget.total).toLocaleString('en-IN')}</p>
+            <p className="text-xs text-ztext-light mt-0.5">Show this to any available delivery partner — scanning it claims the order.</p>
+            <div className="mt-4 flex flex-col items-center">
+              {qrLoading ? (
+                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" /></div>
+              ) : qrDataUrl && qrToken ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrDataUrl} alt={`Pickup QR for ${qrTarget.tracking_code}`} className="w-56 h-56 rounded-xl border border-zborder bg-white p-2" />
+                  <div className={`mt-3 text-xs font-medium ${qrSecondsLeft <= 60 ? 'text-red-400' : 'text-ztext-light'}`}>
+                    {qrSecondsLeft > 0 ? `Expires in ${Math.floor(qrSecondsLeft / 60)}:${String(qrSecondsLeft % 60).padStart(2, '0')}` : 'Expired — regenerate a new QR'}
+                  </div>
+                  <button onClick={handleRegenerateQr} disabled={qrLoading}
+                    className="mt-3 px-4 py-2 text-xs font-medium text-white bg-zred rounded-xl hover:bg-zred-dark transition-colors disabled:opacity-50">
+                    Regenerate QR
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-ztext-light py-12 text-center">Could not generate QR.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign delivery partner modal */}
+      {assignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setAssignTarget(null)}>
+          <div className="bg-zcard rounded-2xl p-6 max-w-sm w-full shadow-z-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-ztext">Assign delivery partner</h3>
+            <p className="text-sm text-ztext-lighter mt-1">Order {assignTarget.tracking_code} • ₹{Number(assignTarget.total).toLocaleString('en-IN')}</p>
+            <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
+              {assigning ? (
+                <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-ztext-lighter" /></div>
+              ) : partners.length === 0 ? (
+                <p className="text-sm text-ztext-light py-4 text-center">No available delivery partners.</p>
+              ) : (
+                partners.map((p) => (
+                  <button key={p.id} onClick={() => handleAssign(p.id)}
+                    className="w-full text-left p-3 rounded-xl border border-zborder hover:border-zred hover:bg-red-500/5 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-ztext">{p.full_name ?? 'Delivery partner'}</span>
+                      <span className="text-xs text-ztext-lighter capitalize">{p.vehicle_type}</span>
+                    </div>
+                    <div className="text-xs text-ztext-lighter mt-0.5">
+                      {p.phone ?? 'no phone'} • {p.total_deliveries} deliveries
+                    </div>
+                  </button>
+                ))
               )}
             </div>
           </div>

@@ -1,5 +1,6 @@
-import { sendTelegramMessageWithButtons } from './telegram';
+import { sendTelegramMessageWithButtons, sendTelegramPhoto } from './telegram';
 import { sendOrderNotificationEmail } from './email';
+import QRCode from 'qrcode';
 
 interface OrderInfo {
   id: string;
@@ -89,11 +90,19 @@ export function getStatusButtons(orderId: string, currentStatus: string): Array<
   return [actions.map((a) => ({ text: a.text, callback_data: `${a.status}:${orderId}` }))];
 }
 
-export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending') {
+export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending', qrToken: string | null = null) {
   const buttons = getStatusButtons(order.id, currentStatus);
   const badge = STATUS_BADGE[currentStatus] ?? currentStatus;
 
   await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n${badge}`, buttons);
+
+  if (qrToken) {
+    try {
+      const png = await QRCode.toBuffer(qrToken, { type: 'png', width: 512, margin: 2 });
+      const caption = `🪪 <b>Pickup QR</b> — #${order.trackingCode}\nShow this at the store to assign a delivery partner.`;
+      await sendTelegramPhoto(caption, png);
+    } catch {}
+  }
 
   const emailTo = process.env.NOTIFICATION_EMAIL;
   if (emailTo) {

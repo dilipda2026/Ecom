@@ -244,6 +244,69 @@ export async function getAdminOrderById(id: string) {
   }
 }
 
+export async function getAvailableDeliveryPartners() {
+  try {
+    await authorizeAdmin();
+    const data = await adminRepository.getAvailableDeliveryPartners();
+    return { success: true, data };
+  } catch (e) {
+    return { success: false, error: (e as Error).message, data: null };
+  }
+}
+
+export async function assignDeliveryPartner(orderId: string, partnerId: string) {
+  try {
+    const { user } = await authorizeAdmin();
+    await adminRepository.assignDeliveryPartner(orderId, partnerId);
+    await adminRepository.createAuditLog({
+      table_name: 'orders',
+      record_id: orderId,
+      action: 'assign_delivery_partner',
+      new_data: { delivery_partner_id: partnerId },
+      changed_by: user.id,
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
+export async function regenerateOrderQr(orderId: string) {
+  try {
+    const { user } = await authorizeAdmin();
+    const order = await adminRepository.getOrderById(orderId);
+    if (!order) return { success: false, error: 'Order not found' };
+    if (['delivered', 'completed', 'cancelled', 'declined'].includes(order.status)) {
+      return { success: false, error: 'Order is already finished' };
+    }
+
+    const { signQrToken, isQrConfigured } = await import('@/features/delivery/lib/security');
+    if (!isQrConfigured()) return { success: false, error: 'Delivery QR is not configured on the server' };
+
+    const token = signQrToken(order.tracking_code);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from('orders')
+      .update({ pickup_qr_token: token, pickup_qr_expires_at: expiresAt })
+      .eq('id', orderId);
+    if (error) throw new Error(error.message);
+
+    await adminRepository.createAuditLog({
+      table_name: 'orders',
+      record_id: orderId,
+      action: 'regenerate_pickup_qr',
+      new_data: { expires_at: expiresAt },
+      changed_by: user.id,
+    });
+
+    return { success: true, data: { token, expiresAt } };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
 export async function forceUpdateOrderStatus(orderId: string, newStatus: string, reason: string) {
   try {
     const { user } = await authorizeAdmin();

@@ -283,6 +283,89 @@ export class AdminRepository {
     }
   }
 
+  async getAvailableDeliveryPartners(): Promise<Array<{
+    id: string;
+    full_name: string | null;
+    phone: string | null;
+    vehicle_type: string;
+    total_deliveries: number;
+    rating: number | null;
+  }>> {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('delivery_partners')
+      .select('id, vehicle_type, total_deliveries, rating, profile:profiles!delivery_partners_id_fkey(full_name, phone)')
+      .eq('is_available', true)
+      .order('total_deliveries', { ascending: false });
+    const rows = (data ?? []) as unknown as Array<{
+      id: string;
+      vehicle_type: string;
+      total_deliveries: number;
+      rating: number | null;
+      profile: Array<{ full_name: string | null; phone: string | null }> | null;
+    }>;
+    return rows.map((p) => ({
+      id: p.id,
+      full_name: p.profile?.[0]?.full_name ?? null,
+      phone: p.profile?.[0]?.phone ?? null,
+      vehicle_type: p.vehicle_type,
+      total_deliveries: p.total_deliveries,
+      rating: p.rating,
+    }));
+  }
+
+  async assignDeliveryPartner(orderId: string, partnerId: string): Promise<void> {
+    const admin = createAdminClient();
+
+    const { data: order } = await admin
+      .from('orders')
+      .select('status, delivery_partner_id')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (!order) throw new Error('Order not found');
+    if (order.status !== 'ready') throw new Error('Order must be ready before assigning a partner');
+    if (order.delivery_partner_id === partnerId) return;
+
+    const { data: partner } = await admin
+      .from('delivery_partners')
+      .select('id, is_available')
+      .eq('id', partnerId)
+      .maybeSingle();
+    if (!partner) throw new Error('Delivery partner not found');
+    if (!partner.is_available) throw new Error('Delivery partner is not available');
+
+    const { data: existing } = await admin
+      .from('delivery_assignments')
+      .select('id')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await admin
+        .from('delivery_assignments')
+        .update({ delivery_partner_id: partnerId, status: 'assigned', assigned_at: new Date().toISOString() })
+        .eq('id', existing.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await admin
+        .from('delivery_assignments')
+        .insert({ order_id: orderId, delivery_partner_id: partnerId, status: 'assigned' });
+      if (error) throw new Error(error.message);
+    }
+
+    const { error: orderError } = await admin
+      .from('orders')
+      .update({ status: 'assigned', delivery_partner_id: partnerId })
+      .eq('id', orderId);
+    if (orderError) throw new Error(orderError.message);
+
+    const { error: partnerError } = await admin
+      .from('delivery_partners')
+      .update({ is_available: false })
+      .eq('id', partnerId);
+    if (partnerError) throw new Error(partnerError.message);
+  }
+
   async getOrders(filter: AdminFilter & { restaurantId?: string } = {}): Promise<PaginatedResponse<AdminOrder>> {
     const admin = createAdminClient();
     const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate, restaurantId } = filter;

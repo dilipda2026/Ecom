@@ -97,6 +97,8 @@ export interface AdminOrder {
   delivery_address: Record<string, unknown> | null;
   cancellation_reason: string | null;
   order_type: string | null;
+  pickup_qr_token?: string | null;
+  pickup_qr_expires_at?: string | null;
   created_at: string;
   updated_at: string;
   restaurant_name?: string;
