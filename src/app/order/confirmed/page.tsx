@@ -80,10 +80,11 @@ function OrderConfirmedContent() {
             )}
           </div>
 
-          <div className="bg-zcard rounded-xl shadow-z p-6 mt-4">
+          <Link href={`/order/track?code=${encodeURIComponent(order.tracking_code)}`} className="bg-zcard rounded-xl shadow-z p-6 mt-4 block hover:border hover:border-zred/30 transition-colors">
             <p className="text-sm text-ztext-light">Tracking code</p>
             <p className="text-2xl font-black text-ztext tracking-wider mt-1">{order.tracking_code}</p>
-          </div>
+            <p className="text-xs text-zred mt-2 font-medium">Track order live →</p>
+          </Link>
         </>
       ) : (
         <div className="bg-zcard rounded-xl shadow-z p-6 mt-8">

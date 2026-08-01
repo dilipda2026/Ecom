@@ -118,7 +118,7 @@ export default function CheckoutPage() {
           return;
         }
         await confirmPayment(orderResult.data!.orderId);
-        await sendOrderNotification(orderResult.data!.orderId);
+        await sendOrderNotification(orderResult.data!.orderId, orderResult.data!.qrToken ?? null);
         clearCart();
         router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
       },
@@ -146,7 +146,7 @@ export default function CheckoutPage() {
     }
 
     await confirmPayment(orderResult.data!.orderId);
-    await sendOrderNotification(orderResult.data!.orderId);
+    await sendOrderNotification(orderResult.data!.orderId, orderResult.data!.qrToken ?? null);
     clearCart();
     router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
   }

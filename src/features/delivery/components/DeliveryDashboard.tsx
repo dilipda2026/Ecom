@@ -20,9 +20,34 @@ import { orderTypeLabel } from '@/features/orders/types';
 import { usePolling } from '@/hooks/usePolling';
 import { showToast } from '@/components/shared/Toast';
 import { useAuthStore } from '@/features/auth/store';
-import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Clock, Phone, ChevronDown, ChevronUp, User, LogOut } from 'lucide-react';
+import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
+
+function decodeQrFromFile(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        resolve(code?.data ?? null);
+      };
+      img.onerror = () => resolve(null);
+      img.src = String(reader.result);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -214,8 +239,10 @@ export default function DeliveryDashboard() {
 function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [code, setCode] = useState('');
 
   useEffect(() => {
@@ -232,7 +259,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
         }
         tick();
       } catch {
-        setError('Camera unavailable — type the tracking code instead.');
+        setError('Camera unavailable — upload a QR photo or type the order ID instead.');
       }
     }
 
@@ -279,6 +306,28 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
     else setError(res.error ?? 'Could not start pickup');
   }
 
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadBusy(true);
+    setError('');
+    try {
+      const token = await decodeQrFromFile(file);
+      if (!token) {
+        setError('No QR code found in the image. Try a clearer photo.');
+        setUploadBusy(false);
+        return;
+      }
+      const res = await startPickupByToken(token);
+      if (res.success) onClaimed();
+      else setError(res.error ?? 'Invalid QR');
+    } catch {
+      setError('Could not read the image');
+    }
+    setUploadBusy(false);
+    e.target.value = '';
+  }
+
   return (
     <div className="mt-6">
       <div className="relative rounded-2xl overflow-hidden bg-black aspect-square flex items-center justify-center">
@@ -298,18 +347,31 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
       {error && <p className="text-sm text-zred mt-2 text-center">{error}</p>}
 
       <div className="mt-3 flex gap-2">
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={busy || uploadBusy}
+          className="button-z button-z-outline flex-1 h-11 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {uploadBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+          Upload QR image
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      </div>
+
+      <div className="mt-3 flex gap-2">
         <input
           value={code}
-          onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(''); }}
+          onChange={(e) => { setCode(e.target.value); setError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter') claimByCode(); }}
-          placeholder="Tracking code (assigned orders)"
+          placeholder="Tracking code or order ID"
           className="input-z flex-1 font-mono text-sm"
-          disabled={busy}
+          disabled={busy || uploadBusy}
         />
-        <button onClick={claimByCode} disabled={busy || code.trim().length === 0} className="button-z button-z-outline h-11 px-4 text-sm disabled:opacity-50">
+        <button onClick={claimByCode} disabled={busy || uploadBusy || code.trim().length === 0} className="button-z button-z-outline h-11 px-4 text-sm disabled:opacity-50">
           {busy ? <Loader2 size={16} className="animate-spin" /> : 'Go'}
         </button>
       </div>
+      <p className="text-[11px] text-ztext-lighter mt-1.5">Typing a code or order ID only works for orders already assigned to you — use the QR to claim new ones.</p>
     </div>
   );
 }
@@ -328,6 +390,7 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
   const paymentCollected = isCod ? order.payment_status === 'confirmed' : true;
 
   const statusLabel = order.status.replace(/_/g, ' ');
+  const paymentLabel = isCod ? 'Pay on Delivery' : order.payment_method === 'razorpay' ? 'Paid online (Razorpay)' : order.payment_method === 'bnpl' ? 'BNPL credit' : (order.payment_method ?? '').toUpperCase();
 
   return (
     <div className="bg-zcard rounded-xl shadow-z p-5">
@@ -336,33 +399,58 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
           <p className="font-mono text-sm font-semibold text-ztext">{order.tracking_code}</p>
           <p className="text-xs text-ztext-light capitalize">{statusLabel} • {orderTypeLabel(order.order_type) || 'Delivery'}</p>
         </div>
-        {order.customer_phone && (
-          <a href={`tel:${order.customer_phone}`} className="icon-button-z" aria-label="Call customer">
-            <Phone size={16} />
-          </a>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${isCod ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            {paymentLabel}
+          </span>
+          {order.customer_phone && (
+            <a href={`tel:${order.customer_phone}`} className="icon-button-z" aria-label="Call customer">
+              <Phone size={16} />
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl bg-zsurface/60 border border-zborder p-3 space-y-1.5">
+        <div className="flex items-center gap-2 text-sm">
+          <User size={15} className="text-zred shrink-0" />
+          <span className="font-semibold text-ztext truncate">{order.customer_name ?? 'Customer'}</span>
+        </div>
+        {address?.address && (
+          <div className="flex items-start gap-2 text-sm">
+            <MapPin size={15} className="text-zred shrink-0 mt-0.5" />
+            <span className="text-ztext-light">
+              {address.address}{address.city ? `, ${address.city}` : ''}{address.pincode ? ` - ${address.pincode}` : ''}
+            </span>
+          </div>
         )}
       </div>
 
-      <div className="mt-3 space-y-1 text-sm">
-        <div className="flex justify-between text-ztext-light">
-          <span>Items</span>
-          <span className="font-medium text-ztext">{order.order_items?.map((i) => `${i.quantity}x ${i.product_name}`).join(', ') ?? '-'}</span>
-        </div>
-        {address?.address && (
-          <div className="flex justify-between text-ztext-light">
-            <span>Deliver to</span>
-            <span className="font-medium text-ztext max-w-[60%] text-right">{address.address}{address.city ? `, ${address.city}` : ''}</span>
+      {order.order_items && order.order_items.length > 0 && (
+        <div className="mt-3 rounded-xl bg-zsurface/60 border border-zborder p-3">
+          <p className="text-[11px] font-semibold text-ztext-lighter uppercase tracking-wider mb-2">Items</p>
+          <div className="space-y-1.5">
+            {order.order_items.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm gap-2">
+                <span className="text-ztext-light">{item.quantity}x {item.product_name}</span>
+                <span className="font-medium text-ztext shrink-0">₹{item.subtotal}</span>
+              </div>
+            ))}
           </div>
-        )}
-        <div className="flex justify-between text-ztext-light">
-          <span>Amount</span>
-          <span className="font-bold text-ztext">₹{order.total}</span>
+          <div className="border-t border-zborder mt-2 pt-2 space-y-1 text-xs">
+            <div className="flex justify-between text-ztext-lighter"><span>Subtotal</span><span>₹{order.subtotal}</span></div>
+            <div className="flex justify-between text-ztext-lighter"><span>Delivery</span><span>{order.delivery_fee > 0 ? `₹${order.delivery_fee}` : 'Free'}</span></div>
+            <div className="flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{order.total}</span></div>
+          </div>
         </div>
+      )}
+
+      <div className="mt-3 space-y-1.5 text-sm">
         {isCod && (
           <div className="flex justify-between">
             <span>Payment</span>
             <span className={`font-medium ${paymentCollected ? 'text-green-500' : 'text-yellow-500'}`}>
-              {paymentCollected ? 'Collected at door' : `Collect ₹${order.total} (Cash/UPI/Card)`}
+              {paymentCollected ? 'Collected at door ✓' : `Collect ₹${order.total} (Cash/UPI/Card)`}
             </span>
           </div>
         )}

@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
 import type { CartItem } from '@/features/cart/types';
-import type { Order } from '../types';
+import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
 
@@ -138,21 +138,21 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Failed to save order items' };
   }
 
+  let qrToken: string | null = null;
   try {
     if (isQrConfigured()) {
-      const qrToken = signQrToken(order.tracking_code);
-      const qrExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      qrToken = signQrToken(order.tracking_code);
       await supabase
         .from('orders')
-        .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: qrExpiresAt })
+        .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
         .eq('id', order.id);
     }
   } catch {}
 
-  return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
+  return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code, qrToken } };
 }
 
-export async function sendOrderNotification(orderId: string) {
+export async function sendOrderNotification(orderId: string, qrTokenOverride?: string | null) {
   const supabase = createServiceClient();
   if (!supabase) return;
 
@@ -182,7 +182,55 @@ export async function sendOrderNotification(orderId: string) {
     customerName: data.customer_name,
     customerPhone: data.customer_phone,
     orderType: data.order_type,
-  }, data.status, data.pickup_qr_token ?? null);
+  }, data.status, qrTokenOverride ?? data.pickup_qr_token ?? null);
+}
+
+export async function getOrderTrackingByCode(trackingCode: string) {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service not configured' };
+
+  const { user } = await getServerSession();
+  if (!user) return { success: false, error: 'Please sign in to track your order' };
+
+  const code = (trackingCode || '').trim().toUpperCase();
+  if (!/^[A-Z0-9-]+$/.test(code)) {
+    return { success: false, error: 'Enter a valid tracking code' };
+  }
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('tracking_code', code)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!order) return { success: false, error: 'No order found with this tracking code' };
+
+  const { data: assignment } = await supabase
+    .from('delivery_assignments')
+    .select('*')
+    .eq('order_id', order.id)
+    .maybeSingle();
+
+  const { data: partner } = order.delivery_partner_id
+    ? await supabase.from('profiles').select('full_name, phone').eq('id', order.delivery_partner_id).maybeSingle()
+    : { data: null };
+
+  return {
+    success: true,
+    data: {
+      order: order as Order & { order_items?: OrderItem[] },
+      assignment: assignment
+        ? {
+            status: assignment.status,
+            otpValue: assignment.otp_value ?? null,
+            otpExpiresAt: assignment.otp_expires_at ?? null,
+            otpVerifiedAt: assignment.otp_verified_at ?? null,
+          }
+        : null,
+      partner: partner ? { fullName: partner.full_name ?? null, phone: partner.phone ?? null } : null,
+    },
+  };
 }
 
 export async function confirmPayment(orderId: string) {

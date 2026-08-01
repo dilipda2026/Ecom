@@ -286,12 +286,15 @@ export async function regenerateOrderQr(orderId: string) {
     const token = signQrToken(order.tracking_code);
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-    const admin = createAdminClient();
-    const { error } = await admin
-      .from('orders')
-      .update({ pickup_qr_token: token, pickup_qr_expires_at: expiresAt })
-      .eq('id', orderId);
-    if (error) throw new Error(error.message);
+    // Persisting the token is best-effort (needs the pickup_qr_token column).
+    try {
+      const admin = createAdminClient();
+      const { error } = await admin
+        .from('orders')
+        .update({ pickup_qr_token: token, pickup_qr_expires_at: expiresAt })
+        .eq('id', orderId);
+      if (error) throw new Error(error.message);
+    } catch {}
 
     await adminRepository.createAuditLog({
       table_name: 'orders',
@@ -299,7 +302,7 @@ export async function regenerateOrderQr(orderId: string) {
       action: 'regenerate_pickup_qr',
       new_data: { expires_at: expiresAt },
       changed_by: user.id,
-    });
+    }).catch(() => {});
 
     return { success: true, data: { token, expiresAt } };
   } catch (e) {

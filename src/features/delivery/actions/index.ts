@@ -143,10 +143,14 @@ export async function startPickupByToken(token: string) {
   if (!supabase) return { success: false, error: 'Service not configured' };
 
   const verified = verifyQrToken(token);
-  if (!verified) return { success: false, error: 'Invalid or expired QR code. Ask the store for a fresh QR.' };
+  if (!verified) return { success: false, error: 'QR/Order id expires — ask the store for a fresh QR.' };
 
   const order = await deliveryRepository.getOrderByTrackingCode(verified.trackingCode);
   if (!order) return { success: false, error: 'Order not found' };
+
+  if (Date.now() - new Date(order.created_at).getTime() > DELIVERY_QR_TTL_MS) {
+    return { success: false, error: 'QR/Order id expires — ask the store for a fresh QR.' };
+  }
 
   const claimable = ['pending', 'accepted', 'preparing', 'ready', 'assigned'];
   if (!claimable.includes(order.status)) {
@@ -200,14 +204,21 @@ export async function startPickupByToken(token: string) {
   return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
 }
 
-export async function startPickupByTrackingCode(trackingCode: string) {
+export async function startPickupByTrackingCode(code: string) {
   const user = await authorizeDeliveryPartner();
   if (!user) return { success: false, error: 'Unauthorized' };
 
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service not configured' };
 
-  const order = await deliveryRepository.getOrderByTrackingCode(trackingCode.trim().toUpperCase());
+  const trimmed = (code || '').trim();
+  if (!trimmed) return { success: false, error: 'Enter a tracking code or order ID' };
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+
+  const { data: order } = isUuid
+    ? await supabase.from('orders').select('*').eq('id', trimmed).maybeSingle()
+    : await supabase.from('orders').select('*').eq('tracking_code', trimmed.toUpperCase()).maybeSingle();
   if (!order) return { success: false, error: 'Order not found' };
 
   const assignment = await deliveryRepository.getAssignmentByOrderId(order.id);
