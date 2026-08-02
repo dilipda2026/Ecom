@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -32,7 +32,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const store = useCartStore();
   const { items, subtotal, deliveryFee, taxAmount, total, clearCart } = store;
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const [orderType, setOrderType] = useState<OrderType | null>('room_delivery');
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [address, setAddress] = useState('');
@@ -44,6 +44,36 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
   const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/auth/login?next=/checkout');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  async function handleAuthRejected(errorMessage?: string | null) {
+    if (!errorMessage) return false;
+    const m = errorMessage.toLowerCase();
+    if (!m.includes('sign in') && !m.includes('authenticated') && !m.includes('unauthorized') && !m.includes('session')) {
+      return false;
+    }
+    setPlacing(false);
+    await useAuthStore.getState().signOut();
+    router.replace('/auth/login?next=/checkout');
+    return true;
+  }
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-zgray">
+        <div className="page-pad">
+          <div className="container-z mx-auto max-w-xl flex items-center justify-center py-24">
+            <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -113,6 +143,7 @@ export default function CheckoutPage() {
       onSuccess: async () => {
         const orderResult = await createOrder(buildOrderParams('razorpay'));
         if (!orderResult.success) {
+          if (await handleAuthRejected(orderResult.error)) return;
           setError(orderResult.error ?? 'Payment succeeded but the order could not be saved. Please contact support.');
           setPlacing(false);
           return;
@@ -140,6 +171,7 @@ export default function CheckoutPage() {
 
     const orderResult = await createOrder(buildOrderParams(pm));
     if (!orderResult.success) {
+      if (await handleAuthRejected(orderResult.error)) return;
       setError(orderResult.error ?? 'Failed to place order');
       setPlacing(false);
       return;

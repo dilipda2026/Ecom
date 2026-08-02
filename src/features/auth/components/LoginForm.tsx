@@ -13,6 +13,7 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const next = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('next') : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +47,10 @@ export default function LoginForm() {
     };
 
     if (user?.role) {
-      window.location.href = roleTarget[user.role] ?? '/';
+      const target = (next && next.startsWith('/') && !roleTarget[user.role])
+        ? next
+        : (roleTarget[user.role] ?? '/');
+      window.location.href = target;
     } else {
       window.location.href = '/auth/onboarding';
     }

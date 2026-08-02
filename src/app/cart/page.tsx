@@ -2,13 +2,22 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Minus, Plus, Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
+import { useAuthStore } from '@/features/auth/store';
 
 export default function CartPage() {
+  const router = useRouter();
   const store = useCartStore();
   const { items, updateQuantity, removeItem, clearCart, subtotal, deliveryFee, taxAmount, total, totalItems } = store;
+  const { isAuthenticated, isLoading } = useAuthStore();
   const count = totalItems();
+
+  function goToCheckout() {
+    if (isLoading) return;
+    router.push(isAuthenticated ? '/checkout' : '/auth/login?next=/checkout');
+  }
 
   if (items.length === 0) {
     return (
@@ -74,9 +83,9 @@ export default function CartPage() {
                 <div className="flex justify-between text-ztext-light"><span>Tax</span><span className="font-medium text-ztext">₹{taxAmount()}</span></div>
                 <div className="border-t border-zborder pt-2 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
               </div>
-              <Link href="/checkout" className="button-z button-z-primary w-full mt-4 h-10 text-sm font-bold">
+              <button onClick={goToCheckout} className="button-z button-z-primary w-full mt-4 h-10 text-sm font-bold">
                 Proceed to checkout
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -88,9 +97,9 @@ export default function CartPage() {
               <p className="text-[10px] text-ztext-light">{count} item{count > 1 ? 's' : ''} • ₹{subtotal()} + ₹{deliveryFee() + taxAmount()} fees</p>
               <p className="text-sm font-bold text-ztext">₹{total()}</p>
             </div>
-            <Link href="/checkout" className="button-z button-z-primary text-xs font-bold px-5 h-9">
+            <button onClick={goToCheckout} className="button-z button-z-primary text-xs font-bold px-5 h-9">
               Checkout
-            </Link>
+            </button>
           </div>
         </div>
       </div>

@@ -318,7 +318,10 @@ export default function OrdersPage() {
                       <p className="text-sm font-bold text-ztext">Total: ₹{total()}</p>
                       <p className="text-[10px] text-ztext-light mt-0.5">Includes ₹{deliveryFee() + taxAmount()} fees</p>
                     </div>
-                    <Link href="/checkout" className="button-z button-z-primary text-sm font-bold px-8 h-10 w-full sm:w-auto">
+                    <Link
+                      href={isAuthenticated ? '/checkout' : '/auth/login?next=/checkout'}
+                      className="button-z button-z-primary text-sm font-bold px-8 h-10 w-full sm:w-auto"
+                    >
                       Checkout
                     </Link>
                   </div>

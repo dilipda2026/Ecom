@@ -32,6 +32,7 @@ export async function createOrder(params: CreateOrderParams) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   const { user } = await getServerSession();
+  if (!user) return { success: false, error: 'Please sign in to place your order' };
 
   let restaurantId: string;
   try {
