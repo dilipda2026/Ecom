@@ -33,9 +33,10 @@ export async function getDeliveryDashboard() {
   const partner = await deliveryRepository.getPartnerByUserId(user.id);
   if (!partner) return { success: false, error: 'Delivery partner profile not found', data: null };
 
-  const [activeRows, today] = await Promise.all([
+  const [activeRows, today, stats] = await Promise.all([
     deliveryRepository.getActiveAssignments(user.id),
     deliveryRepository.getDeliveredToday(user.id),
+    deliveryRepository.getDeliveryStats(user.id),
   ]);
 
   const active = activeRows.map((row) => {
@@ -56,8 +57,22 @@ export async function getDeliveryDashboard() {
       deliveredToday,
       deliveredTodayCount: today.count,
       deliveredTodayValue: today.value,
+      stats,
     },
   };
+}
+
+export async function getDeliveryHistory() {
+  const user = await authorizeDeliveryPartner();
+  if (!user) return { success: false, error: 'Unauthorized', data: null };
+
+  const rows = await deliveryRepository.getDeliveredHistory(user.id);
+  const entries = rows.map((row) => {
+    const { orders, ...assignment } = row;
+    return { assignment, order: orders };
+  });
+
+  return { success: true, data: { entries } };
 }
 
 export async function generateDeliveryQr(orderId: string) {

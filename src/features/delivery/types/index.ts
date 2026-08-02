@@ -40,10 +40,25 @@ export interface DeliveredTodayRow {
   order: Order | null;
 }
 
+export interface DeliveryStats {
+  count: number;
+  value: number;
+}
+
+export interface DeliveryHistoryEntry {
+  assignment: DeliveryAssignment;
+  order: Order | null;
+}
+
 export interface DeliveryDashboardData {
   partner: DeliveryPartnerRow;
   active: ActiveDelivery[];
   deliveredToday: DeliveredTodayRow[];
   deliveredTodayCount: number;
   deliveredTodayValue: number;
+  stats: {
+    today: DeliveryStats;
+    week: DeliveryStats;
+    total: DeliveryStats;
+  };
 }

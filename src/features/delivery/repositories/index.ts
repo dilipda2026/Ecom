@@ -49,6 +49,63 @@ export const deliveryRepository = {
     };
   },
 
+  async getDeliveredHistory(partnerId: string, limit = 500) {
+    const supabase = createServiceClient();
+    if (!supabase) return [];
+    const { data } = await supabase
+      .from('delivery_assignments')
+      .select(`*, ${ORDER_EMBED}`)
+      .eq('delivery_partner_id', partnerId)
+      .eq('status', 'delivered')
+      .not('delivered_at', 'is', null)
+      .order('delivered_at', { ascending: false })
+      .limit(limit);
+    return (data ?? []) as Array<DeliveryAssignment & { orders: Order | null }>;
+  },
+
+  async getDeliveryStats(partnerId: string) {
+    const empty = { today: { count: 0, value: 0 }, week: { count: 0, value: 0 }, total: { count: 0, value: 0 } };
+    const supabase = createServiceClient();
+    if (!supabase) return empty;
+    const { data } = await supabase
+      .from('delivery_assignments')
+      .select('delivered_at, orders!delivery_assignments_order_id_fkey(total)')
+      .eq('delivery_partner_id', partnerId)
+      .eq('status', 'delivered')
+      .not('delivered_at', 'is', null)
+      .limit(2000);
+    const rows = (data ?? []) as Array<{ delivered_at: string | null; orders: Array<{ total: number | string }> | null }>;
+
+    const now = new Date();
+    const startToday = new Date(now);
+    startToday.setHours(0, 0, 0, 0);
+    const startWeek = new Date(startToday);
+    const dow = startWeek.getDay();
+    startWeek.setDate(startWeek.getDate() - (dow === 0 ? 6 : dow - 1));
+
+    const stats = {
+      today: { count: 0, value: 0 },
+      week: { count: 0, value: 0 },
+      total: { count: 0, value: 0 },
+    };
+    for (const row of rows) {
+      if (!row.delivered_at) continue;
+      const ts = new Date(row.delivered_at).getTime();
+      const value = Number(row.orders?.[0]?.total ?? 0);
+      stats.total.count += 1;
+      stats.total.value += value;
+      if (ts >= startToday.getTime()) {
+        stats.today.count += 1;
+        stats.today.value += value;
+      }
+      if (ts >= startWeek.getTime()) {
+        stats.week.count += 1;
+        stats.week.value += value;
+      }
+    }
+    return stats;
+  },
+
   async getAssignmentByOrderId(orderId: string) {
     const supabase = createServiceClient();
     if (!supabase) return null;

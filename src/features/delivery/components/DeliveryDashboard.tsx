@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   getDeliveryDashboard,
+  getDeliveryHistory,
   generateDeliveryQr,
   startPickupManual,
   startPickupByToken,
@@ -16,13 +17,14 @@ import {
   recordDoorPayment,
   markOrderDelivered,
 } from '@/features/delivery/actions';
-import type { DeliveryDashboardData } from '@/features/delivery/types';
+import type { DeliveryDashboardData, DeliveryHistoryEntry } from '@/features/delivery/types';
 import { orderTypeLabel } from '@/features/orders/types';
 import { usePolling } from '@/hooks/usePolling';
 import { showToast } from '@/components/shared/Toast';
 import { useAuthStore } from '@/features/auth/store';
 import { STORE_CONFIG } from '@/config/store';
-import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin } from 'lucide-react';
+import { groupDeliveriesByDay } from '@/features/delivery/lib/history';
+import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin, CameraOff, TrendingUp, Wallet, Search, CalendarDays } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
@@ -68,7 +70,6 @@ export default function DeliveryDashboard() {
   const [modal, setModal] = useState<ModalState>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [view, setView] = useState<'scan' | 'active'>('scan');
-  const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
   const { signOut } = useAuthStore();
 
@@ -148,11 +149,12 @@ export default function DeliveryDashboard() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 grid-cols-3">
+        <div className="mt-5 grid gap-3 grid-cols-2">
           {[
-            { icon: Clock, label: 'Active', value: String(data.active.length) },
-            { icon: CheckCircle2, label: 'Today', value: String(data.deliveredTodayCount) },
-            { icon: Banknote, label: 'Collected', value: `₹${data.deliveredTodayValue.toLocaleString('en-IN')}` },
+            { icon: Clock, label: 'Active now', value: String(data.active.length), sub: 'deliveries in progress' },
+            { icon: CheckCircle2, label: 'Today', value: String(data.stats.today.count), sub: `₹${data.stats.today.value.toLocaleString('en-IN')}` },
+            { icon: TrendingUp, label: 'This week', value: String(data.stats.week.count), sub: `₹${data.stats.week.value.toLocaleString('en-IN')}` },
+            { icon: Wallet, label: 'All time', value: String(data.stats.total.count), sub: `₹${data.stats.total.value.toLocaleString('en-IN')}` },
           ].map((s) => (
             <div key={s.label} className="bg-zcard rounded-xl shadow-z p-3.5">
               <div className="flex items-center gap-2.5">
@@ -162,6 +164,7 @@ export default function DeliveryDashboard() {
                 <div className="min-w-0">
                   <p className="text-[11px] text-ztext-light truncate">{s.label}</p>
                   <p className="font-bold text-ztext text-sm">{s.value}</p>
+                  <p className="text-[10px] text-ztext-lighter truncate">{s.sub}</p>
                 </div>
               </div>
             </div>
@@ -202,32 +205,7 @@ export default function DeliveryDashboard() {
           </>
         )}
 
-        <div className="mt-8 bg-zcard rounded-xl shadow-z">
-          <button onClick={() => setShowHistory((s) => !s)} className="w-full flex items-center justify-between p-4 text-sm font-bold text-ztext">
-            Delivered today ({data.deliveredTodayCount})
-            {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-          {showHistory && (
-            <div className="px-4 pb-4 space-y-2">
-              {data.deliveredToday.length === 0 ? (
-                <p className="text-sm text-ztext-light py-2">No deliveries yet today.</p>
-              ) : (
-                data.deliveredToday.map(({ assignment, order }) => (
-                  <div key={assignment.id} className="flex items-center justify-between text-xs py-1.5 border-t border-zborder/60">
-                    <div className="min-w-0">
-                      <p className="font-mono font-medium text-ztext truncate">{order?.tracking_code ?? assignment.order_id}</p>
-                      <p className="text-ztext-lighter">
-                        {order?.order_items ? `${order.order_items.reduce((s, i) => s + i.quantity, 0)} item(s)` : ''}
-                        {assignment.delivered_at ? ` • ${new Date(assignment.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-                      </p>
-                    </div>
-                    <span className="font-bold text-ztext">₹{Number(order?.total ?? 0).toLocaleString('en-IN')}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+        <HistorySection />
       </div>
 
       {modal?.type === 'qr' && <QrModal orderId={modal.orderId} trackingCode={modal.trackingCode} onClose={() => setModal(null)} />}
@@ -251,6 +229,12 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const onClaimedRef = useRef(onClaimed);
+  useEffect(() => {
+    onClaimedRef.current = onClaimed;
+  });
+  const [camera, setCamera] = useState<'starting' | 'running' | 'error'>('starting');
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -263,14 +247,21 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
 
     async function start() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current && stream) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+        if (stopped) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
+        setCamera('running');
         tick();
       } catch {
-        setError('Camera unavailable — upload a QR photo or type the order ID instead.');
+        if (!stopped) setCamera('error');
       }
     }
 
@@ -278,7 +269,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
       if (stopped) return;
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
@@ -290,7 +281,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
             setBusy(true);
             startPickupByToken(decoded.data).then((res) => {
               setBusy(false);
-              if (res.success) onClaimed();
+              if (res.success) onClaimedRef.current();
               else { setError(res.error ?? 'Invalid QR'); tick(); }
             });
             return;
@@ -306,7 +297,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
       cancelAnimationFrame(raf);
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, [onClaimed]);
+  }, [attempt]);
 
   async function claimByCode() {
     if (code.trim().length === 0) return;
@@ -342,12 +333,28 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   return (
     <div className="mt-6">
       <div className="relative rounded-2xl overflow-hidden bg-black aspect-square flex items-center justify-center">
-        <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
+        <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
         <canvas ref={canvasRef} className="hidden" />
         {busy && (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
             <Loader2 className="text-white w-6 h-6 animate-spin" />
             <p className="text-white text-xs">Processing…</p>
+          </div>
+        )}
+        {camera === 'starting' && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+            <Loader2 className="text-white w-6 h-6 animate-spin" />
+            <p className="text-white text-xs">Starting camera…</p>
+          </div>
+        )}
+        {camera === 'error' && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <CameraOff size={28} className="text-white/70" />
+            <p className="text-white text-sm font-medium">Camera unavailable</p>
+            <p className="text-white/60 text-xs">Allow camera access for this site, or use the upload / manual options below.</p>
+            <button onClick={() => { setError(''); setAttempt((a) => a + 1); }} className="button-z button-z-primary h-10 px-4 text-sm">
+              Retry camera
+            </button>
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -839,5 +846,114 @@ function PayQrModal({ orderId, total, trackingCode, onClose }: { orderId: string
         </div>
       )}
     </ModalShell>
+  );
+}
+
+function HistorySection() {
+  const [entries, setEntries] = useState<DeliveryHistoryEntry[] | null>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function loadHistory() {
+    if (entries !== null) return;
+    setLoading(true);
+    const res = await getDeliveryHistory();
+    setLoading(false);
+    if (res.success && res.data) setEntries(res.data.entries);
+  }
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && entries === null) loadHistory();
+  }
+
+  const filtered = useMemo(() => {
+    if (!entries) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(
+      (e) =>
+        (e.order?.tracking_code ?? '').toLowerCase().includes(q) ||
+        (e.order?.customer_name ?? '').toLowerCase().includes(q),
+    );
+  }, [entries, query]);
+
+  const groups = useMemo(() => groupDeliveriesByDay(filtered), [filtered]);
+
+  return (
+    <div className="mt-8 bg-zcard rounded-xl shadow-z">
+      <button onClick={toggle} className="w-full flex items-center justify-between p-4 text-sm font-bold text-ztext">
+        <span className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-zred" />
+          Delivery history
+          {entries !== null && <span className="text-xs font-normal text-ztext-light">({entries.length})</span>}
+        </span>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          {entries === null ? (
+            <div className="py-4 flex items-center justify-center">
+              {loading ? <Loader2 size={18} className="animate-spin text-ztext-lighter" /> : null}
+            </div>
+          ) : (
+            <>
+              {entries.length > 0 && (
+                <div className="relative mb-3">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-lighter" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search tracking code or customer"
+                    className="input-z pl-9 text-sm"
+                  />
+                </div>
+              )}
+              {groups.length === 0 ? (
+                <p className="text-sm text-ztext-light py-2">
+                  {entries.length === 0 ? 'No deliveries yet. Your completed deliveries will show up here.' : 'No deliveries match your search.'}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {groups.map((g) => (
+                    <div key={g.key}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-ztext">{g.label}</span>
+                        <span className="text-ztext-lighter">
+                          {g.entries.length} delivery{g.entries.length === 1 ? '' : 'ies'} •{' '}
+                          <span className="font-bold text-ztext">₹{g.totalValue.toLocaleString('en-IN')}</span>
+                        </span>
+                      </div>
+                      <div className="mt-1.5 space-y-1.5">
+                        {g.entries.map(({ assignment, order }) => (
+                          <div key={assignment.id} className="flex items-center justify-between text-xs py-2 px-2.5 rounded-lg bg-zsurface/60 border border-zborder">
+                            <div className="min-w-0">
+                              <p className="font-mono font-medium text-ztext truncate">{order?.tracking_code ?? assignment.order_id}</p>
+                              <p className="text-ztext-lighter truncate">
+                                {order?.order_items ? `${order.order_items.reduce((s, i) => s + i.quantity, 0)} item(s)` : ''}
+                                {order?.customer_name ? ` • ${order.customer_name}` : ''}
+                                {order?.payment_method ? ` • ${order.payment_method.toUpperCase()}` : ''}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0 pl-3">
+                              <p className="font-bold text-ztext">₹{Number(order?.total ?? 0).toLocaleString('en-IN')}</p>
+                              <p className="text-ztext-lighter">
+                                {assignment.delivered_at ? new Date(assignment.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
