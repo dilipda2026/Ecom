@@ -3,29 +3,32 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { useCartStore } from '@/features/cart/store';
-import { Minus, Plus, Search } from 'lucide-react';
-import FavoriteButton from '@/components/shared/FavoriteButton';
+import { Search, Banknote, Star } from 'lucide-react';
+import DishCard from '@/components/shared/DishCard';
+import type { MenuItem, MenuSection } from '@/features/menu/data';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  desc: string;
-  veg: boolean;
-  popular: boolean;
-  img: string;
-}
-
-interface MenuSection {
-  category: string;
-  items: MenuItem[];
+function initialFromUrl(): { category: string; vegOnly: boolean; priceCap: number | null; popularOnly: boolean } {
+  if (typeof window === 'undefined') {
+    return { category: 'All', vegOnly: false, priceCap: null, popularOnly: false };
+  }
+  const q = new URLSearchParams(window.location.search);
+  const max = Number(q.get('max'));
+  return {
+    category: q.get('category') ?? 'All',
+    vegOnly: q.get('veg') === '1',
+    priceCap: max > 0 ? max : null,
+    popularOnly: q.get('popular') === '1',
+  };
 }
 
 export function MenuItems({ sections }: { sections: MenuSection[] }) {
   const store = useCartStore();
   const { items: cartItems, addItem, setLastAddedRect, updateQuantity } = store;
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [vegOnly, setVegOnly] = useState(false);
+  const initial = initialFromUrl();
+  const [activeCategory, setActiveCategory] = useState(initial.category);
+  const [vegOnly, setVegOnly] = useState(initial.vegOnly);
+  const [priceCap, setPriceCap] = useState<number | null>(initial.priceCap);
+  const [popularOnly, setPopularOnly] = useState(initial.popularOnly);
   const [searchQuery, setSearchQuery] = useState('');
 
   function getQty(id: string) {
@@ -45,58 +48,23 @@ export function MenuItems({ sections }: { sections: MenuSection[] }) {
     window.scrollTo({ top: 200, behavior: 'smooth' });
   }
 
-  const baseSections = activeCategory === 'All' 
-    ? sections 
-    : sections.filter(s => s.category === activeCategory);
+  const baseSections = activeCategory === 'All'
+    ? sections
+    : sections.filter((s) => s.category === activeCategory);
 
   const filteredSections = baseSections.map((s) => ({
     ...s,
     items: s.items.filter((i) => {
       if (vegOnly && !i.veg) return false;
+      if (priceCap && i.price > priceCap) return false;
+      if (popularOnly && !i.popular) return false;
       if (searchQuery && !i.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     }),
   })).filter((s) => s.items.length > 0);
 
-  function renderItem(item: MenuItem) {
-    const qty = getQty(item.id);
-    return (
-      <div key={item.id} className="p-4 flex gap-4 bg-zcard rounded-xl border border-zborder card-lift">
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className={`w-3.5 h-3.5 flex items-center justify-center border ${item.veg ? 'border-green-500' : 'border-red-500'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${item.veg ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              </div>
-              {item.popular && <span className="text-[10px] font-bold text-zred bg-zred/10 px-1.5 py-0.5 rounded">Bestseller</span>}
-            </div>
-            <h3 className="font-semibold text-ztext text-sm sm:text-base mt-0.5">{item.name}</h3>
-            <p className="text-sm font-bold text-ztext mt-1">₹{item.price}</p>
-          </div>
-          <p className="text-xs text-ztext-light mt-2 leading-relaxed line-clamp-2">{item.desc}</p>
-        </div>
-        <div className="flex flex-col items-center gap-3 shrink-0">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-zgray relative shadow-sm">
-            <Image src={item.img} alt={item.name} fill className="object-cover" sizes="(max-width: 640px) 96px, 112px" />
-            <FavoriteButton item={item} />
-          </div>
-          <div className="-mt-7 z-10 relative bg-zcard rounded-lg shadow-sm border border-zborder overflow-hidden">
-            {qty === 0 ? (
-              <button onClick={(e) => handleAdd(item, e)} className="w-20 h-8 flex items-center justify-center text-xs font-bold text-zred-dark hover:bg-zred-dark hover:text-white transition-colors">
-                ADD
-              </button>
-            ) : (
-              <div className="w-20 h-8 flex items-center justify-between bg-zred text-white px-1">
-                <button onClick={() => updateQuantity(item.id, qty - 1)} aria-label={`Decrease quantity of ${item.name}`} className="p-1 hover:bg-white/20 rounded transition-colors flex items-center justify-center"><Minus size={14} /></button>
-                <span className="text-xs font-bold text-center">{qty}</span>
-                <button onClick={() => updateQuantity(item.id, qty + 1)} aria-label={`Increase quantity of ${item.name}`} className="p-1 hover:bg-white/20 rounded transition-colors flex items-center justify-center"><Plus size={14} /></button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const allItems = filteredSections.flatMap((s) => s.items);
+  const fallbackImage = sections[0]?.items[0]?.img ?? '/images/Chicken Curry.jpg';
 
   return (
     <div>
@@ -112,7 +80,7 @@ export function MenuItems({ sections }: { sections: MenuSection[] }) {
             className="w-full pl-9 pr-4 py-2.5 bg-zcard border border-zborder rounded-xl text-sm focus:outline-none focus:border-zred transition-colors"
           />
         </div>
-        
+
         <div className="flex items-center gap-2 self-end sm:self-auto bg-zcard border border-zborder px-3 py-2 rounded-xl">
           <div className="w-3.5 h-3.5 flex items-center justify-center border border-green-500">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
@@ -134,29 +102,62 @@ export function MenuItems({ sections }: { sections: MenuSection[] }) {
         </div>
       </div>
 
-      {/* Category pills */}
-      <div className="category-pills sticky top-16 bg-zbg z-40 py-2 -mx-4 px-4 scroll-px-4 sm:mx-0 sm:px-0 sm:scroll-px-0 mb-2">
+      {/* Filter chips */}
+      <div className="chip-row">
         <button
-          onClick={() => handleCategoryClick('All')}
-          className={`pill ${activeCategory === 'All' ? 'active' : ''}`}
+          onClick={() => setPriceCap(priceCap ? null : 200)}
+          className={`pill ${priceCap ? 'active' : ''}`}
         >
-          All
+          <Banknote size={12} /> Under ₹200
+        </button>
+        <button
+          onClick={() => setPopularOnly(!popularOnly)}
+          className={`pill ${popularOnly ? 'active' : ''}`}
+        >
+          <Star size={12} /> Bestsellers
+        </button>
+        <button
+          onClick={() => setVegOnly(!vegOnly)}
+          className={`pill ${vegOnly ? 'active' : ''}`}
+        >
+          Veg only
+        </button>
+      </div>
+
+      {/* Category pills (circular images) */}
+      <div className="category-rail mt-5 bg-zbg z-40 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <button onClick={() => handleCategoryClick('All')} className={`category-item ${activeCategory === 'All' ? 'active' : ''}`}>
+          <Image src={fallbackImage} alt="All" width={68} height={68} className="category-avatar" loading="lazy" />
+          <span className="category-label">All</span>
         </button>
         {sections.map((s) => (
           <button
             key={s.category}
             onClick={() => handleCategoryClick(s.category)}
-            className={`pill ${activeCategory === s.category ? 'active' : ''}`}
+            className={`category-item ${activeCategory === s.category ? 'active' : ''}`}
           >
-            {s.category}
+            <Image src={s.items[0]?.img ?? fallbackImage} alt={s.category} width={68} height={68} className="category-avatar" loading="lazy" />
+            <span className="category-label">{s.category}</span>
           </button>
         ))}
       </div>
 
       {/* Menu items grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-6">
-        {filteredSections.flatMap(section => section.items).map(renderItem)}
-      </div>
+      {allItems.length === 0 ? (
+        <p className="text-sm text-ztext-light mt-6">No dishes match your filters.</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3.5 gap-y-6 mt-6">
+          {allItems.map((item) => (
+            <DishCard
+              key={item.id}
+              dish={item}
+              qty={getQty(item.id)}
+              onAdd={(e) => handleAdd(item, e)}
+              onUpdateQuantity={(delta) => updateQuantity(item.id, getQty(item.id) + delta)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

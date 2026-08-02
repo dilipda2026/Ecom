@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock } from 'lucide-react';
+import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock, Search, MapPin, ChevronDown, ChevronRight, Wallet, UserRound, MoreVertical, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -35,25 +35,34 @@ function canCancelByTime(createdAt: string): boolean {
   return Date.now() - new Date(createdAt).getTime() < CANCELLATION_WINDOW_MS;
 }
 
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-500/15 text-yellow-500',
-  accepted: 'bg-blue-500/15 text-blue-400',
-  preparing: 'bg-orange-500/15 text-orange-400',
-  ready: 'bg-green-500/15 text-green-400',
-  out_for_delivery: 'bg-blue-500/15 text-blue-400',
-  delivered: 'bg-green-500/15 text-green-400',
-  completed: 'bg-green-500/15 text-green-400',
-  cancelled: 'bg-red-500/15 text-red-400',
+const statusTextColors: Record<string, string> = {
+  pending: 'text-yellow-500',
+  accepted: 'text-blue-500',
+  preparing: 'text-orange-500',
+  ready: 'text-green-500',
+  out_for_delivery: 'text-blue-500',
+  delivered: 'text-green-600',
+  completed: 'text-green-600',
+  cancelled: 'text-red-500',
 };
 
-function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, reason: string) => void }) {
-  const itemCount = order.order_items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+function statusLabel(status: string): string {
+  if (status === 'pending') return 'Placed';
+  if (status === 'out_for_delivery') return 'Out for delivery';
+  return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+}
+
+function OrderCard({ order, index, onCancel }: { order: Order; index: number; onCancel: (id: string, reason: string) => void }) {
   const [cancelling, setCancelling] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const remaining = useCountdown(order.created_at);
   const timeCanCancel = canCancelByTime(order.created_at);
   const canCancel = timeCanCancel && (order.status === 'pending' || order.status === 'accepted');
+  const items = order.order_items ?? [];
+  const first = items[0];
+
+  const placedOn = `${new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, ${new Date(order.created_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
 
   async function handleConfirm() {
     setCancelling(true);
@@ -63,87 +72,105 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: (id: string, r
   }
 
   return (
-    <div className="bg-zcard rounded-xl border border-zborder p-4 sm:p-5 hover:shadow-z-hover transition-shadow">
-      <Link href={`/orders/${order.id}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-zgray flex items-center justify-center shrink-0">
-              <ChefHat size={18} className="text-zred" />
-            </div>
-            <div>
-              <p className="font-semibold text-ztext text-sm">Dilip Da</p>
-              <p className="text-xs text-ztext-lighter">{new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-            </div>
-          </div>
-          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${statusColors[order.status] ?? 'bg-zgray text-ztext-light'}`}>
-            {order.status === 'pending' ? 'Placed' : order.status.charAt(0).toUpperCase() + order.status.slice(1).replace(/_/g, ' ')}
-          </span>
+    <div className="bg-zcard rounded-[20px] border border-zborder overflow-hidden shadow-sm hover:shadow-z-hover transition-shadow animate-fade-up" style={{ animationDelay: `${Math.min(index * 80, 400)}ms` }}>
+      <div className="flex items-center gap-4 p-[18px]">
+        <div className="w-16 h-16 rounded-[14px] bg-zgray border border-zborder flex items-center justify-center shrink-0">
+          <ChefHat size={22} className="text-zred" />
         </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-ztext text-sm leading-tight">Dilip Da</h3>
+          <p className="text-[11px] text-ztext-lighter mt-0.5">{orderTypeLabel(order.order_type) || 'Hostel Delivery'}</p>
+          <Link href="/menu" className="text-[11px] font-semibold text-zred hover:underline inline-flex items-center gap-1 mt-0.5">
+            View menu <ChevronDown size={10} />
+          </Link>
+        </div>
+        <Link href={`/orders/${order.id}`} className="text-ztext-lighter hover:text-zred transition-colors p-1" aria-label="Order details">
+          <MoreVertical size={16} />
+        </Link>
+      </div>
 
-        <div className="mt-3 pt-3 border-t border-zborder">
-          <p className="text-xs text-ztext-light line-clamp-2">
-            {order.order_items?.map((i) => `${i.quantity}x ${i.product_name}`).join(' • ') || `${itemCount} item(s)`}
-          </p>
-          <div className="flex items-center justify-between mt-2">
-            {order.order_type && (
-              <span className="text-[10px] text-ztext-muted font-medium">{orderTypeLabel(order.order_type)}</span>
-            )}
+      <hr className="border-zborder" />
+
+      <Link href={`/orders/${order.id}`} className="block p-[18px]">
+        {first && (
+          <div>
+            <h4 className="font-semibold text-ztext text-[15px]">{first.quantity} × {first.product_name}</h4>
+            <p className="text-[13px] text-ztext-lighter mt-[3px]">₹{first.unit_price} each{first.special_instructions ? ` · ${first.special_instructions}` : ''}</p>
           </div>
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-sm font-bold text-ztext">₹{order.total}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-ztext-lighter font-medium">{order.tracking_code}</span>
-            </div>
-          </div>
+        )}
+        {items.length > 1 && (
+          <p className="text-[11px] font-medium text-ztext-light mt-1.5">+{items.length - 1} more item{items.length > 2 ? 's' : ''}</p>
+        )}
+      </Link>
+
+      <hr className="border-zborder" />
+
+      <Link href={`/orders/${order.id}`} className="flex items-center justify-between p-[18px]">
+        <div>
+          <p className="text-[13px] text-ztext-lighter">Order placed on {placedOn}</p>
+          <h4 className={`font-bold text-[16px] mt-1.5 ${statusTextColors[order.status] ?? 'text-ztext'}`}>{statusLabel(order.status)}</h4>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-ztext text-lg">₹{order.total}</span>
+          <ChevronRight size={15} className="text-ztext-lighter" />
         </div>
       </Link>
 
-      {(order.status === 'pending' || order.status === 'accepted') && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-[10px] text-ztext-lighter flex items-center gap-1">
+      <hr className="border-zborder" />
+
+      <div className="p-[18px] pt-[16px]">
+        {canCancel && !showConfirm && (
+          <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-500/25 text-xs font-semibold text-red-400 hover:bg-red-500/5 transition-colors">
+            <XCircle size={13} /> Cancel order
+          </button>
+        )}
+        {!canCancel && (
+          <Link href={order.status === 'cancelled' ? `/orders/${order.id}` : `/order/track?code=${order.tracking_code}`} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-zborder text-xs font-semibold text-ztext-light hover:border-zred/40 hover:text-zred transition-colors">
+            {order.status === 'cancelled' ? 'View details' : 'Track order'} <ChevronRight size={12} />
+          </Link>
+        )}
+
+        {(order.status === 'pending' || order.status === 'accepted') && (
+          <p className="text-[10px] text-ztext-lighter flex items-center gap-1 mt-2.5">
             <Clock size={10} />
             {timeCanCancel
               ? `You have ${Math.floor(remaining / 60000)}m ${Math.floor((remaining % 60000) / 1000)}s remaining to cancel`
               : 'Cancellation window has expired. This order can no longer be cancelled.'}
           </p>
-          {canCancel && !showConfirm && (
-            <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/20 text-xs font-medium text-red-400 hover:bg-red-500/5 transition-colors">
-              <XCircle size={13} /> Cancel
-            </button>
-          )}
-        </div>
-      )}
+        )}
 
-      {showConfirm && (
-        <div className="mt-3 pt-3 border-t border-zborder" onClick={(e) => e.stopPropagation()}>
-          <input
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            placeholder="Reason (optional)"
-            className="input-z text-xs w-full"
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
-            <button onClick={() => { setShowConfirm(false); setCancelReason(''); }} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-ztext-light bg-zgray hover:bg-zsurface transition-colors">Back</button>
-            <button onClick={handleConfirm} disabled={cancelling} className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
-              {cancelling ? <Loader2 size={12} className="animate-spin" /> : null}
-              {cancelling ? 'Cancelling...' : 'Confirm'}
-            </button>
+        {showConfirm && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Reason (optional)"
+              className="input-z text-xs w-full"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => { setShowConfirm(false); setCancelReason(''); }} className="flex-1 py-2 rounded-xl text-xs font-medium text-ztext-light bg-zgray hover:bg-zsurface transition-colors">Back</button>
+              <button onClick={handleConfirm} disabled={cancelling} className="flex-1 py-2 rounded-xl text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1">
+                {cancelling ? <Loader2 size={12} className="animate-spin" /> : null}
+                {cancelling ? 'Cancelling...' : 'Confirm'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('orders');
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, taxAmount, total, totalItems } = useCartStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [orderQuery, setOrderQuery] = useState('');
   const loading = !ordersLoaded && activeTab === 'orders';
   const cartCount = totalItems();
 
@@ -173,6 +200,15 @@ export default function OrdersPage() {
     }
   }
 
+  const q = orderQuery.trim().toLowerCase();
+  const filteredOrders = q
+    ? orders.filter((o) =>
+        o.tracking_code.toLowerCase().includes(q) ||
+        o.order_items?.some((i) => i.product_name.toLowerCase().includes(q)) ||
+        o.customer_name?.toLowerCase().includes(q)
+      )
+    : orders;
+
   if (!isAuthenticated) {
     return (
       <div className="page-pad">
@@ -193,23 +229,23 @@ export default function OrdersPage() {
   return (
     <div className="page-pad pb-28">
       <div className="container-z mx-auto max-w-3xl">
-        
+
         <div className="flex items-center gap-2 mb-8 bg-zcard p-1 rounded-2xl border border-zborder max-w-xs mx-auto">
-          <button 
+          <button
             onClick={() => setActiveTab('orders')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'orders' 
-                ? 'bg-zgray text-ztext shadow-sm' 
+              activeTab === 'orders'
+                ? 'bg-zgray text-ztext shadow-sm'
                 : 'text-ztext-muted hover:text-ztext-light'
             }`}
           >
             <ClipboardList size={16} /> Orders
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('cart')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'cart' 
-                ? 'bg-zgray text-ztext shadow-sm' 
+              activeTab === 'cart'
+                ? 'bg-zgray text-ztext shadow-sm'
                 : 'text-ztext-muted hover:text-ztext-light'
             }`}
           >
@@ -258,7 +294,7 @@ export default function OrdersPage() {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="mt-6 pt-4 border-t border-zborder flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-bold text-ztext">Total: ₹{total()}</p>
@@ -285,25 +321,65 @@ export default function OrdersPage() {
 
         {activeTab === 'orders' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h1 className="text-xl font-bold text-ztext mb-1">Past Orders</h1>
-            <p className="text-sm text-ztext-light mb-6">Your order history from Dilip Da</p>
+
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h1 className="flex items-center gap-1.5 text-lg font-extrabold text-ztext">
+                  <MapPin size={16} className="text-zred" /> Dilip Da <ChevronDown size={14} className="text-ztext-lighter" />
+                </h1>
+                <p className="text-xs text-ztext-light mt-0.5">Near CIT Kokrajhar, 2nd Gate</p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Link href="/dashboard/student/credit" aria-label="Ethics Pay credit" title="Ethics Pay credit" className="w-10 h-10 rounded-full border border-zborder bg-zcard flex items-center justify-center text-ztext-light shadow-sm hover:border-zred/40 hover:text-zred transition-colors">
+                  <Wallet size={17} />
+                </Link>
+                <Link href="/profile" aria-label="Profile" title="Profile" className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 bg-blue-100/80 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800 shadow-sm hover:shadow-z-hover transition-shadow">
+                  {user?.fullName
+                    ? user.fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+                    : <UserRound size={17} />}
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative mb-5">
+              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zred" />
+              <input
+                value={orderQuery}
+                onChange={(e) => setOrderQuery(e.target.value)}
+                placeholder="Search by dish or order code..."
+                className="w-full bg-zcard border border-zborder h-14 rounded-[18px] pl-11 pr-10 text-sm text-ztext placeholder:text-ztext-lighter outline-none focus:border-zred focus:ring-2 focus:ring-zred/20 transition-all shadow-sm"
+              />
+              {orderQuery && (
+                <button onClick={() => setOrderQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ztext-lighter hover:text-zred transition-colors" aria-label="Clear search">
+                  <X size={15} />
+                </button>
+              )}
+            </div>
 
             {loading ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" /></div>
-            ) : orders.length === 0 ? (
-              <div className="bg-zcard rounded-xl border border-zborder p-8 text-center mt-4">
+            ) : filteredOrders.length === 0 ? (
+              <div className="bg-zcard rounded-2xl border border-zborder p-8 text-center mt-4">
                 <ClipboardList size={40} className="mx-auto mb-4 text-ztext-muted/30" />
-                <p className="text-xl font-bold text-ztext mb-2">No past orders</p>
-                <p className="text-sm text-ztext-light mt-1 mb-6">You haven&apos;t placed any orders yet.</p>
-                <button onClick={() => setActiveTab('cart')} className="button-z button-z-primary px-8">
-                  View Cart
-                </button>
+                <p className="text-xl font-bold text-ztext mb-2">{orders.length === 0 ? 'No past orders' : 'No matching orders'}</p>
+                <p className="text-sm text-ztext-light mt-1 mb-6">
+                  {orders.length === 0 ? "You haven't placed any orders yet." : 'Try a different dish or order code.'}
+                </p>
+                {orders.length === 0 ? (
+                  <button onClick={() => setActiveTab('cart')} className="button-z button-z-primary px-8">
+                    View Cart
+                  </button>
+                ) : (
+                  <button onClick={() => setOrderQuery('')} className="button-z button-z-outline px-8">
+                    Clear search
+                  </button>
+                )}
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  {orders.map((order) => (
-                    <OrderCard key={order.id} order={order} onCancel={handleCancelOrder} />
+                <div className="space-y-4">
+                  {filteredOrders.map((order, index) => (
+                    <OrderCard key={order.id} order={order} index={index} onCancel={handleCancelOrder} />
                   ))}
                 </div>
 

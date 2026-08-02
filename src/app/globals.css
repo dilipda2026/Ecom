@@ -352,6 +352,131 @@ button, input, select, textarea { font: inherit; }
   animation: heart-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* ===================================================
+   DEMO-STYLE HOME UI (structure only — theme tokens kept)
+=================================================== */
+
+/* Red gradient band header with decorative circles */
+.hero-band {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(140deg, var(--color-zred) 0%, var(--color-zred-light) 100%);
+  padding: 1rem 1rem 1.5rem;
+}
+.hero-band::before {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  right: -120px;
+  top: -120px;
+  pointer-events: none;
+}
+.hero-band::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  left: -80px;
+  bottom: -80px;
+  pointer-events: none;
+}
+.hero-band > * { position: relative; z-index: 2; }
+
+/* Horizontal category rail (circular image pills) */
+.category-rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.125rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 4px;
+}
+.category-rail::-webkit-scrollbar { display: none; }
+
+.category-item {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+  text-decoration: none;
+}
+.category-item:hover { transform: translateY(-3px); }
+
+.category-avatar {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid var(--color-zborder);
+  background: var(--color-zgray);
+  display: block;
+}
+.category-item.active .category-avatar {
+  border-color: var(--color-zred);
+  box-shadow: 0 6px 15px rgba(239, 68, 68, 0.25);
+}
+.category-item.active .category-label { color: var(--color-zred); font-weight: 700; }
+
+.category-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ztext-light);
+  white-space: nowrap;
+}
+
+.category-explore {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 1.125rem;
+  background: linear-gradient(140deg, var(--color-zred) 0%, var(--color-zred-light) 100%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+/* Hero slider dots */
+.slider-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-ztext-muted);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.slider-dot.active {
+  width: 24px;
+  border-radius: 9999px;
+  background: var(--color-zred);
+}
+
+/* Filter chip row */
+.chip-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 1ms !important;

@@ -1,91 +1,62 @@
 'use client';
 
 import Image from 'next/image';
-import { Plus, Minus, Flame } from 'lucide-react';
-import { useCartStore } from '@/features/cart/store';
+import { UtensilsCrossed } from 'lucide-react';
+import { menuSections } from '@/features/menu/data';
 
-const popularPicks = [
-  { id: 'offer-1', name: 'Chicken Thali', image: '/images/Chicken Curry.jpg', price: 70, veg: false },
-  { id: 'offer-5', name: 'Pork Thali', image: '/images/Pork Thali.webp', price: 70, veg: false },
-  { id: 'offer-2', name: 'Veg Thali', image: '/images/Aloo Posto.jpg', price: 60, veg: true },
-  { id: 'offer-3', name: 'Chicken (5 pcs) Gravy', image: '/images/Chicken (5 pcs) Gravy.webp', price: 40, veg: false },
-  { id: 'offer-4', name: 'Pork (5 pcs) Gravy', image: '/images/Pork(5 pcs) Gravy.jpg', price: 40, veg: false },
-];
+interface OfferCardsProps {
+  active: string;
+  onSelect: (category: string) => void;
+}
 
-export default function OfferCards() {
-  const { addItem, items, setLastAddedRect, updateQuantity } = useCartStore();
-
-  function getQty(id: string) {
-    return items.find((i) => i.id === id)?.quantity ?? 0;
-  }
-
-  function handleAdd(pick: (typeof popularPicks)[0], e?: React.MouseEvent<HTMLButtonElement>) {
-    if (e) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
-    }
-    addItem({ id: pick.id, name: pick.name, price: pick.price, veg: pick.veg, image: pick.image });
+export default function OfferCards({ active, onSelect }: OfferCardsProps) {
+  function select(category: string) {
+    onSelect(category);
+    document.getElementById('recommended-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   return (
-    <section className="py-5 sm:py-8 bg-zbg">
+    <section className="py-5 sm:py-6 bg-zbg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-base sm:text-lg font-bold text-ztext mb-4 flex items-center gap-1.5">
-          <Flame size={18} className="text-zred" /> Popular Picks
-        </h2>
+        <div className="category-rail">
+          {/* Explore card */}
+          <button onClick={() => select('All')} className={`category-item ${active === 'All' ? 'active' : ''}`}>
+            <span className="category-explore">
+              <UtensilsCrossed size={22} />
+            </span>
+            <span className="category-label">Explore</span>
+          </button>
 
-        <div
-          className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-          style={{ scrollSnapType: 'x mandatory' }}
-        >
-          {popularPicks.map((pick) => {
-            const qty = getQty(pick.id);
-            return (
-              <div
-                key={pick.id}
-                className="flex-none w-[120px] sm:w-[140px] text-center"
-                style={{ scrollSnapAlign: 'start' }}
-              >
-                {/* Round image */}
-                <div className="relative w-[90px] h-[90px] sm:w-[105px] sm:h-[105px] mx-auto rounded-full overflow-hidden border-2 border-zborder bg-zgray">
-                  <Image
-                    src={pick.image}
-                    alt={pick.name}
-                    fill
-                    className="object-cover"
-                    sizes="105px"
-                    loading="lazy"
-                  />
-                </div>
+          {/* All */}
+          <button onClick={() => select('All')} className={`category-item ${active === 'All' ? 'active' : ''}`}>
+            <Image
+              src={menuSections[0].items[0].img}
+              alt="All dishes"
+              width={68}
+              height={68}
+              className="category-avatar"
+              loading="lazy"
+            />
+            <span className="category-label">All</span>
+          </button>
 
-                {/* Name + price */}
-                <p className="font-semibold text-ztext text-xs mt-2 truncate">{pick.name}</p>
-                <p className="text-xs text-ztext-light mt-0.5">₹{pick.price}</p>
-
-                {/* Add / quantity control */}
-                <div className="mt-1.5 flex justify-center">
-                  {qty === 0 ? (
-                    <button
-                      onClick={(e) => handleAdd(pick, e)}
-                      className="w-[72px] h-7 flex items-center justify-center gap-1 text-[11px] font-bold text-zred-dark border border-zred-dark rounded-full hover:bg-zred-dark hover:text-white transition-colors"
-                    >
-                      <Plus size={10} /> ADD
-                    </button>
-                  ) : (
-                    <div className="w-[72px] h-7 flex items-center justify-between bg-zred text-white rounded-full px-1.5">
-                      <button onClick={() => updateQuantity(pick.id, qty - 1)} className="p-1 hover:bg-white/20 rounded-full transition-colors flex items-center justify-center" aria-label={`Decrease ${pick.name}`}>
-                        <Minus size={10} />
-                      </button>
-                      <span className="text-xs font-bold w-4 text-center">{qty}</span>
-                      <button onClick={() => updateQuantity(pick.id, qty + 1)} className="p-1 hover:bg-white/20 rounded-full transition-colors flex items-center justify-center" aria-label={`Increase ${pick.name}`}>
-                        <Plus size={10} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {menuSections.map((s) => (
+            <button
+              key={s.category}
+              onClick={() => select(s.category)}
+              className={`category-item ${active === s.category ? 'active' : ''}`}
+            >
+              <Image
+                src={s.items[0].img}
+                alt={s.category}
+                width={68}
+                height={68}
+                className="category-avatar"
+                loading="lazy"
+              />
+              <span className="category-label">{s.category}</span>
+            </button>
+          ))}
         </div>
       </div>
     </section>
