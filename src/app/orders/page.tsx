@@ -9,11 +9,19 @@ import { useCartStore } from '@/features/cart/store';
 import { getUserOrders, cancelUserOrder } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
 import { orderTypeLabel } from '@/features/orders/types';
+import { menuSections } from '@/features/menu/data';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
 
 const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 30_000;
+const allMenuItems = menuSections.flatMap((s) => s.items);
+
+function foodImageFor(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  const q = name.toLowerCase();
+  return allMenuItems.find((i) => q.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(q))?.img;
+}
 
 function useCountdown(createdAt: string) {
   const [remaining, setRemaining] = useState(() => CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime()));
@@ -61,6 +69,7 @@ function OrderCard({ order, index, onCancel }: { order: Order; index: number; on
   const canCancel = timeCanCancel && (order.status === 'pending' || order.status === 'accepted');
   const items = order.order_items ?? [];
   const first = items[0];
+  const firstImg = foodImageFor(first?.product_name);
 
   const placedOn = `${new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, ${new Date(order.created_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
 
@@ -73,66 +82,75 @@ function OrderCard({ order, index, onCancel }: { order: Order; index: number; on
 
   return (
     <div className="bg-zcard rounded-[20px] border border-zborder overflow-hidden shadow-sm hover:shadow-z-hover transition-shadow animate-fade-up" style={{ animationDelay: `${Math.min(index * 80, 400)}ms` }}>
-      <div className="flex items-center gap-4 p-[18px]">
-        <div className="w-16 h-16 rounded-[14px] bg-zgray border border-zborder flex items-center justify-center shrink-0">
-          <ChefHat size={22} className="text-zred" />
+      <div className="flex items-center gap-3 p-3.5">
+        <div className="w-14 h-14 rounded-xl overflow-hidden border border-zborder bg-zgray relative shrink-0">
+          {firstImg ? (
+            <Image src={firstImg} alt={first?.product_name ?? 'Food'} fill sizes="56px" className="object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ChefHat size={18} className="text-zred" />
+            </div>
+          )}
+          {items.length > 1 && (
+            <span className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-bold px-1 leading-4 rounded-tl-lg">+{items.length - 1}</span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-ztext text-sm leading-tight">Dilip Da</h3>
-          <p className="text-[11px] text-ztext-lighter mt-0.5">{orderTypeLabel(order.order_type) || 'Hostel Delivery'}</p>
-          <Link href="/menu" className="text-[11px] font-semibold text-zred hover:underline inline-flex items-center gap-1 mt-0.5">
-            View menu <ChevronDown size={10} />
+          <h3 className="font-bold text-ztext text-[13px] leading-tight">Dilip Da</h3>
+          <p className="text-[10px] text-ztext-lighter mt-0.5 truncate">{orderTypeLabel(order.order_type) || 'Hostel Delivery'}</p>
+          <Link href="/menu" className="text-[10px] font-semibold text-zred hover:underline inline-flex items-center gap-1 mt-0.5">
+            View menu <ChevronDown size={9} />
           </Link>
         </div>
         <Link href={`/orders/${order.id}`} className="text-ztext-lighter hover:text-zred transition-colors p-1" aria-label="Order details">
-          <MoreVertical size={16} />
+          <MoreVertical size={15} />
         </Link>
       </div>
 
       <hr className="border-zborder" />
 
-      <Link href={`/orders/${order.id}`} className="block p-[18px]">
+      <Link href={`/orders/${order.id}`} className="block px-3.5 py-2.5">
         {first && (
           <div>
-            <h4 className="font-semibold text-ztext text-[15px]">{first.quantity} × {first.product_name}</h4>
-            <p className="text-[13px] text-ztext-lighter mt-[3px]">₹{first.unit_price} each{first.special_instructions ? ` · ${first.special_instructions}` : ''}</p>
+            <h4 className="font-semibold text-ztext text-[13px] leading-snug">{first.quantity} × {first.product_name}</h4>
+            <p className="text-[11px] text-ztext-lighter mt-0.5 truncate">₹{first.unit_price} each{first.special_instructions ? ` · ${first.special_instructions}` : ''}</p>
           </div>
         )}
         {items.length > 1 && (
-          <p className="text-[11px] font-medium text-ztext-light mt-1.5">+{items.length - 1} more item{items.length > 2 ? 's' : ''}</p>
+          <p className="text-[10px] font-medium text-ztext-light mt-1">+{items.length - 1} more item{items.length > 2 ? 's' : ''}</p>
         )}
       </Link>
 
       <hr className="border-zborder" />
 
-      <Link href={`/orders/${order.id}`} className="flex items-center justify-between p-[18px]">
+      <Link href={`/orders/${order.id}`} className="flex items-center justify-between px-3.5 py-2.5">
         <div>
-          <p className="text-[13px] text-ztext-lighter">Order placed on {placedOn}</p>
-          <h4 className={`font-bold text-[16px] mt-1.5 ${statusTextColors[order.status] ?? 'text-ztext'}`}>{statusLabel(order.status)}</h4>
+          <p className="text-[10px] text-ztext-lighter">Order placed on {placedOn}</p>
+          <h4 className={`font-bold text-[13px] mt-0.5 ${statusTextColors[order.status] ?? 'text-ztext'}`}>{statusLabel(order.status)}</h4>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-ztext text-lg">₹{order.total}</span>
-          <ChevronRight size={15} className="text-ztext-lighter" />
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-ztext text-[15px]">₹{order.total}</span>
+          <ChevronRight size={13} className="text-ztext-lighter" />
         </div>
       </Link>
 
       <hr className="border-zborder" />
 
-      <div className="p-[18px] pt-[16px]">
+      <div className="p-3.5 pt-3">
         {canCancel && !showConfirm && (
-          <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-500/25 text-xs font-semibold text-red-400 hover:bg-red-500/5 transition-colors">
-            <XCircle size={13} /> Cancel order
+          <button onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-red-500/25 text-[11px] font-semibold text-red-400 hover:bg-red-500/5 transition-colors">
+            <XCircle size={12} /> Cancel order
           </button>
         )}
         {!canCancel && (
-          <Link href={order.status === 'cancelled' ? `/orders/${order.id}` : `/order/track?code=${order.tracking_code}`} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-zborder text-xs font-semibold text-ztext-light hover:border-zred/40 hover:text-zred transition-colors">
-            {order.status === 'cancelled' ? 'View details' : 'Track order'} <ChevronRight size={12} />
+          <Link href={order.status === 'cancelled' ? `/orders/${order.id}` : `/order/track?code=${order.tracking_code}`} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-zborder text-[11px] font-semibold text-ztext-light hover:border-zred/40 hover:text-zred transition-colors">
+            {order.status === 'cancelled' ? 'View details' : 'Track order'} <ChevronRight size={11} />
           </Link>
         )}
 
         {(order.status === 'pending' || order.status === 'accepted') && (
-          <p className="text-[10px] text-ztext-lighter flex items-center gap-1 mt-2.5">
-            <Clock size={10} />
+          <p className="text-[10px] text-ztext-lighter flex items-center gap-1 mt-2">
+            <Clock size={9} />
             {timeCanCancel
               ? `You have ${Math.floor(remaining / 60000)}m ${Math.floor((remaining % 60000) / 1000)}s remaining to cancel`
               : 'Cancellation window has expired. This order can no longer be cancelled.'}
@@ -266,7 +284,7 @@ export default function OrdersPage() {
                 </div>
 
                 <div className="bg-zcard rounded-xl border border-zborder p-4 shadow-sm">
-                  <div className="space-y-4">
+                <div className="space-y-3">
                     {cartItems.map((item) => (
                       <div key={item.id} className="flex gap-3 items-center">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-zgray shrink-0 relative">
@@ -322,26 +340,26 @@ export default function OrdersPage() {
         {activeTab === 'orders' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-            <div className="flex items-start justify-between mb-5">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <h1 className="flex items-center gap-1.5 text-lg font-extrabold text-ztext">
-                  <MapPin size={16} className="text-zred" /> Dilip Da <ChevronDown size={14} className="text-ztext-lighter" />
+                <h1 className="flex items-center gap-1.5 text-base font-bold text-ztext">
+                  <MapPin size={14} className="text-zred" /> Dilip Da <ChevronDown size={12} className="text-ztext-lighter" />
                 </h1>
-                <p className="text-xs text-ztext-light mt-0.5">Near CIT Kokrajhar, 2nd Gate</p>
+                <p className="text-[11px] text-ztext-light mt-0.5">Near CIT Kokrajhar, 2nd Gate</p>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Link href="/dashboard/student/credit" aria-label="Ethics Pay credit" title="Ethics Pay credit" className="w-10 h-10 rounded-full border border-zborder bg-zcard flex items-center justify-center text-ztext-light shadow-sm hover:border-zred/40 hover:text-zred transition-colors">
-                  <Wallet size={17} />
+              <div className="flex items-center gap-2">
+                <Link href="/dashboard/student/credit" aria-label="Ethics Pay credit" title="Ethics Pay credit" className="w-9 h-9 rounded-full border border-zborder bg-zcard flex items-center justify-center text-ztext-light shadow-sm hover:border-zred/40 hover:text-zred transition-colors">
+                  <Wallet size={15} />
                 </Link>
-                <Link href="/profile" aria-label="Profile" title="Profile" className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-blue-700 bg-blue-100/80 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800 shadow-sm hover:shadow-z-hover transition-shadow">
+                <Link href="/profile" aria-label="Profile" title="Profile" className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-blue-700 bg-blue-100/80 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800 shadow-sm hover:shadow-z-hover transition-shadow">
                   {user?.fullName
                     ? user.fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-                    : <UserRound size={17} />}
+                    : <UserRound size={15} />}
                 </Link>
               </div>
             </div>
 
-            <div className="relative mb-5">
+            <div className="relative mb-4">
               <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zred" />
               <input
                 value={orderQuery}

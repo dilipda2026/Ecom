@@ -154,28 +154,35 @@ function TrackContent() {
             ) : (
               <div className="mt-4 bg-zcard rounded-xl border border-zborder p-5">
                 <p className="text-sm font-semibold text-ztext mb-4">Order status</p>
-                <div className="flex items-center">
+                <div className="grid grid-cols-7 items-center">
+                  {STEPS.map((step, i) => {
+                    const done = i < stepIndex || (isDelivered && i === STEPS.length - 1);
+                    const current = i === stepIndex && !isDelivered;
+                    const leftDone = i > 0 && i <= stepIndex;
+                    const rightDone = i < STEPS.length - 1 && i < stepIndex;
+                    return (
+                      <div key={step} className="flex items-center">
+                        <div className={`h-0.5 flex-1 rounded ${leftDone ? 'bg-emerald-500/50' : 'bg-transparent'}`} />
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors shrink-0 ${
+                          done ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500'
+                          : current ? 'bg-zred/15 border-zred text-zred'
+                          : 'border-zborder text-ztext-muted'
+                        }`}>
+                          {done ? <CheckCircle2 size={14} /> : <Clock size={14} />}
+                        </div>
+                        <div className={`h-0.5 flex-1 rounded ${rightDone ? 'bg-emerald-500/50' : 'bg-transparent'}`} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-7 mt-2">
                   {STEPS.map((step, i) => {
                     const done = i < stepIndex || (isDelivered && i === STEPS.length - 1);
                     const current = i === stepIndex && !isDelivered;
                     return (
-                      <div key={step} className={`flex items-center ${i < STEPS.length - 1 ? 'flex-1' : ''}`}>
-                        <div className="flex flex-col items-center shrink-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
-                            done ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500'
-                            : current ? 'bg-zred/15 border-zred text-zred'
-                            : 'border-zborder text-ztext-muted'
-                          }`}>
-                            {done ? <CheckCircle2 size={14} /> : <Clock size={14} />}
-                          </div>
-                          <span className={`mt-1.5 text-[10px] font-medium whitespace-nowrap ${done ? 'text-emerald-500' : current ? 'text-zred' : 'text-ztext-muted'}`}>
-                            {STEP_LABELS[step]}
-                          </span>
-                        </div>
-                        {i < STEPS.length - 1 && (
-                          <div className={`flex-1 h-0.5 mx-1.5 mb-5 rounded ${i < stepIndex ? 'bg-emerald-500/50' : 'bg-zborder'}`} />
-                        )}
-                      </div>
+                      <span key={step} className={`text-[10px] font-medium text-center leading-tight px-0.5 ${done ? 'text-emerald-500' : current ? 'text-zred' : 'text-ztext-muted'}`}>
+                        {STEP_LABELS[step]}
+                      </span>
                     );
                   })}
                 </div>
