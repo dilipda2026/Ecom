@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import Hero from '@/components/landing/Hero';
+import StatusStrip from '@/components/landing/StatusStrip';
 import OfferCards from '@/components/landing/OfferCards';
+import FavoritesShelf from '@/components/landing/FavoritesShelf';
 import FeaturedDishes from '@/components/landing/FeaturedDishes';
+import FloatingCartBar from '@/components/landing/FloatingCartBar';
 import { menuSections } from '@/features/menu/data';
 
 export default function HomeMenu() {
@@ -43,7 +46,9 @@ export default function HomeMenu() {
         vegOn={vegOnly}
         onVegToggle={() => setVegOnly((v) => !v)}
       />
+      <StatusStrip />
       <OfferCards active={activeCategory} onSelect={setActiveCategory} />
+      <FavoritesShelf />
       <FeaturedDishes
         dishes={filtered}
         vegOnly={vegOnly}
@@ -54,6 +59,7 @@ export default function HomeMenu() {
         onPopularOnly={setPopularOnly}
         onClear={clearFilters}
       />
+      <FloatingCartBar />
     </>
   );
 }
