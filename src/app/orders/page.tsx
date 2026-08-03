@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock, Search, MapPin, ChevronDown, ChevronRight, Wallet, UserRound, MoreVertical, X } from 'lucide-react';
+import { ClipboardList, ChefHat, ShoppingBag, Loader2, XCircle, Clock, Search, MapPin, ChevronDown, ChevronRight, Wallet, UserRound, MoreVertical, X, Copy, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -15,6 +15,7 @@ import { usePolling } from '@/hooks/usePolling';
 
 const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 30_000;
+const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery'];
 const allMenuItems = menuSections.flatMap((s) => s.items);
 
 function foodImageFor(name: string | undefined): string | undefined {
@@ -80,6 +81,15 @@ function OrderCard({ order, index, onCancel }: { order: Order; index: number; on
     setShowConfirm(false);
   }
 
+  async function copyTracking() {
+    try {
+      await navigator.clipboard.writeText(order.tracking_code);
+      showToast('Tracking code copied');
+    } catch {
+      showToast('Could not copy code');
+    }
+  }
+
   return (
     <div className="bg-zcard rounded-[20px] border border-zborder overflow-hidden shadow-sm hover:shadow-z-hover transition-shadow animate-fade-up" style={{ animationDelay: `${Math.min(index * 80, 400)}ms` }}>
       <div className="flex items-center gap-3 p-3.5">
@@ -102,9 +112,14 @@ function OrderCard({ order, index, onCancel }: { order: Order; index: number; on
             View menu <ChevronDown size={9} />
           </Link>
         </div>
-        <Link href={`/orders/${order.id}`} className="text-ztext-lighter hover:text-zred transition-colors p-1" aria-label="Order details">
-          <MoreVertical size={15} />
-        </Link>
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={copyTracking} className="text-ztext-lighter hover:text-zred transition-colors p-1" aria-label="Copy tracking code" title={order.tracking_code}>
+            <Copy size={13} />
+          </button>
+          <Link href={`/orders/${order.id}`} className="text-ztext-lighter hover:text-zred transition-colors p-1" aria-label="Order details">
+            <MoreVertical size={15} />
+          </Link>
+        </div>
       </div>
 
       <hr className="border-zborder" />
@@ -143,9 +158,16 @@ function OrderCard({ order, index, onCancel }: { order: Order; index: number; on
           </button>
         )}
         {!canCancel && (
-          <Link href={order.status === 'cancelled' ? `/orders/${order.id}` : `/order/track?code=${order.tracking_code}`} className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-zborder text-[11px] font-semibold text-ztext-light hover:border-zred/40 hover:text-zred transition-colors">
-            {order.status === 'cancelled' ? 'View details' : 'Track order'} <ChevronRight size={11} />
-          </Link>
+          <div className="flex gap-2">
+            {(order.status === 'delivered' || order.status === 'completed') && (
+              <Link href="/menu" className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-zred/30 text-[11px] font-semibold text-zred hover:bg-red-500/5 transition-colors">
+                <RotateCcw size={11} /> Reorder
+              </Link>
+            )}
+            <Link href={order.status === 'cancelled' ? `/orders/${order.id}` : `/order/track?code=${order.tracking_code}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-zborder text-[11px] font-semibold text-ztext-light hover:border-zred/40 hover:text-zred transition-colors">
+              {order.status === 'cancelled' ? 'View details' : 'Track order'} <ChevronRight size={11} />
+            </Link>
+          </div>
         )}
 
         {(order.status === 'pending' || order.status === 'accepted') && (
@@ -189,6 +211,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [orderQuery, setOrderQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
   const loading = !ordersLoaded && activeTab === 'orders';
   const cartCount = totalItems();
 
@@ -219,13 +242,19 @@ export default function OrdersPage() {
   }
 
   const q = orderQuery.trim().toLowerCase();
+  const statusFilteredOrders = orders.filter((o) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'active') return ACTIVE_STATUSES.includes(o.status);
+    if (statusFilter === 'delivered') return o.status === 'delivered' || o.status === 'completed';
+    return o.status === 'cancelled';
+  });
   const filteredOrders = q
-    ? orders.filter((o) =>
+    ? statusFilteredOrders.filter((o) =>
         o.tracking_code.toLowerCase().includes(q) ||
         o.order_items?.some((i) => i.product_name.toLowerCase().includes(q)) ||
         o.customer_name?.toLowerCase().includes(q)
       )
-    : orders;
+    : statusFilteredOrders;
 
   if (!isAuthenticated) {
     return (
@@ -375,6 +404,22 @@ export default function OrdersPage() {
                   <X size={15} />
                 </button>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-1 px-1">
+              {(['all', 'active', 'delivered', 'cancelled'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-colors ${
+                    statusFilter === f
+                      ? 'bg-zred text-white border-zred'
+                      : 'bg-zcard text-ztext-light border-zborder hover:border-zred/40 hover:text-zred'
+                  }`}
+                >
+                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
             </div>
 
             {loading ? (

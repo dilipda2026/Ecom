@@ -1,16 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle, BadgeCheck, Wallet } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
 import { showToast } from '@/components/shared/Toast';
 import { updateServerProfile, getServerAddress, updateServerAddress } from '@/features/auth/actions';
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
+import { getUserOrders } from '@/features/orders/actions/customer';
+import type { Order } from '@/features/orders/types';
+import { menuSections } from '@/features/menu/data';
+import { useFavoritesStore } from '@/features/favorites/store';
+import { STORE_CONFIG } from '@/config/store';
+import { isStoreOpen, nextOrderByCutoff, formatClock } from '@/features/menu/lib/store-hours';
 import { usePolling } from '@/hooks/usePolling';
 
 const POLL_INTERVAL_MS = 30_000;
+const allMenuItems = menuSections.flatMap((s) => s.items);
+
+function foodImageFor(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  const q = name.toLowerCase();
+  return allMenuItems.find((i) => q.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(q))?.img;
+}
+
+function StoreStatusPill() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const open = isStoreOpen(STORE_CONFIG.hours, now);
+  const cutoff = open ? nextOrderByCutoff(STORE_CONFIG.orderByCutoffs, now) : null;
+
+  return (
+    <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-zborder bg-zcard px-4 py-3">
+      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'bg-zgreen' : 'bg-amber-500'}`} />
+      <p className="text-xs font-semibold text-ztext truncate">
+        {open ? `Open now · Kitchen closes ${formatClock(STORE_CONFIG.hours.close)}` : `Closed now · Opens tomorrow ${formatClock(STORE_CONFIG.hours.open)}`}
+      </p>
+      {cutoff && (
+        <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 border border-amber-500/25 rounded-full px-2.5 py-1">
+          <Clock size={10} />
+          {cutoff.minutesLeft <= 15
+            ? `${cutoff.label} orders close in ${cutoff.minutesLeft}m`
+            : `Order by ${formatClock(cutoff.time)} for ${cutoff.label}`}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
@@ -26,9 +69,15 @@ export default function ProfilePage() {
   const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
 
+  const [myRecentOrders, setMyRecentOrders] = useState<Order[]>([]);
+  const [orderCount, setOrderCount] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const favoritesCount = useFavoritesStore((s) => s.items.length);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadAddress();
+      loadRecentOrders();
     }
   }, [isAuthenticated]);
 
@@ -45,6 +94,15 @@ export default function ProfilePage() {
       setAddress(result.address.full_address || '');
     }
     setAddressLoading(false);
+  }
+
+  async function loadRecentOrders() {
+    const res = await getUserOrders(1, 2);
+    if (res.success && res.data) {
+      setMyRecentOrders(res.data.orders);
+      setOrderCount(res.data.total);
+    }
+    setOrdersLoading(false);
   }
 
   async function fetchDashboardData(silent = false) {
@@ -210,6 +268,73 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Store status */}
+            <StoreStatusPill />
+
+            {/* Stats row */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="bg-zcard rounded-xl border border-zborder p-3 text-center">
+                <ShoppingBag size={15} className="mx-auto text-zred" />
+                <p className="text-lg font-bold text-ztext mt-1">{ordersLoading ? '—' : orderCount}</p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Orders</p>
+              </div>
+              <div className="bg-zcard rounded-xl border border-zborder p-3 text-center">
+                <Heart size={15} className="mx-auto text-zred" />
+                <p className="text-lg font-bold text-ztext mt-1">{favoritesCount}</p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Favorites</p>
+              </div>
+              <Link href="/dashboard/student/credit" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
+                <Wallet size={15} className="mx-auto text-zred" />
+                <p className="text-lg font-bold text-ztext mt-1">View</p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Wallet</p>
+              </Link>
+            </div>
+
+            {/* Recent activity */}
+            <div className="mt-4 bg-zcard rounded-xl border border-zborder overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zborder">
+                <h2 className="text-sm font-bold text-ztext">Recent orders</h2>
+                <Link href="/orders" className="text-[10px] font-medium text-zred hover:underline">View all</Link>
+              </div>
+              {ordersLoading ? (
+                <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-ztext-lighter" /></div>
+              ) : myRecentOrders.length === 0 ? (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-xs text-ztext-light">No orders yet.</p>
+                  <Link href="/menu" className="inline-block mt-2 text-[11px] font-semibold text-zred hover:underline">Order your first meal</Link>
+                </div>
+              ) : (
+                <div className="divide-y divide-zborder">
+                  {myRecentOrders.map((order) => {
+                    const item = order.order_items?.[0];
+                    const img = foodImageFor(item?.product_name);
+                    return (
+                      <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center gap-3 p-3.5 hover:bg-zgray transition-colors">
+                        <div className="w-11 h-11 rounded-lg overflow-hidden border border-zborder bg-zgray relative shrink-0">
+                          {img ? (
+                            <Image src={img} alt={item?.product_name ?? 'Food'} fill sizes="44px" className="object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><ClipboardList size={16} className="text-zred" /></div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-ztext text-xs truncate">
+                            {item ? `${item.quantity} × ${item.product_name}` : order.tracking_code}
+                          </p>
+                          <p className="text-[10px] text-ztext-light mt-0.5">
+                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} · ₹{order.total}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-full shrink-0 capitalize ${statusColors[order.status] ?? 'bg-zgray text-ztext-light'}`}>
+                          {order.status.replace(/_/g, ' ')}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Settings list */}
             <div className="mt-4 bg-zcard rounded-xl border border-zborder divide-y divide-zborder">
               {/* Name */}
@@ -250,7 +375,10 @@ export default function ProfilePage() {
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
                     />
                   ) : (
-                    <p className="text-xs text-ztext-light mt-0.5">{user.phone || 'Not set'}</p>
+                    <p className="text-xs text-ztext-light mt-0.5 inline-flex items-center gap-1">
+                      {user.phone || 'Not set'}
+                      {user.phone && <BadgeCheck size={12} className="text-green-500 shrink-0" />}
+                    </p>
                   )}
                 </div>
                 {editingField === 'phone' ? renderEditActions() : (
@@ -276,9 +404,12 @@ export default function ProfilePage() {
                     <p className="text-xs text-ztext-light mt-0.5">
                       {addressLoading ? (
                         <span className="inline-flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Loading...</span>
-                      ) : (
-                        address || 'No address saved'
-                      )}
+                      ) : address ? (
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-zred bg-zred/10 border border-zred/20 rounded-full px-1.5 py-0.5">Deliver here</span>
+                          {address}
+                        </span>
+                      ) : 'No address saved'}
                     </p>
                   )}
                 </div>
