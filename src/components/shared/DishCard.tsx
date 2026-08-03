@@ -47,7 +47,7 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCar
           {qty === 0 ? (
             <button
               onClick={(e) => onAdd(e)}
-              className="h-8 min-w-[64px] px-3 flex items-center justify-center gap-1 text-[11px] font-bold text-zred bg-white rounded-lg shadow-md hover:bg-zred hover:text-white transition-colors"
+              className="h-8 min-w-[64px] px-3 flex items-center justify-center gap-1 text-[11px] font-bold text-zred bg-white rounded-lg shadow-md hover:bg-zred/10 transition-colors"
             >
               <Plus size={12} /> ADD
             </button>
@@ -56,7 +56,7 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCar
               <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-7 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded-lg transition-colors">
                 <Minus size={13} />
               </button>
-              <span className="w-6 text-center text-xs font-bold text-ztext">{qty}</span>
+              <span className="w-6 text-center text-xs font-bold text-zinc-800">{qty}</span>
               <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-7 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded-lg transition-colors">
                 <Plus size={13} />
               </button>

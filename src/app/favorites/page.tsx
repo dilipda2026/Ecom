@@ -75,7 +75,7 @@ export default function FavoritesPage() {
                   </div>
                   <div className="-mt-7 z-10 relative bg-zcard rounded-lg shadow-sm border border-zborder overflow-hidden">
                     {qty === 0 ? (
-                      <button onClick={(e) => handleAdd(item, e)} className="w-20 h-8 flex items-center justify-center text-xs font-bold text-zred hover:bg-zred hover:text-white transition-colors">
+                      <button onClick={(e) => handleAdd(item, e)} className="w-20 h-8 flex items-center justify-center text-xs font-bold text-zred hover:bg-zred/10 transition-colors">
                         ADD
                       </button>
                     ) : (

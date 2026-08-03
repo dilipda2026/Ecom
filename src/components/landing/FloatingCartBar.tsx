@@ -1,21 +1,40 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
+const HIDE_DELAY = 4000;
+
 export default function FloatingCartBar() {
   const items = useCartStore((s) => s.items);
+  const lastAddedAt = useCartStore((s) => s.lastAddedAt);
   const total = useCartStore((s) => s.total);
+  const [now, setNow] = useState(() => Date.now());
+
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const visible = count > 0 && lastAddedAt != null && now - lastAddedAt < HIDE_DELAY;
 
   if (count === 0) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sticky-above-nav pointer-events-none">
+    <div
+      className={`fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sticky-above-nav pointer-events-none transition-all duration-300 ${
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
+      }`}
+    >
       <Link
         href="/cart"
-        className="pointer-events-auto mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-zred px-4 py-3 shadow-z-modal animate-fade-up hover:brightness-105 transition-[filter]"
+        className={`mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-zred px-4 py-3 shadow-z-modal hover:brightness-105 transition-[filter] ${
+          visible ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
       >
         <div className="flex items-center gap-2.5 text-white">
           <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">

@@ -437,7 +437,7 @@ button, input, select, textarea { font: inherit; }
   width: 4.25rem;
   height: 4.25rem;
   border-radius: 1.125rem;
-  background: linear-gradient(140deg, var(--color-zred) 0%, var(--color-zred-light) 100%);
+  background: #EF4444;
   display: grid;
   place-items: center;
   color: #fff;
