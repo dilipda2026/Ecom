@@ -371,7 +371,7 @@ export class AdminRepository {
     const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate, restaurantId } = filter;
     let query = admin
       .from('orders')
-      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name)', { count: 'exact' })
+      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)', { count: 'exact' })
       .is('deleted_at', null);
     if (status && status !== 'all') query = query.eq('status', status);
     if (search) {
@@ -399,7 +399,7 @@ export class AdminRepository {
     const admin = createAdminClient();
     const { data } = await admin
       .from('orders')
-      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name)')
+      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)')
       .eq('id', id)
       .single();
     return data as unknown as AdminOrder | null;
@@ -667,7 +667,7 @@ export class AdminRepository {
     const to = from + pageSize - 1;
     const { data, count } = await admin
       .from('orders')
-      .select('*, order_items(*)', { count: 'exact' })
+      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)', { count: 'exact' })
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })

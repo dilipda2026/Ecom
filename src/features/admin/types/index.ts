@@ -112,6 +112,7 @@ export interface AdminOrder {
   }>;
   user?: { full_name: string; email: string } | null;
   restaurant?: { name: string } | null;
+  delivery_partner?: { full_name: string; phone: string | null } | null;
 }
 
 export interface CreditAccountAdmin {

@@ -191,6 +191,16 @@ export default function AdminOrdersPage() {
       };
       return <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors[o.status] ?? 'bg-zgray text-ztext-light'}`}>{o.status.replace(/_/g, ' ')}</span>;
     }},
+    { key: 'deliveredBy', header: 'Delivered by', render: (o: AdminOrder) => (
+      o.delivery_partner && (o.status === 'delivered' || o.status === 'completed') ? (
+        <div>
+          <p className="text-sm font-medium text-ztext-light">{o.delivery_partner.full_name ?? 'Delivery partner'}</p>
+          {o.delivery_partner.phone && <p className="text-xs text-ztext-lighter">{o.delivery_partner.phone}</p>}
+        </div>
+      ) : (
+        <span className="text-xs text-ztext-lighter">—</span>
+      )
+    ), hideOnMobile: true},
     { key: 'date', header: 'Date', sortable: true, render: (o: AdminOrder) => (
       <span className="text-xs text-ztext-lighter">{new Date(o.created_at).toLocaleString()}</span>
     ), hideOnMobile: true},
@@ -272,6 +282,9 @@ export default function AdminOrdersPage() {
               <div className="flex justify-between"><span className="text-ztext-lighter">Total</span><span className="font-bold">₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Payment</span><span className="capitalize">{selectedOrder.payment_method} ({selectedOrder.payment_status})</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Status</span><span>{selectedOrder.status.replace(/_/g, ' ')}</span></div>
+              {selectedOrder.delivery_partner && (
+                <div className="flex justify-between"><span className="text-ztext-lighter">Delivered by</span><span>{selectedOrder.delivery_partner.full_name ?? 'Delivery partner'}{selectedOrder.delivery_partner.phone ? ` • ${selectedOrder.delivery_partner.phone}` : ''}</span></div>
+              )}
               {selectedOrder.cancellation_reason && (
                 <div className="flex justify-between"><span className="text-ztext-lighter">Cancel reason</span><span className="text-red-400">{selectedOrder.cancellation_reason}</span></div>
               )}
