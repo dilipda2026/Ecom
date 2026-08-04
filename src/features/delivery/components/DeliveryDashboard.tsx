@@ -70,8 +70,15 @@ export default function DeliveryDashboard() {
   const [modal, setModal] = useState<ModalState>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [view, setView] = useState<'scan' | 'active'>('scan');
+  const [now, setNow] = useState(0);
   const router = useRouter();
   const { signOut } = useAuthStore();
+
+  useEffect(() => {
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => { window.clearTimeout(first); window.clearInterval(id); };
+  }, []);
 
   const load = useCallback(async (silent = false) => {
     const res = await getDeliveryDashboard();
@@ -179,6 +186,7 @@ export default function DeliveryDashboard() {
                   key={assignment.id}
                   assignment={assignment}
                   order={order}
+                  now={now}
                   setModal={setModal}
                   busy={busy}
                   run={run}
@@ -394,9 +402,10 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   );
 }
 
-function OrderCard({ assignment, order, setModal, busy, run }: {
+function OrderCard({ assignment, order, now, setModal, busy, run }: {
   assignment: DeliveryDashboardData['active'][number]['assignment'];
   order: DeliveryDashboardData['active'][number]['order'];
+  now: number;
   setModal: (m: ModalState) => void;
   busy: string | null;
   run: (a: string, fn: () => Promise<{ success: boolean; error?: string }>) => Promise<void>;
@@ -405,7 +414,7 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
   const address = order.delivery_address as Record<string, string> | null;
   const isCod = order.payment_method === 'cod';
   const otpVerified = !!assignment.otp_verified_at;
-  const otpActive = !!assignment.otp_expires_at && new Date(assignment.otp_expires_at).getTime() > Date.now();
+  const otpActive = !!assignment.otp_expires_at && new Date(assignment.otp_expires_at).getTime() > now;
   const paymentCollected = isCod ? order.payment_status === 'confirmed' : true;
 
   const statusLabel = order.status.replace(/_/g, ' ');

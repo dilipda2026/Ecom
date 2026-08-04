@@ -30,13 +30,16 @@ export interface DeliveryPartnerRow {
   rating: number | null;
 }
 
+// Delivery partners must never receive the OTP value/hash — it is shown only to the customer.
+export type SanitizedDeliveryAssignment = Omit<DeliveryAssignment, 'otp_value' | 'otp_hash'>;
+
 export interface ActiveDelivery {
-  assignment: DeliveryAssignment;
+  assignment: SanitizedDeliveryAssignment;
   order: Order | null;
 }
 
 export interface DeliveredTodayRow {
-  assignment: DeliveryAssignment;
+  assignment: SanitizedDeliveryAssignment;
   order: Order | null;
 }
 
@@ -46,7 +49,7 @@ export interface DeliveryStats {
 }
 
 export interface DeliveryHistoryEntry {
-  assignment: DeliveryAssignment;
+  assignment: SanitizedDeliveryAssignment;
   order: Order | null;
 }
 

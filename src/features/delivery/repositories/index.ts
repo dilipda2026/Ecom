@@ -6,7 +6,9 @@ const ORDER_EMBED = 'orders!delivery_assignments_order_id_fkey(*, order_items(*)
 
 // Delivery partners must never receive the OTP value or hash — it is shown only to the customer
 function sanitizeAssignment<T extends { otp_value?: unknown; otp_hash?: unknown }>(row: T): Omit<T, 'otp_value' | 'otp_hash'> {
-  const { otp_value: _v, otp_hash: _h, ...safe } = row;
+  const { otp_value, otp_hash, ...safe } = row;
+  void otp_value;
+  void otp_hash;
   return safe;
 }
 
