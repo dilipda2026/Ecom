@@ -27,6 +27,9 @@ export async function createRazorpayOrder(amount: number, currency = 'INR'): Pro
 
     if (!res.ok) {
       const err = await res.json();
+      if (res.status === 401 || res.status === 403) {
+        return { success: false, error: 'Razorpay authentication failed — check that your Razorpay API key and secret are correct' };
+      }
       return { success: false, error: err.error?.description || 'Failed to create Razorpay order' };
     }
 

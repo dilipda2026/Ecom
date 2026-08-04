@@ -22,7 +22,7 @@ export default function MenuPage() {
             className="object-cover"
             sizes="(max-width: 1024px) 100vw, 1024px"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-5 sm:p-8">
+          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-5 sm:p-8">
             <h1 className="text-2xl sm:text-3xl font-semibold text-white">Our Menu</h1>
             <p className="text-sm text-white/80 mt-1 max-w-md">Explore our complete range of culinary delights prepared fresh daily.</p>
           </div>

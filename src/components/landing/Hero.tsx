@@ -73,7 +73,7 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroP
                 src={slides[index].img}
                 alt="Dilip Da specials"
                 fill
-                priority={index === 0}
+                loading="eager"
                 className="object-cover"
                 sizes="(max-width: 640px) 100vw, 1200px"
               />

@@ -17,7 +17,6 @@ type AccountType = 'student' | 'delivery' | 'admin';
 const accountTypes: { value: AccountType; label: string; desc: string; emoji: string }[] = [
   { value: 'student', label: 'Student', desc: 'CIT student, order food for delivery', emoji: '🎓' },
   { value: 'delivery', label: 'Delivery Partner', desc: 'Deliver food and earn money', emoji: '🛵' },
-  { value: 'admin', label: 'Admin', desc: 'Manage orders and platform', emoji: '🔧' },
 ];
 
 export default function SignupForm() {

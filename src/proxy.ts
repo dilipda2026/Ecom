@@ -22,8 +22,19 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getUser();
-  const role = data.user?.user_metadata?.role as string | undefined;
+  let user: { user_metadata?: Record<string, unknown> } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Stale/invalid refresh token — clear the auth cookies so every request stops retrying
+    request.cookies.getAll().forEach(({ name }) => {
+      if (name.startsWith('sb-')) {
+        response.cookies.set(name, '', { path: '/', maxAge: 0 });
+      }
+    });
+  }
+  const role = user?.user_metadata?.role as string | undefined;
 
   if (role === 'delivery') {
     const { pathname } = request.nextUrl;

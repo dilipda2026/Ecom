@@ -39,9 +39,15 @@ export const authService = {
 
   async getSession(): Promise<{ user: AuthUser | null }> {
     const supabase = createClient();
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return { user: null };
-    return { user: mapUser(data.user) };
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return { user: null };
+      return { user: mapUser(data.user) };
+    } catch {
+      // Invalid/expired refresh token — clear the stale local session
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
+      return { user: null };
+    }
   },
 
   async fetchProfile(userId: string) {
