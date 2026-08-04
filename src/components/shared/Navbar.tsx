@@ -46,7 +46,7 @@ export default function Navbar() {
               key={link.label}
               href={link.href}
               className={`button-z button-z-ghost text-sm font-medium transition-colors ${
-                isActive(link.href) ? '!text-white font-bold' : ''
+                isActive(link.href) ? '!text-zred font-bold' : ''
               }`}
               aria-current={isActive(link.href) ? 'page' : undefined}
             >

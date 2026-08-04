@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
-const HIDE_DELAY = 4000;
+const HIDE_DELAY = 8000;
 
 export default function FloatingCartBar() {
   const items = useCartStore((s) => s.items);
