@@ -405,6 +405,7 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
   const address = order.delivery_address as Record<string, string> | null;
   const isCod = order.payment_method === 'cod';
   const otpVerified = !!assignment.otp_verified_at;
+  const otpActive = !!assignment.otp_expires_at && new Date(assignment.otp_expires_at).getTime() > Date.now();
   const paymentCollected = isCod ? order.payment_status === 'confirmed' : true;
 
   const statusLabel = order.status.replace(/_/g, ' ');
@@ -488,8 +489,12 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
         )}
         <div className="flex justify-between">
           <span>OTP check</span>
-          <span className={`font-medium ${otpVerified ? 'text-green-500' : 'text-ztext-light'}`}>
-            {otpVerified ? 'Verified ✓' : 'Not verified'}
+          <span className={`font-medium ${otpVerified ? 'text-green-500' : assignment.otp_expires_at ? 'text-red-400' : 'text-ztext-light'}`}>
+            {otpVerified
+              ? 'Verified ✓'
+              : assignment.otp_expires_at
+                ? (otpActive ? 'Sent — ask customer' : 'Expired — resend')
+                : 'Not generated'}
           </span>
         </div>
       </div>
@@ -516,12 +521,12 @@ function OrderCard({ assignment, order, setModal, busy, run }: {
                 <QrCode size={14} /> Payment QR
               </button>
             )}
-            {!assignment.otp_value && (
+            {!otpActive && (
               <button onClick={() => setModal({ type: 'otp', orderId: order.id })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5 disabled:opacity-50" disabled={!isCod && !paymentCollected}>
-                <KeyRound size={14} /> Generate OTP
+                <KeyRound size={14} /> {assignment.otp_expires_at ? 'Resend OTP' : 'Generate OTP'}
               </button>
             )}
-            <button onClick={() => setModal({ type: 'verify', orderId: order.id })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5 disabled:opacity-50" disabled={!assignment.otp_value}>
+            <button onClick={() => setModal({ type: 'verify', orderId: order.id })} className="button-z button-z-outline text-xs h-9 flex items-center gap-1.5 disabled:opacity-50" disabled={!otpActive}>
               <ScanLine size={14} /> Verify OTP
             </button>
             {isCod && (
@@ -672,24 +677,25 @@ function ScanModal({ onClose }: { onClose: () => void }) {
 }
 
 function OtpModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
-  const [otp, setOtp] = useState<string | null>(null);
+  const [generated, setGenerated] = useState(false);
   const [expiresIn, setExpiresIn] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (otp && expiresIn > 0) {
+    if (generated && expiresIn > 0) {
       const id = setInterval(() => setExpiresIn((s) => Math.max(0, s - 1)), 1000);
       return () => clearInterval(id);
     }
-  }, [otp, expiresIn]);
+  }, [generated, expiresIn]);
 
   async function generate() {
     setBusy(true);
+    setError('');
     const res = await generateOtpForOrder(orderId);
     setBusy(false);
     if (res.success && res.data) {
-      setOtp(res.data.otp);
+      setGenerated(true);
       setExpiresIn(Math.floor((new Date(res.data.expiresAt).getTime() - Date.now()) / 1000));
     } else {
       setError(res.error ?? 'Failed');
@@ -697,20 +703,37 @@ function OtpModal({ orderId, onClose }: { orderId: string; onClose: () => void }
   }
 
   return (
-    <ModalShell title="Delivery OTP" onClose={onClose}>
-      {otp ? (
+    <ModalShell title="Generate delivery OTP" onClose={onClose}>
+      {generated ? (
         <div className="text-center">
-          <p className="font-mono text-4xl font-bold tracking-[0.3em] text-ztext">{otp}</p>
-          <p className="text-xs text-ztext-light mt-3">
-            {expiresIn > 0 ? `Valid for ${Math.floor(expiresIn / 60)}m ${expiresIn % 60}s` : 'Expired — generate a new one'}
+          <div className="w-12 h-12 rounded-full bg-zgreen/15 text-zgreen flex items-center justify-center mx-auto">
+            <Check size={22} />
+          </div>
+          <p className="text-sm font-bold text-ztext mt-3">OTP sent to the customer</p>
+          <p className="text-xs text-ztext-light mt-2">
+            The 6-digit code was emailed to the customer and is shown on their order page. Ask them to read it out to you.
           </p>
-          <p className="text-[11px] text-ztext-lighter mt-2">
-            This code was emailed to the customer. Ask them to read it to you — or they can check it on their order page.
-          </p>
+          {expiresIn > 0 ? (
+            <p className="text-xs text-ztext-lighter mt-3">
+              Valid for {Math.floor(expiresIn / 60)}m {expiresIn % 60}s
+            </p>
+          ) : (
+            <div className="mt-3">
+              <p className="text-xs text-zred">This OTP has expired.</p>
+              <button onClick={generate} disabled={busy} className="w-full mt-2 py-2.5 rounded-xl border border-zred/30 text-xs font-semibold text-zred hover:bg-red-500/5 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                Resend new OTP
+              </button>
+            </div>
+          )}
+          <button onClick={onClose} className="button-z button-z-primary w-full h-11 text-sm mt-4">
+            Done — then Verify OTP
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
           {error && <p className="text-sm text-zred">{error}</p>}
+          <p className="text-xs text-ztext-light">The OTP will be sent to the customer by email — you will not see it.</p>
           <button onClick={generate} disabled={busy} className="button-z button-z-primary w-full h-11 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
             Generate OTP

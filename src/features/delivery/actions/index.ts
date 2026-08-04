@@ -366,7 +366,8 @@ export async function generateOtpForOrder(orderId: string) {
     }
   } catch {}
 
-  return { success: true, data: { otp, expiresAt, emailSent } };
+  // The OTP is only shown to the customer (email + their order page), never to the delivery partner
+  return { success: true, data: { expiresAt, emailSent } };
 }
 
 export async function verifyOtpForDelivery(orderId: string, otp: string) {

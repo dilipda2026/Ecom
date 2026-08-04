@@ -4,6 +4,12 @@ import type { Order } from '@/features/orders/types';
 
 const ORDER_EMBED = 'orders!delivery_assignments_order_id_fkey(*, order_items(*))';
 
+// Delivery partners must never receive the OTP value or hash — it is shown only to the customer
+function sanitizeAssignment<T extends { otp_value?: unknown; otp_hash?: unknown }>(row: T): Omit<T, 'otp_value' | 'otp_hash'> {
+  const { otp_value: _v, otp_hash: _h, ...safe } = row;
+  return safe;
+}
+
 export const deliveryRepository = {
   async getPartnerByUserId(userId: string) {
     const supabase = createServiceClient();
@@ -25,7 +31,7 @@ export const deliveryRepository = {
       .eq('delivery_partner_id', partnerId)
       .in('status', ['assigned', 'picked_up', 'in_transit'])
       .order('assigned_at', { ascending: false });
-    return (data ?? []) as Array<DeliveryAssignment & { orders: Order | null }>;
+    return (data ?? []).map(sanitizeAssignment) as Array<Omit<DeliveryAssignment, 'otp_value' | 'otp_hash'> & { orders: Order | null }>;
   },
 
   async getDeliveredToday(partnerId: string) {
@@ -41,7 +47,7 @@ export const deliveryRepository = {
       .gte('delivered_at', startOfDay.toISOString())
       .order('delivered_at', { ascending: false })
       .limit(50);
-    const rows = (data ?? []) as Array<DeliveryAssignment & { orders: Order | null }>;
+    const rows = (data ?? []).map(sanitizeAssignment) as Array<Omit<DeliveryAssignment, 'otp_value' | 'otp_hash'> & { orders: Order | null }>;
     return {
       count: rows.length,
       value: rows.reduce((sum, r) => sum + Number(r.orders?.total ?? 0), 0),
@@ -60,7 +66,7 @@ export const deliveryRepository = {
       .not('delivered_at', 'is', null)
       .order('delivered_at', { ascending: false })
       .limit(limit);
-    return (data ?? []) as Array<DeliveryAssignment & { orders: Order | null }>;
+    return (data ?? []).map(sanitizeAssignment) as Array<Omit<DeliveryAssignment, 'otp_value' | 'otp_hash'> & { orders: Order | null }>;
   },
 
   async getDeliveryStats(partnerId: string) {
