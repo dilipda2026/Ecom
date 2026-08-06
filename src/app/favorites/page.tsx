@@ -1,15 +1,35 @@
 'use client';
 
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, Minus, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Heart, Minus, Plus, Loader2 } from 'lucide-react';
 import { useFavoritesStore, FavoriteItem } from '@/features/favorites/store';
+import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
 import FavoriteButton from '@/components/shared/FavoriteButton';
 
 export default function FavoritesPage() {
   const { items } = useFavoritesStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const router = useRouter();
   const { items: cartItems, addItem, setLastAddedRect, updateQuantity } = useCartStore();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace(`/auth/login?next=${encodeURIComponent('/favorites')}`);
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="page-pad flex justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" />
+      </div>
+    );
+  }
 
   function getQty(id: string) {
     return cartItems.find((i) => i.id === id)?.quantity ?? 0;

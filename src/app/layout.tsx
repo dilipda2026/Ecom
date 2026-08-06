@@ -8,6 +8,7 @@ const NavbarWrapper = dynamic(() => import('@/components/shared/NavbarWrapper'))
 const BottomNav = dynamic(() => import('@/components/shared/BottomNav'));
 const Toast = dynamic(() => import('@/components/shared/Toast'));
 const FlyingBird = dynamic(() => import('@/components/shared/FlyingBird'));
+const FavoritesSync = dynamic(() => import('@/components/shared/FavoritesSync'));
 
 export const metadata: Metadata = {
   title: {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <FlyingBird />
           <BottomNav />
           <Toast />
+          <FavoritesSync />
         </Providers>
       </body>
     </html>

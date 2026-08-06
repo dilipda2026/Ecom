@@ -1,8 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Heart } from 'lucide-react';
 import { useFavoritesStore, FavoriteItem } from '@/features/favorites/store';
+import { useAuthStore } from '@/features/auth/store';
+import { addFavoriteItem, removeFavoriteItem } from '@/features/favorites/actions';
+import { showToast } from '@/components/shared/Toast';
 
 interface FavoriteButtonProps {
   item: FavoriteItem;
@@ -10,24 +14,48 @@ interface FavoriteButtonProps {
 }
 
 export default function FavoriteButton({ item, className = '' }: FavoriteButtonProps) {
-  const { isFavorite, toggleFavorite } = useFavoritesStore();
+  const { isFavorite, addFavorite, removeFavorite } = useFavoritesStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const router = useRouter();
+  const pathname = usePathname();
   const [animate, setAnimate] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => { setMounted(true); }, []); // eslint-disable-line react-hooks/set-state-in-effect
 
   const favorited = mounted ? isFavorite(item.id) : false;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleFavorite(item);
-    
-    // Trigger animation only when adding to favorites
-    if (!favorited) {
-      setAnimate(true);
-      setTimeout(() => setAnimate(false), 300);
+    if (isLoading || busy) return;
+
+    if (!isAuthenticated) {
+      showToast('Please sign in to add items to your favourites', 3500);
+      router.push(`/auth/login?next=${encodeURIComponent(pathname)}`);
+      return;
     }
+
+    setBusy(true);
+    if (favorited) {
+      const res = await removeFavoriteItem(item.id);
+      if (res.success) {
+        removeFavorite(item.id);
+      } else {
+        showToast(res.error ?? 'Failed to remove from favorites');
+      }
+    } else {
+      const res = await addFavoriteItem(item.id);
+      if (res.success) {
+        addFavorite(item);
+        setAnimate(true);
+        setTimeout(() => setAnimate(false), 300);
+      } else {
+        showToast(res.error ?? 'Failed to save favorite');
+      }
+    }
+    setBusy(false);
   };
 
   return (

@@ -10,12 +10,12 @@ interface ToastData {
 
 let toastListeners: Array<(t: ToastData | null) => void> = [];
 
-export function showToast(message: string) {
+export function showToast(message: string, duration = 2600) {
   const id = Date.now();
   toastListeners.forEach((fn) => fn({ id, message }));
   setTimeout(() => {
     toastListeners.forEach((fn) => fn(null));
-  }, 2600);
+  }, duration);
 }
 
 export function addToastListener(fn: (t: ToastData | null) => void) {
