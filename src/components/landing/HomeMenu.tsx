@@ -8,6 +8,12 @@ import FavoritesShelf from '@/components/landing/FavoritesShelf';
 import FeaturedDishes from '@/components/landing/FeaturedDishes';
 import FloatingCartBar from '@/components/landing/FloatingCartBar';
 import Reveal from '@/components/shared/Reveal';
+import HomeHeader from '@/features/home/components/HomeHeader';
+import SpecialsShelf from '@/features/home/components/SpecialsShelf';
+import RecentOrders from '@/features/home/components/RecentOrders';
+import { useHomeOrders } from '@/features/home/lib/useHomeOrders';
+import { isActiveOrder, isCompletedOrder } from '@/features/orders/types';
+import { useAuthStore } from '@/features/auth/store';
 import { menuSections } from '@/features/menu/data';
 
 export default function HomeMenu() {
@@ -16,6 +22,12 @@ export default function HomeMenu() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [priceCap, setPriceCap] = useState<number | null>(null);
   const [popularOnly, setPopularOnly] = useState(false);
+
+  const { user, isAuthenticated } = useAuthStore();
+  const { orders } = useHomeOrders();
+  const visibleOrders = useMemo(() => (isAuthenticated ? (orders ?? []) : []), [isAuthenticated, orders]);
+  const liveOrder = visibleOrders.find((o) => isActiveOrder(o.status)) ?? null;
+  const recentDelivered = visibleOrders.filter((o) => isCompletedOrder(o.status)).slice(0, 5);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,6 +53,7 @@ export default function HomeMenu() {
 
   return (
     <>
+      <HomeHeader user={user} liveOrder={liveOrder} />
       <Hero
         query={query}
         onQueryChange={setQuery}
@@ -49,7 +62,13 @@ export default function HomeMenu() {
       />
       <StatusStrip />
       <Reveal>
+        <SpecialsShelf />
+      </Reveal>
+      <Reveal>
         <OfferCards active={activeCategory} onSelect={setActiveCategory} />
+      </Reveal>
+      <Reveal>
+        <RecentOrders orders={recentDelivered} />
       </Reveal>
       <Reveal>
         <FavoritesShelf />

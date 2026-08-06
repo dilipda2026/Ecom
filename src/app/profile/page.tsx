@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle, BadgeCheck, Wallet } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle, BadgeCheck, CreditCard, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -11,6 +11,7 @@ import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
 import { getUserOrders } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
+import { getCreditAccount } from '@/features/bnpl/actions';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { STORE_CONFIG } from '@/config/store';
@@ -72,14 +73,21 @@ export default function ProfilePage() {
   const [myRecentOrders, setMyRecentOrders] = useState<Order[]>([]);
   const [orderCount, setOrderCount] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [walletCash, setWalletCash] = useState<number | null>(null);
   const favoritesCount = useFavoritesStore((s) => s.items.length);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadAddress();
       loadRecentOrders();
+      loadWallet();
     }
   }, [isAuthenticated]);
+
+  async function loadWallet() {
+    const res = await getCreditAccount();
+    if (res.success && res.data) setWalletCash(res.data.available_credit);
+  }
 
   useEffect(() => {
     if (tab === 'dashboard' && isAuthenticated && (user?.role === 'admin' || user?.role === 'super_admin')) {
@@ -256,12 +264,12 @@ export default function ProfilePage() {
         {tab === 'profile' ? (
           <>
             {/* User card */}
-            <div className="bg-zcard rounded-xl border border-zborder p-5 flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-zred/15 flex items-center justify-center text-zred font-bold text-lg shrink-0">
+            <div className="bg-zcard rounded-2xl border border-zborder p-5 flex items-center gap-3.5 shadow-sm">
+              <div className="w-[52px] h-[52px] rounded-full bg-zred/15 flex items-center justify-center text-zred font-extrabold text-lg shrink-0">
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-ztext text-sm truncate">
+                <p className="font-bold text-ztext text-[15px] truncate">
                   {user.fullName || 'Dilip Da Customer'}
                 </p>
                 <p className="text-xs text-ztext-light truncate">{user.email}</p>
@@ -272,21 +280,20 @@ export default function ProfilePage() {
             <StoreStatusPill />
 
             {/* Stats row */}
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-3 gap-2.5">
               <div className="bg-zcard rounded-xl border border-zborder p-3 text-center">
-                <ShoppingBag size={15} className="mx-auto text-zred" />
-                <p className="text-lg font-bold text-ztext mt-1">{ordersLoading ? '—' : orderCount}</p>
-                <p className="text-[10px] text-ztext-light mt-0.5">Orders</p>
-              </div>
-              <div className="bg-zcard rounded-xl border border-zborder p-3 text-center">
-                <Heart size={15} className="mx-auto text-zred" />
-                <p className="text-lg font-bold text-ztext mt-1">{favoritesCount}</p>
-                <p className="text-[10px] text-ztext-light mt-0.5">Favorites</p>
+                <p className="text-lg font-extrabold text-ztext">{ordersLoading ? '—' : orderCount}</p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
               <Link href="/dashboard/student/credit" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
-                <Wallet size={15} className="mx-auto text-zred" />
-                <p className="text-lg font-bold text-ztext mt-1">View</p>
-                <p className="text-[10px] text-ztext-light mt-0.5">Wallet</p>
+                <p className="text-lg font-extrabold text-ztext">
+                  {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
+                </p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
+              </Link>
+              <Link href="/favorites" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
+                <p className="text-lg font-extrabold text-ztext">{favoritesCount}</p>
+                <p className="text-[10px] text-ztext-light mt-0.5">Favorites</p>
               </Link>
             </div>
 
@@ -335,8 +342,9 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Settings list */}
-            <div className="mt-4 bg-zcard rounded-xl border border-zborder divide-y divide-zborder">
+            {/* Personal Information */}
+            <p className="mt-5 text-[11px] font-bold uppercase tracking-wider text-ztext-muted px-1">Personal Information</p>
+            <div className="mt-2 bg-zcard rounded-2xl border border-zborder divide-y divide-zborder overflow-hidden">
               {/* Name */}
               <div className="p-4 flex items-center gap-3">
                 <User size={18} className="text-zred shrink-0" />
@@ -428,18 +436,31 @@ export default function ProfilePage() {
                   <p className="text-xs text-ztext-light mt-0.5 truncate">{user.email}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Wallet balance — disabled
-              <div className="p-4 flex items-center gap-3">
-                <Wallet size={18} className="text-zred shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-ztext text-sm">Wallet</p>
-                  <p className="text-xs text-ztext-light mt-0.5">
-                    {walletBalance !== null ? `₹${walletBalance.toLocaleString('en-IN')}` : 'Loading...'}
-                  </p>
+            {/* Preferences & Support */}
+            <p className="mt-5 text-[11px] font-bold uppercase tracking-wider text-ztext-muted px-1">Preferences & Support</p>
+            <div className="mt-2 bg-zcard rounded-2xl border border-zborder divide-y divide-zborder overflow-hidden">
+
+              {/* Payment methods */}
+              <Link href="/dashboard/student/credit" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
+                <CreditCard size={18} className="text-zred shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-ztext text-sm">Payment Methods</p>
+                  <p className="text-xs text-ztext-light mt-0.5">UPI (GPay / PhonePe) · Ethics Pay</p>
                 </div>
-              </div>
-              */}
+                <ChevronRight size={16} className="text-ztext-muted shrink-0" />
+              </Link>
+
+              {/* Help & support */}
+              <Link href="tel:6000212823" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
+                <HelpCircle size={18} className="text-zred shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-ztext text-sm">Help &amp; Customer Support</p>
+                  <p className="text-xs text-ztext-light mt-0.5">Chat with Dilip Da Team</p>
+                </div>
+                <ChevronRight size={16} className="text-ztext-muted shrink-0" />
+              </Link>
 
               {/* Orders link */}
               <Link href="/orders" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
@@ -460,8 +481,6 @@ export default function ProfilePage() {
                 </div>
                 <ChevronRight size={16} className="text-ztext-muted shrink-0" />
               </Link>
-
-              {/* Theme toggle — moved to Navbar */}
             </div>
 
             {/* About section */}

@@ -1,5 +1,15 @@
 export type OrderStatus = 'pending' | 'accepted' | 'declined' | 'preparing' | 'ready' | 'assigned' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
 
+export const ACTIVE_ORDER_STATUSES: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery'];
+
+export function isActiveOrder(status: OrderStatus): boolean {
+  return ACTIVE_ORDER_STATUSES.includes(status);
+}
+
+export function isCompletedOrder(status: OrderStatus): boolean {
+  return status === 'delivered' || status === 'completed';
+}
+
 export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
 
 export type PaymentMethod = 'razorpay' | 'bnpl' | 'cod';

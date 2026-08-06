@@ -1,8 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Star } from 'lucide-react';
 import FavoriteButton from '@/components/shared/FavoriteButton';
+import { menuSections } from '@/features/menu/data';
+
+const menuItemById = new Map(menuSections.flatMap((s) => s.items).map((i) => [i.id, i]));
 
 export interface DishCardItem {
   id: string;
@@ -12,6 +15,7 @@ export interface DishCardItem {
   veg: boolean;
   popular: boolean;
   img: string;
+  rating?: number;
 }
 
 interface DishCardProps {
@@ -22,6 +26,9 @@ interface DishCardProps {
 }
 
 export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCardProps) {
+  const menu = menuItemById.get(dish.id);
+  const rating = dish.rating ?? menu?.rating;
+
   return (
     <div className="group relative flex flex-col h-full">
       <div className="relative h-40 sm:h-44 rounded-2xl overflow-hidden bg-zgray shadow-z">
@@ -65,9 +72,17 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCar
         </div>
       </div>
       <div className="mt-2.5">
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${dish.veg ? 'bg-zgreen/10 text-zgreen' : 'bg-zred/10 text-zred'}`}>
-          {dish.veg ? 'VEG' : 'NON-VEG'}
-        </span>
+        <div className="flex items-center justify-between gap-1.5">
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${dish.veg ? 'bg-zgreen/10 text-zgreen' : 'bg-zred/10 text-zred'}`}>
+            {dish.veg ? 'VEG' : 'NON-VEG'}
+          </span>
+          {rating != null && (
+            <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-500 shrink-0">
+              <Star size={10} className="fill-amber-500 text-amber-500" />
+              {rating.toFixed(1)}
+            </span>
+          )}
+        </div>
         <h3 className="mt-1 text-sm font-bold text-ztext leading-snug line-clamp-2 min-h-[2.5em]">{dish.name}</h3>
         <p className="text-xs text-ztext-light mt-0.5 line-clamp-1">{dish.desc}</p>
         <p className="mt-1.5 text-sm font-bold text-ztext">₹{dish.price}</p>
