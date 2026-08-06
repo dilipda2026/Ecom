@@ -57,6 +57,7 @@ button, input, select, textarea { font: inherit; }
 }
 
 .button-z {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -72,12 +73,27 @@ button, input, select, textarea { font: inherit; }
   text-decoration: none;
 }
 .button-z:disabled { opacity: 0.5; cursor: not-allowed; }
+.button-z:active:not(:disabled) { transform: scale(0.97); }
 
 .button-z-primary {
   background: var(--color-zred);
   color: white;
+  overflow: hidden;
+}
+.button-z-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-150%) skewX(-20deg);
+  transition: transform 0.5s ease;
+  pointer-events: none;
 }
 .button-z-primary:hover:not(:disabled) { background: var(--color-zred-dark); }
+.button-z-primary:hover:not(:disabled)::after { transform: translateX(350%) skewX(-20deg); }
 
 .button-z-outline {
   background: var(--color-zcard);
@@ -159,6 +175,19 @@ button, input, select, textarea { font: inherit; }
 
 .animate-fade-up {
   animation: fadeUp 0.8s ease forwards;
+}
+
+.animate-hero-in {
+  animation: fadeUp 0.7s ease both;
+}
+
+@keyframes page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-page-in {
+  animation: page-in 0.3s ease-out both;
 }
 
 .animate-bounce-subtle {

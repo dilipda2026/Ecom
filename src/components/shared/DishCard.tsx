@@ -23,7 +23,7 @@ interface DishCardProps {
 
 export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCardProps) {
   return (
-    <div className="group relative flex flex-col">
+    <div className="group relative flex flex-col h-full">
       <div className="relative h-40 sm:h-44 rounded-2xl overflow-hidden bg-zgray shadow-z">
         <Image
           src={dish.img}

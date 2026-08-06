@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useCartStore } from '@/features/cart/store';
 import { Search, Banknote, Star } from 'lucide-react';
 import DishCard from '@/components/shared/DishCard';
+import Reveal from '@/components/shared/Reveal';
 import type { MenuItem, MenuSection } from '@/features/menu/data';
 
 function initialFromUrl(): { category: string; vegOnly: boolean; priceCap: number | null; popularOnly: boolean } {
@@ -147,14 +148,15 @@ export function MenuItems({ sections }: { sections: MenuSection[] }) {
         <p className="text-sm text-ztext-light mt-6">No dishes match your filters.</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3.5 gap-y-6 mt-6">
-          {allItems.map((item) => (
-            <DishCard
-              key={item.id}
-              dish={item}
-              qty={getQty(item.id)}
-              onAdd={(e) => handleAdd(item, e)}
-              onUpdateQuantity={(delta) => updateQuantity(item.id, getQty(item.id) + delta)}
-            />
+          {allItems.map((item, i) => (
+            <Reveal key={item.id} delay={Math.min(i * 40, 240)} className="h-full">
+              <DishCard
+                dish={item}
+                qty={getQty(item.id)}
+                onAdd={(e) => handleAdd(item, e)}
+                onUpdateQuantity={(delta) => updateQuantity(item.id, getQty(item.id) + delta)}
+              />
+            </Reveal>
           ))}
         </div>
       )}

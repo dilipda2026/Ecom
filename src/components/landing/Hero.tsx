@@ -30,7 +30,7 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroP
     <section className="bg-zbg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {/* Gradient band header */}
-        <div className="hero-band rounded-2xl shadow-z">
+        <div className="hero-band rounded-2xl shadow-z animate-hero-in">
           <div className="flex items-center gap-1.5">
             <MapPin size={13} className="text-white/85" />
             <p className="text-xs font-medium text-white/90">Near CIT Kokrajhar, 2nd Gate</p>
@@ -66,7 +66,7 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroP
         </div>
 
         {/* Hero slider */}
-        <div className="mt-4 sm:mt-6">
+        <div className="mt-4 sm:mt-6 animate-hero-in" style={{ animationDelay: '100ms' }}>
           <div className="relative rounded-2xl overflow-hidden h-40 sm:h-52 lg:h-64 shadow-z">
             <div key={index} className="relative w-full h-full">
               <Image

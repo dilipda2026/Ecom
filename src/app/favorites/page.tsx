@@ -9,6 +9,7 @@ import { useFavoritesStore, FavoriteItem } from '@/features/favorites/store';
 import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
 import FavoriteButton from '@/components/shared/FavoriteButton';
+import Reveal from '@/components/shared/Reveal';
 
 export default function FavoritesPage() {
   const { items } = useFavoritesStore();
@@ -71,10 +72,11 @@ export default function FavoritesPage() {
         <p className="text-ztext-light mb-8 font-medium">You have {items.length} saved dish{items.length > 1 ? 'es' : ''}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {items.map((item) => {
+          {items.map((item, i) => {
             const qty = getQty(item.id);
             return (
-              <div key={item.id} className="p-4 flex gap-4 bg-zcard rounded-xl border border-zborder card-lift">
+              <Reveal key={item.id} delay={Math.min(i * 60, 240)} className="h-full">
+                <div className="p-4 flex gap-4 bg-zcard rounded-xl border border-zborder card-lift h-full">
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
@@ -108,6 +110,7 @@ export default function FavoritesPage() {
                   </div>
                 </div>
               </div>
+              </Reveal>
             );
           })}
         </div>

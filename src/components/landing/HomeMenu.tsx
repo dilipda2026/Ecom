@@ -7,6 +7,7 @@ import OfferCards from '@/components/landing/OfferCards';
 import FavoritesShelf from '@/components/landing/FavoritesShelf';
 import FeaturedDishes from '@/components/landing/FeaturedDishes';
 import FloatingCartBar from '@/components/landing/FloatingCartBar';
+import Reveal from '@/components/shared/Reveal';
 import { menuSections } from '@/features/menu/data';
 
 export default function HomeMenu() {
@@ -47,8 +48,12 @@ export default function HomeMenu() {
         onVegToggle={() => setVegOnly((v) => !v)}
       />
       <StatusStrip />
-      <OfferCards active={activeCategory} onSelect={setActiveCategory} />
-      <FavoritesShelf />
+      <Reveal>
+        <OfferCards active={activeCategory} onSelect={setActiveCategory} />
+      </Reveal>
+      <Reveal>
+        <FavoritesShelf />
+      </Reveal>
       <FeaturedDishes
         dishes={filtered}
         vegOnly={vegOnly}

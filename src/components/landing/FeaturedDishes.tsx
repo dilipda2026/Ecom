@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useCartStore } from '@/features/cart/store';
 import { SlidersHorizontal, Banknote, Star, Leaf, X } from 'lucide-react';
 import DishCard from '@/components/shared/DishCard';
+import Reveal from '@/components/shared/Reveal';
 import type { MenuItem } from '@/features/menu/data';
 
 interface FeaturedDishesProps {
@@ -118,14 +119,14 @@ export default function FeaturedDishes({
         ) : (
           <div className="mt-4 sm:mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3.5 gap-y-5 sm:gap-y-6">
             {dishes.map((dish, i) => (
-              <div key={dish.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i * 60, 300)}ms` }}>
+              <Reveal key={dish.id} delay={Math.min(i * 60, 300)}>
                 <DishCard
                   dish={dish}
                   qty={getQty(dish.id)}
                   onAdd={(e) => handleAdd(dish, e)}
                   onUpdateQuantity={(delta) => updateQuantity(dish.id, getQty(dish.id) + delta)}
                 />
-              </div>
+              </Reveal>
             ))}
           </div>
         )}
