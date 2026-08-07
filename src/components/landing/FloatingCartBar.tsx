@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 
 const HIDE_DELAY = 8000;
@@ -32,23 +31,18 @@ export default function FloatingCartBar() {
     >
       <Link
         href="/cart"
-        className={`mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-zred px-4 py-3 shadow-z-modal hover:brightness-105 transition-[filter] ${
+        className={`mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-slate-900 text-white px-4 py-3 border border-white/10 shadow-z-modal hover:brightness-125 transition-[filter] ${
           visible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        <div className="flex items-center gap-2.5 text-white">
-          <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-            <ShoppingBag size={16} />
-          </span>
-          <div>
-            <p className="text-xs font-bold leading-tight">
-              {count} item{count > 1 ? 's' : ''} · ₹{total()}
-            </p>
-            <p className="text-[10px] text-white/85 leading-tight mt-0.5">Delivery fee included</p>
-          </div>
+        <div>
+          <p className="text-xs font-bold leading-tight">
+            {count} item{count > 1 ? 's' : ''} · ₹{total()}
+          </p>
+          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Taxes &amp; fees calculated at checkout</p>
         </div>
-        <span className="inline-flex items-center gap-1 text-xs font-bold text-white shrink-0">
-          View bag <ChevronRight size={14} />
+        <span className="shrink-0 inline-flex items-center justify-center bg-zred text-white text-xs font-bold px-3.5 py-2 rounded-lg hover:bg-zred-dark transition-colors">
+          View Cart
         </span>
       </Link>
     </div>

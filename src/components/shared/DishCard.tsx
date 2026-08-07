@@ -23,11 +23,72 @@ interface DishCardProps {
   qty: number;
   onAdd: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   onUpdateQuantity: (delta: number) => void;
+  variant?: 'default' | 'menu';
 }
 
-export default function DishCard({ dish, qty, onAdd, onUpdateQuantity }: DishCardProps) {
+export default function DishCard({ dish, qty, onAdd, onUpdateQuantity, variant = 'default' }: DishCardProps) {
   const menu = menuItemById.get(dish.id);
   const rating = dish.rating ?? menu?.rating;
+
+  if (variant === 'menu') {
+    return (
+      <div className="group flex flex-col h-full rounded-2xl border border-zborder bg-zcard overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-z hover:border-ztext-lighter">
+        <div className="relative h-28 sm:h-32 bg-zgray overflow-hidden">
+          <Image
+            src={dish.img}
+            alt={dish.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            sizes="(max-width: 640px) 50vw, 300px"
+            loading="lazy"
+          />
+          {dish.popular && (
+            <span className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm text-white text-[9px] font-semibold px-1.5 py-0.5 rounded tracking-wide">
+              Bestseller
+            </span>
+          )}
+          <FavoriteButton item={{ id: dish.id, name: dish.name, price: dish.price, desc: dish.desc, veg: dish.veg, popular: dish.popular, img: dish.img }} />
+        </div>
+        <div className="p-3 flex flex-col flex-1">
+          <div className="flex items-start gap-1.5">
+            <span className={`w-3 h-3 border p-[1.5px] rounded-[2px] mt-0.5 shrink-0 flex ${dish.veg ? 'border-green-600' : 'border-red-600'}`}>
+              <span className={`w-full h-full rounded-full ${dish.veg ? 'bg-green-600' : 'bg-red-600'}`} />
+            </span>
+            <h3 className="text-[13px] font-bold text-ztext leading-snug line-clamp-2 min-h-[2.6em]">{dish.name}</h3>
+          </div>
+          <div className="mt-auto pt-2 flex items-center justify-between gap-2">
+            {rating != null ? (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-ztext">
+                <Star size={11} className="fill-amber-500 text-amber-500" />
+                {rating.toFixed(1)}
+              </span>
+            ) : (
+              <span />
+            )}
+            <span className="text-[13px] font-bold text-ztext">₹{dish.price}</span>
+          </div>
+          {qty === 0 ? (
+            <button
+              onClick={(e) => onAdd(e)}
+              className="mt-2.5 w-full h-8 flex items-center justify-center gap-1 rounded-lg text-[12px] font-bold text-zred bg-zred/10 border border-zred/40 transition-all hover:bg-zred hover:text-white hover:shadow-z"
+            >
+              <Plus size={12} /> Add
+            </button>
+          ) : (
+            <div className="mt-2.5 w-full h-8 flex items-center justify-between bg-zred rounded-lg px-1.5 text-white">
+              <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-6 h-full flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors">
+                <Minus size={13} />
+              </button>
+              <span className="text-[12px] font-bold">{qty}</span>
+              <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-6 h-full flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors">
+                <Plus size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="group relative flex flex-col h-full">
