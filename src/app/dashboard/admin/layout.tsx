@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Users, ShoppingBag, Banknote,
-  LogOut, Menu, X, Bell,
+  LogOut, Menu, X, Bell, FolderTree, UtensilsCrossed,
   ClipboardList,
 } from 'lucide-react';
 import { getServerSession } from '@/features/auth/actions';
@@ -19,13 +19,11 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
-  // { label: 'All Users', href: '/dashboard/admin/users', icon: UserCog },
+  { label: 'Categories', href: '/dashboard/admin/categories', icon: FolderTree },
+  { label: 'Products', href: '/dashboard/admin/products', icon: UtensilsCrossed },
   { label: 'Students', href: '/dashboard/admin/students', icon: Users },
-  // { label: 'Merchants', href: '/dashboard/admin/merchants', icon: Store },
   { label: 'Orders', href: '/dashboard/admin/orders', icon: ShoppingBag },
-  // { label: 'BNPL', href: '/dashboard/admin/bnpl', icon: Wallet },
   { label: 'Payments', href: '/dashboard/admin/payments', icon: Banknote },
-  // { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
   { label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ClipboardList },
 ];
 
@@ -61,14 +59,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
-    <div className="min-h-screen bg-zgray">
+    <div className="min-h-screen bg-zgray flex flex-col lg:flex-row">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 z-50 h-full w-64 bg-zcard border-r border-zborder transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-zcard border-r border-zborder transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:fixed lg:top-0 lg:bottom-0 lg:left-0 lg:z-30 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex items-center justify-between px-5 h-16 border-b border-zborder">
@@ -117,7 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content area */}
-      <div className="lg:pl-64">
+      <div className="flex-1 lg:pl-64 flex flex-col min-w-0 min-h-screen">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-zcard sm:bg-zgray/80 sm:backdrop-blur-lg border-b border-zborder">
           <div className="flex items-center justify-between px-4 lg:px-6 h-16">

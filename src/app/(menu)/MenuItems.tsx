@@ -5,6 +5,7 @@ import { useCartStore } from '@/features/cart/store';
 import { Search, Banknote, Star } from 'lucide-react';
 import DishCard from '@/components/shared/DishCard';
 import Reveal from '@/components/shared/Reveal';
+import { useMenu } from '@/features/menu/hooks/useMenu';
 import type { MenuItem, MenuSection } from '@/features/menu/data';
 
 function initialFromUrl(): { category: string; vegOnly: boolean; priceCap: number | null; popularOnly: boolean } {
@@ -21,9 +22,12 @@ function initialFromUrl(): { category: string; vegOnly: boolean; priceCap: numbe
   };
 }
 
-export function MenuItems({ sections }: { sections: MenuSection[] }) {
+export function MenuItems({ sections: initialSections }: { sections: MenuSection[] }) {
   const store = useCartStore();
   const { items: cartItems, addItem, setLastAddedRect, updateQuantity } = store;
+  const { sections: dynamicSections } = useMenu();
+  const sections = dynamicSections && dynamicSections.length > 0 ? dynamicSections : initialSections;
+
   const initial = initialFromUrl();
   const [activeCategory, setActiveCategory] = useState(initial.category);
   const [vegOnly, setVegOnly] = useState(initial.vegOnly);

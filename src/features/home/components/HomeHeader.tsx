@@ -14,8 +14,8 @@ export default function HomeHeader({ user, liveOrder }: HomeHeaderProps) {
   const firstName = user?.fullName?.split(' ')[0] || 'Foodie';
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 animate-hero-in">
-      <div className="mx-auto max-w-7xl hero-band rounded-2xl shadow-z">
+    <div className="px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 animate-hero-in overflow-hidden max-w-full">
+      <div className="mx-auto max-w-7xl hero-band rounded-2xl shadow-z overflow-hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Hello, {firstName}!</h1>

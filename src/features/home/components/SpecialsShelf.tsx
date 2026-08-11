@@ -4,13 +4,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
-import { menuSections } from '@/features/menu/data';
+import { useMenu } from '@/features/menu/hooks/useMenu';
 import type { MenuItem } from '@/features/menu/data';
-
-const specials = menuSections.flatMap((s) => s.items).filter((i) => i.popular);
 
 export default function SpecialsShelf() {
   const { addItem, items, setLastAddedRect, updateQuantity } = useCartStore();
+  const { sections } = useMenu();
+  const specials = sections.flatMap((s) => s.items).filter((i) => i.popular);
 
   function getQty(id: string) {
     return items.find((i) => i.id === id)?.quantity ?? 0;
@@ -35,7 +35,7 @@ export default function SpecialsShelf() {
           </Link>
         </div>
 
-        <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+        <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide px-0.5 sm:px-0 pb-1 max-w-full">
           {specials.map((dish) => {
             const qty = getQty(dish.id);
             return (

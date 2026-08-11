@@ -35,7 +35,7 @@ export default function BottomNav() {
 
   const badgeCount = isAuthenticated ? activeOrderCount : 0;
 
-  if (pathname?.startsWith('/admin')) return null;
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard')) return null;
   if (user?.role === 'delivery') return null;
 
   function isActive(href: string) {

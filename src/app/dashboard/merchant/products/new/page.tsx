@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
-import { createProduct, getCategories } from '@/features/products/actions';
+import { createProductFromFormData, getCategories } from '@/features/products/actions';
 import type { Category } from '@/features/products/types';
 
 const units = [
@@ -23,6 +23,7 @@ export default function NewProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [form, setForm] = useState<{
     name: string; description: string; price: number; compare_at_price: number; cost_per_unit: number;
     unit: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
@@ -46,24 +47,27 @@ export default function NewProductPage() {
     if (!form.name.trim()) { setError('Name is required'); return; }
     if (form.price <= 0) { setError('Price must be greater than 0'); return; }
     setSaving(true);
-    const res = await createProduct({
-      name: form.name.trim(),
-      description: form.description.trim() || undefined,
-      price: form.price,
-      compare_at_price: form.compare_at_price || undefined,
-      cost_per_unit: form.cost_per_unit || undefined,
-      unit: form.unit,
-      category_id: form.category_id || undefined,
-      is_vegetarian: form.is_vegetarian,
-      is_vegan: form.is_vegan,
-      is_gluten_free: form.is_gluten_free,
-      spice_level: form.spice_level,
-      preparation_time: form.preparation_time || 10,
-      image: form.image || undefined,
-      stock_quantity: form.stock_quantity,
-      track_inventory: form.track_inventory,
-      tags: form.tags ? form.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : undefined,
-    });
+
+    const fd = new FormData();
+    fd.append('name', form.name.trim());
+    fd.append('price', String(form.price));
+    if (form.description.trim()) fd.append('description', form.description.trim());
+    if (form.category_id) fd.append('category_id', form.category_id);
+    if (form.is_vegetarian) fd.append('is_vegetarian', 'true');
+    if (form.is_vegan) fd.append('is_vegan', 'true');
+    if (form.is_gluten_free) fd.append('is_gluten_free', 'true');
+    if (form.compare_at_price) fd.append('compare_at_price', String(form.compare_at_price));
+    if (form.cost_per_unit) fd.append('cost_per_unit', String(form.cost_per_unit));
+    if (form.stock_quantity) fd.append('stock_quantity', String(form.stock_quantity));
+    if (form.track_inventory) fd.append('track_inventory', 'true');
+    if (form.tags) fd.append('tags', form.tags);
+    if (form.image) fd.append('image', form.image);
+
+    if (imageFile) {
+      fd.append('file', imageFile);
+    }
+
+    const res = await createProductFromFormData(fd);
     setSaving(false);
     if (res.success) { router.push('/dashboard/merchant/products'); }
     else { setError(res.error ?? 'Failed to create product'); }
@@ -141,13 +145,23 @@ export default function NewProductPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-ztext-lighter">Image URL</label>
-            <input value={form.image} onChange={(e) => update('image', e.target.value)} className="input-z mt-1" placeholder="https://..." />
+            <label className="text-xs font-medium text-ztext-lighter">Upload Image File</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="input-z mt-1 pt-1.5 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-zred file:text-white"
+            />
           </div>
           <div>
-            <label className="text-xs font-medium text-ztext-lighter">Tags (comma separated)</label>
-            <input value={form.tags} onChange={(e) => update('tags', e.target.value)} className="input-z mt-1" placeholder="bestseller, spicy" />
+            <label className="text-xs font-medium text-ztext-lighter">Or Image URL</label>
+            <input value={form.image} onChange={(e) => update('image', e.target.value)} className="input-z mt-1" placeholder="https://..." />
           </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-ztext-lighter">Tags (comma separated)</label>
+          <input value={form.tags} onChange={(e) => update('tags', e.target.value)} className="input-z mt-1" placeholder="bestseller, spicy" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

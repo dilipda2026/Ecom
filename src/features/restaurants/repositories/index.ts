@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
+import { createServiceClient } from '@/infrastructure/supabase/service';
 import type { Restaurant, RestaurantSettings, MerchantDashboard, RevenueOverview } from '../types';
 
 const RESTAURANT_COLUMNS = 'id, owner_id, name, slug, description, cuisine_type, phone, email, address_line1, address_line2, city, state, postal_code, latitude, longitude, cover_image, logo_url, opening_time, closing_time, delivery_fee, min_order_amount, delivery_radius_km, is_active, is_open, status, created_at, updated_at, deleted_at';
@@ -7,25 +8,25 @@ const SETTINGS_COLUMNS = 'id, restaurant_id, prep_time_minutes, max_orders_slot,
 
 export class RestaurantRepository {
   async findByOwnerId(ownerId: string): Promise<Restaurant | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const { data } = await supabase
       .from('restaurants')
       .select(RESTAURANT_COLUMNS)
       .eq('owner_id', ownerId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
       .maybeSingle();
     return data;
   }
 
   async findById(id: string): Promise<Restaurant | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const { data } = await supabase
       .from('restaurants')
       .select(RESTAURANT_COLUMNS)
       .eq('id', id)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
       .maybeSingle();
     return data;
   }

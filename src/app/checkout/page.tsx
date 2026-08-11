@@ -4,17 +4,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { createOrder, confirmPayment, sendOrderNotification } from '@/features/orders/actions/customer';
 import { createRazorpayOrder } from '@/features/payments/actions';
+import { getWalletDetails, deductWalletBalance } from '@/features/wallet/actions';
 import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
 import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
 
 const allPaymentMethods = [
+  { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
@@ -34,7 +36,8 @@ export default function CheckoutPage() {
   const { items, subtotal, deliveryFee, taxAmount, total, clearCart } = store;
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const [orderType, setOrderType] = useState<OrderType | null>('room_delivery');
-  const [paymentMethod, setPaymentMethod] = useState('razorpay');
+  const [paymentMethod, setPaymentMethod] = useState('wallet');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [address, setAddress] = useState('');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
@@ -50,6 +53,16 @@ export default function CheckoutPage() {
       router.replace('/auth/login?next=/checkout');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      getWalletDetails().then((res) => {
+        if (res.success && res.data) {
+          setWalletBalance(res.data.balance);
+        }
+      });
+    }
+  }, [isAuthenticated]);
 
   async function handleAuthRejected(errorMessage?: string | null) {
     if (!errorMessage) return false;
@@ -108,7 +121,7 @@ export default function CheckoutPage() {
   async function validateAndPlace(pm: string) {
     setError('');
     if (pm === 'razorpay' && !razorpayKey) {
-      setError('Razorpay is not configured. Please choose Cash on Delivery.');
+      setError('Razorpay is not configured. Please choose Wallet or Cash on Delivery.');
       return false;
     }
     if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
@@ -163,6 +176,38 @@ export default function CheckoutPage() {
   async function placeOrder(pm: string) {
     const valid = await validateAndPlace(pm);
     if (!valid) return;
+
+    if (pm === 'wallet') {
+      const orderTotal = total();
+      const currentBalance = walletBalance ?? 0;
+
+      if (currentBalance < orderTotal) {
+        setError(`Insufficient wallet balance. Available: ₹${currentBalance.toLocaleString('en-IN')}, Order Total: ₹${orderTotal.toLocaleString('en-IN')}. Please top up your wallet.`);
+        setPlacing(false);
+        return;
+      }
+
+      const orderResult = await createOrder(buildOrderParams('wallet'));
+      if (!orderResult.success) {
+        if (await handleAuthRejected(orderResult.error)) return;
+        setError(orderResult.error ?? 'Failed to place order');
+        setPlacing(false);
+        return;
+      }
+
+      const deductRes = await deductWalletBalance(orderTotal, orderResult.data!.orderId, `Order #${orderResult.data!.trackingCode}`);
+      if (!deductRes.success) {
+        setError(deductRes.error || 'Failed to deduct wallet balance');
+        setPlacing(false);
+        return;
+      }
+
+      await confirmPayment(orderResult.data!.orderId);
+      await sendOrderNotification(orderResult.data!.orderId, orderResult.data!.qrToken ?? null);
+      clearCart();
+      router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
+      return;
+    }
 
     if (pm === 'razorpay') {
       await initiateRazorpayPayment();
@@ -300,7 +345,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v)) setPaymentMethod('razorpay'); }} />
+              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v) && paymentMethod === 'cod') setPaymentMethod('wallet'); }} />
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
@@ -328,6 +373,40 @@ export default function CheckoutPage() {
                     </button>
                   ))}
                 </div>
+
+                {paymentMethod === 'wallet' && (
+                  <div className="mt-4 pt-4 border-t border-zborder">
+                    <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
+                      walletBalance !== null && walletBalance >= total()
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                      <div>
+                        <p className="text-xs font-bold flex items-center gap-1.5">
+                          {walletBalance !== null && walletBalance >= total() ? (
+                            <>
+                              <CheckCircle2 size={15} /> Dilip Da Wallet Ready
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle size={15} /> Insufficient Wallet Balance
+                            </>
+                          )}
+                        </p>
+                        <p className="text-[11px] mt-0.5 opacity-90">
+                          Available Cash: ₹{(walletBalance ?? 0).toLocaleString('en-IN')} &bull; Order: ₹{total().toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <Link
+                        href="/dashboard/student/wallet"
+                        target="_blank"
+                        className="px-3 py-1.5 bg-zcard text-ztext border border-zborder rounded-lg text-xs font-bold shrink-0 hover:bg-zgray transition-colors"
+                      >
+                        + Top Up
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {paymentMethod === 'razorpay' && (
                   <div className="mt-4 pt-4 border-t border-zborder">

@@ -25,10 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-mode');var blocked=['fdprocessedid'];function strip(el){for(var i=0;i<blocked.length;i++){if(el.hasAttribute(blocked[i]))el.removeAttribute(blocked[i]);}}document.querySelectorAll('['+blocked.join('],[')+']').forEach(strip);var o=Element.prototype.setAttribute;Element.prototype.setAttribute=function(n,v){for(var i=0;i<blocked.length;i++){if(n===blocked[i])return;}return o.call(this,n,v)};var on=Element.prototype.setAttributeNS;Element.prototype.setAttributeNS=function(ns,n,v){for(var i=0;i<blocked.length;i++){if(n===blocked[i])return;}return on.call(this,ns,n,v)};if(window.MutationObserver){new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var m=muts[i];if(m.type==='attributes'&&blocked.indexOf(m.attributeName)!==-1){m.target.removeAttribute(m.attributeName);}}}).observe(document.documentElement,{attributes:true,attributeFilter:blocked,subtree:true});}})()` }} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className="min-h-screen bg-zbg font-sans antialiased">
+      <body className="min-h-screen bg-zbg font-sans antialiased overflow-x-hidden w-full max-w-full">
         <Providers>
           <NavbarWrapper />
-          <main className="min-h-[calc(100vh-4rem)] has-bottom-nav">{children}</main>
+          <main className="min-h-[calc(100vh-4rem)] has-bottom-nav overflow-x-hidden w-full max-w-full">{children}</main>
           <Footer />
           <FlyingBird />
           <BottomNav />

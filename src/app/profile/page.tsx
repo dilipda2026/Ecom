@@ -12,6 +12,7 @@ import type { DashboardStats, AdminOrder } from '@/features/admin/types';
 import { getUserOrders } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
 import { getCreditAccount } from '@/features/bnpl/actions';
+import { getWalletDetails } from '@/features/wallet/actions';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { STORE_CONFIG } from '@/config/store';
@@ -85,8 +86,13 @@ export default function ProfilePage() {
   }, [isAuthenticated]);
 
   async function loadWallet() {
-    const res = await getCreditAccount();
-    if (res.success && res.data) setWalletCash(res.data.available_credit);
+    const res = await getWalletDetails();
+    if (res.success && res.data) {
+      setWalletCash(res.data.balance);
+    } else {
+      const creditRes = await getCreditAccount();
+      if (creditRes.success && creditRes.data) setWalletCash(creditRes.data.available_credit);
+    }
   }
 
   useEffect(() => {
@@ -285,7 +291,7 @@ export default function ProfilePage() {
                 <p className="text-lg font-extrabold text-ztext">{ordersLoading ? '—' : orderCount}</p>
                 <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
-              <Link href="/dashboard/student/credit" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
+              <Link href="/dashboard/student/wallet" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
                 <p className="text-lg font-extrabold text-ztext">
                   {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
                 </p>

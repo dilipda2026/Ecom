@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
+import { createServiceClient } from '@/infrastructure/supabase/service';
 import type { Product, ProductFormData, Category, CategoryFormData, ProductsFilter } from '../types';
 
 const PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, price, compare_at_price, cost_per_unit, unit, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
@@ -7,13 +8,13 @@ const CATEGORY_COLUMNS = 'id, restaurant_id, name, slug, description, display_or
 
 export class ProductRepository {
   async findByRestaurant(restaurantId: string, filter: ProductsFilter = {}): Promise<Product[]> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return [];
     let query = supabase
       .from('products')
       .select(PRODUCT_COLUMNS)
       .eq('restaurant_id', restaurantId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
     if (filter.category_id) query = query.eq('category_id', filter.category_id);
@@ -30,27 +31,27 @@ export class ProductRepository {
   }
 
   async findById(id: string): Promise<Product | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const { data } = await supabase
       .from('products')
       .select(PRODUCT_COLUMNS)
       .eq('id', id)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
       .maybeSingle();
     return data as Product | null;
   }
 
   async create(restaurantId: string, data: ProductFormData): Promise<Product | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
-    const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const { data: product } = await supabase
+    const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'item';
+    const { data: product, error } = await supabase
       .from('products')
       .insert({
         restaurant_id: restaurantId,
         name: data.name,
-        slug: `${slug}-${Date.now().toString(36)}`,
+        slug: `${slugBase}-${Date.now().toString(36)}`,
         description: data.description ?? null,
         price: data.price,
         compare_at_price: data.compare_at_price ?? null,
@@ -65,15 +66,20 @@ export class ProductRepository {
         image: data.image ?? null,
         stock_quantity: data.stock_quantity ?? 0,
         track_inventory: data.track_inventory ?? false,
+        is_available: data.is_available ?? true,
+        is_active: data.is_active ?? true,
         tags: data.tags ?? null,
       })
       .select(PRODUCT_COLUMNS)
       .single();
+    if (error) {
+      console.error('Product insert error:', error);
+    }
     return product as Product | null;
   }
 
   async update(id: string, restaurantId: string, data: Partial<ProductFormData>): Promise<Product | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) { updateData.name = data.name; updateData.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36); }
@@ -91,20 +97,25 @@ export class ProductRepository {
     if (data.image !== undefined) updateData.image = data.image;
     if (data.stock_quantity !== undefined) updateData.stock_quantity = data.stock_quantity;
     if (data.track_inventory !== undefined) updateData.track_inventory = data.track_inventory;
+    if (data.is_available !== undefined) updateData.is_available = data.is_available;
+    if (data.is_active !== undefined) updateData.is_active = data.is_active;
     if (data.tags !== undefined) updateData.tags = data.tags;
     updateData.updated_at = new Date().toISOString();
-    const { data: product } = await supabase
+    const { data: product, error } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id)
       .eq('restaurant_id', restaurantId)
       .select(PRODUCT_COLUMNS)
       .single();
+    if (error) {
+      console.error('Product update error:', error);
+    }
     return product as Product | null;
   }
 
   async softDelete(id: string, restaurantId: string): Promise<boolean> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return false;
     const { error } = await supabase
       .from('products')
@@ -115,7 +126,7 @@ export class ProductRepository {
   }
 
   async restore(id: string, restaurantId: string): Promise<boolean> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return false;
     const { error } = await supabase
       .from('products')
@@ -126,7 +137,7 @@ export class ProductRepository {
   }
 
   async hardDelete(id: string, restaurantId: string): Promise<boolean> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return false;
     const { data: refs } = await supabase.from('order_items').select('id').eq('product_id', id).limit(1);
     if (refs && refs.length > 0) return false;
@@ -135,7 +146,7 @@ export class ProductRepository {
   }
 
   async updateStock(id: string, restaurantId: string, quantity: number): Promise<Product | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const { data } = await supabase
       .from('products')
@@ -150,7 +161,7 @@ export class ProductRepository {
 
 export class CategoryRepository {
   async findByRestaurant(restaurantId: string, includeInactive = false): Promise<Category[]> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return [];
     let query = supabase
       .from('categories')
@@ -170,25 +181,29 @@ export class CategoryRepository {
   }
 
   async create(restaurantId: string, data: CategoryFormData): Promise<Category | null> {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const { count } = await supabase
       .from('categories')
       .select('id', { count: 'exact', head: true })
       .eq('restaurant_id', restaurantId);
-    const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const { data: category } = await supabase
+    const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'cat';
+    const slug = `${slugBase}-${Date.now().toString(36)}`;
+    const { data: category, error } = await supabase
       .from('categories')
       .insert({
         restaurant_id: restaurantId,
         name: data.name,
         slug,
         description: data.description ?? null,
-        display_order: (count ?? 0) + 1,
+        display_order: data.display_order ?? (count ?? 0) + 1,
         is_active: data.is_active ?? true,
       })
       .select(CATEGORY_COLUMNS)
       .single();
+    if (error) {
+      console.error('Category insert error:', error);
+    }
     return category as Category | null;
   }
 
@@ -198,6 +213,7 @@ export class CategoryRepository {
     const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (data.name !== undefined) { updateData.name = data.name; updateData.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
     if (data.description !== undefined) updateData.description = data.description;
+    if (data.display_order !== undefined) updateData.display_order = data.display_order;
     if (data.is_active !== undefined) updateData.is_active = data.is_active;
     const { data: category } = await supabase
       .from('categories')

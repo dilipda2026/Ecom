@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { UtensilsCrossed } from 'lucide-react';
-import { menuSections } from '@/features/menu/data';
+import { useMenu } from '@/features/menu/hooks/useMenu';
 
 interface OfferCardsProps {
   active: string;
@@ -10,10 +10,14 @@ interface OfferCardsProps {
 }
 
 export default function OfferCards({ active, onSelect }: OfferCardsProps) {
+  const { sections } = useMenu();
+
   function select(category: string) {
     onSelect(category);
     document.getElementById('recommended-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  const allThumbnail = sections[0]?.items[0]?.img || '/images/Chicken Curry.jpg';
 
   return (
     <section className="py-5 sm:py-6 bg-zbg">
@@ -30,7 +34,7 @@ export default function OfferCards({ active, onSelect }: OfferCardsProps) {
           {/* All */}
           <button onClick={() => select('All')} className={`category-item ${active === 'All' ? 'active' : ''}`}>
             <Image
-              src={menuSections[0].items[0].img}
+              src={allThumbnail}
               alt="All dishes"
               width={68}
               height={68}
@@ -40,14 +44,14 @@ export default function OfferCards({ active, onSelect }: OfferCardsProps) {
             <span className="category-label">All</span>
           </button>
 
-          {menuSections.map((s) => (
+          {sections.map((s) => (
             <button
               key={s.category}
               onClick={() => select(s.category)}
               className={`category-item ${active === s.category ? 'active' : ''}`}
             >
               <Image
-                src={s.items[0].img}
+                src={s.items[0]?.img || '/images/Chicken Curry.jpg'}
                 alt={s.category}
                 width={68}
                 height={68}
