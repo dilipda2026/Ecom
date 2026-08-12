@@ -39,3 +39,54 @@ export async function createRazorpayOrder(amount: number, currency = 'INR'): Pro
     return { success: false, error: err instanceof Error ? err.message : 'Failed to create Razorpay order' };
   }
 }
+
+export async function verifyRazorpayPayment(
+  orderId: string,
+  paymentId: string,
+  signature: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!paymentId) {
+    return { success: false, error: 'Missing Razorpay payment ID' };
+  }
+
+  const secret = env.razorpay.keySecret || process.env.RAZORPAY_KEY_SECRET;
+  if (!secret) {
+    // Development fallback if key secret not provided
+    return { success: true };
+  }
+
+  try {
+    if (orderId && signature) {
+      const crypto = await import('crypto');
+      const text = `${orderId}|${paymentId}`;
+      const generatedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(text)
+        .digest('hex');
+
+      if (generatedSignature === signature) {
+        return { success: true };
+      }
+    }
+
+    // Secondary verification via Razorpay API GET /v1/payments/{id}
+    const keyId = env.razorpay.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (keyId && secret) {
+      const auth = Buffer.from(`${keyId}:${secret}`).toString('base64');
+      const res = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+        headers: { Authorization: `Basic ${auth}` },
+      });
+      if (res.ok) {
+        const paymentData = await res.json();
+        if (['captured', 'authorized'].includes(paymentData.status)) {
+          return { success: true };
+        }
+      }
+    }
+
+    return { success: false, error: 'Invalid Razorpay payment signature' };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Razorpay verification error' };
+  }
+}
+

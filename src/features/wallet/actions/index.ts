@@ -223,6 +223,43 @@ export async function topupWallet(
 }
 
 /**
+ * Top up wallet after verifying Razorpay payment signature & payment ID
+ */
+export async function verifyAndTopupWalletWithRazorpay({
+  amount,
+  razorpayPaymentId,
+  razorpayOrderId,
+  razorpaySignature,
+}: {
+  amount: number;
+  razorpayPaymentId: string;
+  razorpayOrderId?: string;
+  razorpaySignature?: string;
+}): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+  if (!razorpayPaymentId) {
+    return { success: false, error: 'Missing Razorpay Payment ID' };
+  }
+
+  const { verifyRazorpayPayment } = await import('@/features/payments/actions');
+
+  // Verify Razorpay payment signature server-side
+  const verification = await verifyRazorpayPayment(
+    razorpayOrderId || '',
+    razorpayPaymentId,
+    razorpaySignature || ''
+  );
+
+  if (!verification.success) {
+    return { success: false, error: verification.error || 'Payment verification failed' };
+  }
+
+  // Once verified, update wallet balance & insert into tables
+  const paymentRef = `Razorpay ID: ${razorpayPaymentId}`;
+  return topupWallet(amount, paymentRef);
+}
+
+
+/**
  * Deduct wallet balance (e.g. for order checkout)
  */
 export async function deductWalletBalance(
@@ -245,9 +282,10 @@ export async function deductWalletBalance(
       .eq('id', user.id)
       .maybeSingle();
 
+    const CREDIT_LIMIT = 500;
     const balanceBefore = Number(profile?.wallet_balance) || 0;
-    if (balanceBefore < amount) {
-      return { success: false, error: 'Insufficient wallet balance' };
+    if (balanceBefore - amount < -CREDIT_LIMIT) {
+      return { success: false, error: `Credit limit reached (-₹${CREDIT_LIMIT}). Available balance: ₹${balanceBefore.toLocaleString('en-IN')}` };
     }
 
     const balanceAfter = balanceBefore - amount;

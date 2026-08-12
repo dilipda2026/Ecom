@@ -381,11 +381,24 @@ export default function AdminOrdersPage() {
           <div className="bg-zcard rounded-2xl p-6 max-w-sm w-full shadow-z-modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold text-ztext">Force Update Status</h3>
             <p className="text-sm text-ztext-lighter mt-1">This will be audited.</p>
-            <select value={forceStatus} onChange={(e) => setForceStatus(e.target.value)} className="w-full mt-4 px-3 py-2.5 text-sm border border-zborder rounded-xl focus:outline-none focus:ring-2 focus:ring-zred/20">
-              <option value="">Select status...</option>
-              {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+            <select
+              value={forceStatus}
+              onChange={(e) => setForceStatus(e.target.value)}
+              className="w-full mt-4 px-3.5 py-2.5 text-sm border border-zborder rounded-xl bg-zcard text-ztext focus:outline-none focus:ring-2 focus:ring-zred/20 cursor-pointer"
+            >
+              <option value="" className="bg-zcard text-ztext">Select status...</option>
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-zcard text-ztext capitalize">
+                  {s.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
-            <input value={forceReason} onChange={(e) => setForceReason(e.target.value)} placeholder="Reason for change" className="w-full mt-3 px-3 py-2.5 text-sm border border-zborder rounded-xl focus:outline-none focus:ring-2 focus:ring-zred/20" />
+            <input
+              value={forceReason}
+              onChange={(e) => setForceReason(e.target.value)}
+              placeholder="Reason for change"
+              className="w-full mt-3 px-3.5 py-2.5 text-sm border border-zborder rounded-xl bg-zcard text-ztext placeholder:text-ztext-muted focus:outline-none focus:ring-2 focus:ring-zred/20"
+            />
             <div className="flex gap-3 mt-6">
               <button onClick={() => setConfirmAction(null)} className="flex-1 px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Cancel</button>
               <button onClick={handleForceUpdate} disabled={!forceStatus} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-zred rounded-xl hover:bg-zred-dark transition-colors disabled:opacity-50">Update</button>

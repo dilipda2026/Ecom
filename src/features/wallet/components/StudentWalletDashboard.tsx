@@ -18,7 +18,9 @@ import {
   ShieldCheck,
   ArrowLeft
 } from 'lucide-react';
-import { getWalletDetails, topupWallet } from '../actions';
+import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay } from '../actions';
+import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
+import { createRazorpayOrder } from '@/features/payments/actions';
 import type { WalletSummary, WalletTransaction } from '../types';
 
 export default function StudentWalletDashboard() {
@@ -32,9 +34,10 @@ export default function StudentWalletDashboard() {
   // Top Up Modal State
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupAmount, setTopupAmount] = useState('500');
-  const [paymentMethod, setPaymentMethod] = useState('UPI (GPay / PhonePe)');
+  const [paymentMethod, setPaymentMethod] = useState('Razorpay (Cards, NetBanking, UPI)');
   const [submittingTopup, setSubmittingTopup] = useState(false);
   const [modalError, setModalError] = useState('');
+
 
   // Toast State
   const [toastMsg, setToastMsg] = useState('');
@@ -75,21 +78,82 @@ export default function StudentWalletDashboard() {
     }
 
     setSubmittingTopup(true);
-    try {
-      const res = await topupWallet(amt, paymentMethod);
-      if (res.success) {
-        showToast(`Successfully added ₹${amt.toLocaleString('en-IN')} to your wallet!`);
-        setShowTopupModal(false);
-        setTopupAmount('500');
-        setFilter('all');
-        await loadWallet(true);
-      } else {
-        setModalError(res.error || 'Failed to complete wallet top up');
+
+    if (paymentMethod.startsWith('Razorpay')) {
+      try {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          setModalError('Failed to load Razorpay gateway. Check your internet connection.');
+          setSubmittingTopup(false);
+          return;
+        }
+
+        const rzpOrder = await createRazorpayOrder(amt * 100);
+        if (!rzpOrder.success) {
+          setModalError(rzpOrder.error || 'Failed to initialize Razorpay order.');
+          setSubmittingTopup(false);
+          return;
+        }
+
+        const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TLHU8jOHX9oZta';
+
+        openRazorpayCheckout({
+          key: razorpayKey,
+          amount: amt * 100,
+          currency: 'INR',
+          name: 'Dilip Da Wallet',
+          description: `Top Up Wallet ₹${amt}`,
+          orderId: rzpOrder.data.id,
+          onSuccess: async (response) => {
+            try {
+              const res = await verifyAndTopupWalletWithRazorpay({
+                amount: amt,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+
+              if (res.success) {
+                showToast(`Successfully added ₹${amt.toLocaleString('en-IN')} to your wallet via Razorpay!`);
+                setShowTopupModal(false);
+                setTopupAmount('500');
+                setFilter('all');
+                await loadWallet(true);
+              } else {
+                setModalError(res.error || 'Failed to verify Razorpay payment.');
+              }
+            } catch {
+              setModalError('Error verifying payment with server.');
+            } finally {
+              setSubmittingTopup(false);
+            }
+          },
+          onFailure: (err) => {
+            setModalError(err || 'Payment cancelled');
+            setSubmittingTopup(false);
+          },
+        });
+      } catch {
+        setModalError('Unexpected error during Razorpay checkout.');
+        setSubmittingTopup(false);
       }
-    } catch {
-      setModalError('An unexpected error occurred. Please try again.');
-    } finally {
-      setSubmittingTopup(false);
+    } else {
+      try {
+        const res = await topupWallet(amt, paymentMethod);
+        if (res.success) {
+          showToast(`Successfully added ₹${amt.toLocaleString('en-IN')} to your wallet!`);
+          setShowTopupModal(false);
+          setTopupAmount('500');
+          setFilter('all');
+          await loadWallet(true);
+        } else {
+          setModalError(res.error || 'Failed to complete wallet top up');
+        }
+      } catch {
+        setModalError('An unexpected error occurred. Please try again.');
+      } finally {
+        setSubmittingTopup(false);
+      }
     }
   };
 
@@ -149,9 +213,14 @@ export default function StudentWalletDashboard() {
               <Sparkles size={12} /> Dilip Da Wallet Balance
             </div>
             <p className="text-[10px] sm:text-xs text-ztext-lighter uppercase tracking-wider font-semibold">Total Available Balance</p>
-            <h2 className="text-3xl xs:text-4xl sm:text-5xl font-black text-ztext tracking-tight">
+            <h2 className={`text-3xl xs:text-4xl sm:text-5xl font-black tracking-tight ${balance < 0 ? 'text-red-400' : 'text-ztext'}`}>
               ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </h2>
+            {balance < 0 && (
+              <p className="text-xs font-semibold text-red-400 pt-1 flex items-center gap-1">
+                ⚠️ Negative Balance (Overdraft used: ₹{Math.abs(balance).toLocaleString('en-IN')}, limit ₹500)
+              </p>
+            )}
 
             {/* Credit / Debit Mini Stats */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 pt-3">
@@ -162,6 +231,9 @@ export default function StudentWalletDashboard() {
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
                 <ArrowUpRight size={13} />
                 <span>Total Spent: -₹{totalDebit.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zgray border border-zborder text-ztext-light text-xs font-semibold">
+                <span>Credit Limit: ₹500</span>
               </div>
             </div>
           </div>
@@ -406,8 +478,14 @@ export default function StudentWalletDashboard() {
                 <label className="text-[11px] font-semibold text-ztext-lighter block mb-1.5">Payment Method</label>
                 <div className="space-y-2">
                   {[
-                    { id: 'UPI (GPay / PhonePe)', label: 'UPI (GPay, PhonePe, Paytm)', icon: QrCode },
-                    { id: 'Credit / Debit Card', label: 'Credit / Debit Card', icon: CreditCard },
+                    {
+                      id: 'Razorpay (Cards, NetBanking, UPI)',
+                      label: 'Razorpay (UPI, Cards, NetBanking)',
+                      icon: CreditCard,
+                      badge: 'Instant & Verified',
+                    },
+                    { id: 'UPI (GPay / PhonePe)', label: 'UPI Direct (GPay, PhonePe, Paytm)', icon: QrCode },
+                    { id: 'Credit / Debit Card', label: 'Credit / Debit Card Direct', icon: CreditCard },
                   ].map((pm) => (
                     <label
                       key={pm.id}
@@ -421,6 +499,11 @@ export default function StudentWalletDashboard() {
                       <div className="flex items-center gap-2.5">
                         <pm.icon size={16} className="text-zred shrink-0" />
                         <span className="text-xs font-semibold">{pm.label}</span>
+                        {pm.badge && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-zred/20 text-zred font-bold">
+                            {pm.badge}
+                          </span>
+                        )}
                       </div>
                       <input
                         type="radio"
