@@ -628,7 +628,7 @@ export class AdminRepository {
     const admin = createAdminClient();
     const { data } = await admin
       .from('system_settings')
-      .select('id, key, value, type, description, updated_by, created_at, updated_at')
+      .select('id, key, value, type, is_secret, description, updated_by, created_at, updated_at')
       .order('key', { ascending: true });
     return (data ?? []) as SystemSetting[];
   }

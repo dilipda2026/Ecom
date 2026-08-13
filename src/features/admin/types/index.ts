@@ -170,6 +170,8 @@ export interface SystemSetting {
   key: string;
   value: string;
   type: string;
+  is_secret: boolean;
+  has_value?: boolean;
   description: string | null;
   updated_at: string;
   updated_by: string | null;

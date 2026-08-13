@@ -1,15 +1,20 @@
 'use server';
 
 import { env } from '@/config/env';
+import { getSetting } from '@/lib/settings';
 
 export async function createRazorpayOrder(amount: number, currency = 'INR'): Promise<
   { success: true; data: { id: string; amount: number; currency: string } } | { success: false; error: string }
 > {
-  if (!env.razorpay.isConfigured) {
+  const keyId = (await getSetting('razorpay_key_id')) || env.razorpay.keyId || '';
+  const storedSecret = await getSetting('razorpay_key_secret');
+  const keySecret = storedSecret || env.razorpay.keySecret || '';
+
+  if (!keyId || !keySecret) {
     return { success: false, error: 'Razorpay not configured' };
   }
 
-  const auth = Buffer.from(`${env.razorpay.keyId}:${env.razorpay.keySecret}`).toString('base64');
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 
   try {
     const res = await fetch('https://api.razorpay.com/v1/orders', {

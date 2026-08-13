@@ -14,21 +14,24 @@ import { getWalletDetails, deductWalletBalance } from '@/features/wallet/actions
 import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
 import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 
-const allPaymentMethods = [
+const basePaymentMethods = [
   { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
+  { id: 'phonepe', label: 'Pay with PhonePe', desc: 'Pay using PhonePe UPI', icon: CreditCard },
+  { id: 'gpay', label: 'Pay with Google Pay', desc: 'Pay using GPay UPI', icon: CreditCard },
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
 
-const locations = [
-  { value: 'SNM, CIT Kokrajhar', label: 'SNM' },
-  { value: 'SJ, CIT Kokrajhar', label: 'SJ' },
-  { value: 'JD, CIT Kokrajhar', label: 'JD' },
-  { value: 'Staff Quarter, CIT Kokrajhar', label: 'Staff Quarter' },
-  { value: 'Gambari Girls Hostel, CIT Kokrajhar', label: 'Gambari Girls Hostel' },
-  { value: 'Mtech Quarter, CIT Kokrajhar', label: 'Mtech Quarter [T1, T2]' },
-];
+function activeGatewayMethods(active: string) {
+  return basePaymentMethods.filter((pm) => {
+    if (pm.id === 'razorpay') return active === 'razorpay';
+    if (pm.id === 'phonepe') return active === 'phonepe';
+    if (pm.id === 'gpay') return active === 'gpay';
+    return true;
+  });
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -46,7 +49,14 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
-  const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const publicSettings = usePublicSettings();
+  const razorpayKey = publicSettings.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const allPaymentMethods = activeGatewayMethods(publicSettings.activeGateway);
+  const deliveryLocations = publicSettings.deliveryLocations.map((loc) => ({ value: loc, label: loc.split(',')[0] }));
+
+  useEffect(() => {
+    useCartStore.getState().setPricing({ deliveryFee: publicSettings.deliveryFee, taxRate: publicSettings.taxPercentage / 100 });
+  }, [publicSettings.deliveryFee, publicSettings.taxPercentage]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -120,8 +130,9 @@ export default function CheckoutPage() {
 
   async function validateAndPlace(pm: string) {
     setError('');
-    if (pm === 'razorpay' && !razorpayKey) {
-      setError('Razorpay is not configured. Please choose Wallet or Cash on Delivery.');
+    const isOnline = pm === 'razorpay' || pm === 'phonepe' || pm === 'gpay';
+    if (isOnline && !razorpayKey) {
+      setError(`${publicSettings.activeGateway === 'none' ? 'Online payments are disabled by the store owner.' : 'Online payments are not configured. Please choose Wallet or Cash on Delivery.'}`);
       return false;
     }
     if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
@@ -130,7 +141,7 @@ export default function CheckoutPage() {
     return true;
   }
 
-  async function initiateRazorpayPayment(opts?: { method?: string; description?: string }) {
+  async function initiateRazorpayPayment(pm: string, opts?: { method?: string; description?: string }) {
     const loaded = await loadRazorpayScript();
     if (!loaded || !razorpayKey) {
       setError('Payment could not be initiated. Please try again.');
@@ -154,7 +165,7 @@ export default function CheckoutPage() {
       orderId: rzpResult.data.id,
       prefill: { contact: customerPhone },
       onSuccess: async () => {
-        const orderResult = await createOrder(buildOrderParams('razorpay'));
+        const orderResult = await createOrder(buildOrderParams(pm));
         if (!orderResult.success) {
           if (await handleAuthRejected(orderResult.error)) return;
           setError(orderResult.error ?? 'Payment succeeded but the order could not be saved. Please contact support.');
@@ -210,8 +221,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (pm === 'razorpay') {
-      await initiateRazorpayPayment();
+    if (pm === 'razorpay' || pm === 'phonepe' || pm === 'gpay') {
+      await initiateRazorpayPayment(pm, pm === 'razorpay' ? undefined : { method: 'upi', description: `Pay via ${pm === 'phonepe' ? 'PhonePe' : 'GPay'}` });
       return;
     }
 
@@ -234,9 +245,10 @@ export default function CheckoutPage() {
   }
 
   async function handleUpiPayment() {
-    const valid = await validateAndPlace('razorpay');
+    const pm = publicSettings.activeGateway === 'phonepe' ? 'phonepe' : publicSettings.activeGateway === 'gpay' ? 'gpay' : 'razorpay';
+    const valid = await validateAndPlace(pm);
     if (!valid) return;
-    await initiateRazorpayPayment({ method: 'upi', description: 'Pay via UPI' });
+    await initiateRazorpayPayment(pm, { method: 'upi', description: `Pay via ${pm === 'phonepe' ? 'PhonePe' : pm === 'gpay' ? 'GPay' : 'UPI'}` });
   }
 
   const isDelivery = orderType === 'room_delivery';
@@ -270,7 +282,7 @@ export default function CheckoutPage() {
                   <div>
                     <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1.5 block">Delivery location</label>
                     <div className="space-y-1.5">
-                      {locations.map((opt) => (
+                      {deliveryLocations.length > 0 && deliveryLocations.map((opt) => (
                         <button key={opt.value} type="button" onClick={() => handleLocationSelect(opt.value)}
                           className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
                             address === opt.value && !isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
@@ -406,6 +418,44 @@ export default function CheckoutPage() {
                         + Top Up
                       </Link>
                     </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'phonepe' && (
+                  <div className="mt-4 pt-4 border-t border-zborder">
+                    <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={handleUpiPayment} disabled={placing}
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zborder hover:border-zred hover:bg-red-500/5 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2">
+                          <Image src="/images/Phonepay.png" alt="PhonePe" width={56} height={56} className="object-contain" />
+                        </div>
+                        <span className="text-xs font-medium text-ztext-light group-hover:text-ztext transition-colors">PhonePe</span>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-ztext-lighter text-center mt-3 flex items-center justify-center gap-1">
+                      <Shield size={10} /> Secure payments powered by PhonePe
+                    </p>
+                  </div>
+                )}
+
+                {paymentMethod === 'gpay' && (
+                  <div className="mt-4 pt-4 border-t border-zborder">
+                    <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={handleUpiPayment} disabled={placing}
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zborder hover:border-zred hover:bg-red-500/5 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2">
+                          <Image src="/images/gpay.jpg" alt="Google Pay" width={56} height={56} className="object-contain" />
+                        </div>
+                        <span className="text-xs font-medium text-ztext-light group-hover:text-ztext transition-colors">Google Pay</span>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-ztext-lighter text-center mt-3 flex items-center justify-center gap-1">
+                      <Shield size={10} /> Secure payments powered by Google Pay
+                    </p>
                   </div>
                 )}
 

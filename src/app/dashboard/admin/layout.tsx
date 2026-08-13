@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard, Users, ShoppingBag, Banknote,
   LogOut, Menu, X, Bell, FolderTree, UtensilsCrossed,
-  ClipboardList,
+  ClipboardList, Settings,
 } from 'lucide-react';
 import { getServerSession } from '@/features/auth/actions';
 
@@ -25,6 +25,7 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Orders', href: '/dashboard/admin/orders', icon: ShoppingBag },
   { label: 'Payments', href: '/dashboard/admin/payments', icon: Banknote },
   { label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ClipboardList },
+  { label: 'General Settings', href: '/dashboard/admin/settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

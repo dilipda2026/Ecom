@@ -1,29 +1,39 @@
 import nodemailer from 'nodemailer';
 import { orderTypeLabel } from '@/features/orders/types';
+import { getSetting } from '@/lib/settings';
 
-let transporter: nodemailer.Transporter | null = null;
+let transporterCache: { key: string; transporter: nodemailer.Transporter } | null = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
+async function smtpConfig(): Promise<{ host: string; port: number; user: string; pass: string; from: string } | null> {
+  const host = (await getSetting('smtp_host')) || process.env.SMTP_HOST || '';
+  const user = (await getSetting('smtp_user')) || process.env.SMTP_USER || '';
+  const pass = (await getSetting('smtp_pass')) || process.env.SMTP_PASS || '';
+  const port = Number((await getSetting('smtp_port')) || process.env.SMTP_PORT || '587');
+  const from = (await getSetting('smtp_from')) || process.env.SMTP_FROM || 'noreply@dilipda.com';
   if (!host || !user || !pass) return null;
+  return { host, port, user, pass, from };
+}
 
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+async function getTransporter(): Promise<nodemailer.Transporter | null> {
+  const cfg = await smtpConfig();
+  if (!cfg) return null;
+  const key = `${cfg.host}:${cfg.port}:${cfg.user}`;
+  if (transporterCache && transporterCache.key === key) return transporterCache.transporter;
 
-  return transporter;
+  transporterCache = {
+    key,
+    transporter: nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.port === 465,
+      auth: { user: cfg.user, pass: cfg.pass },
+    }),
+  };
+  return transporterCache.transporter;
 }
 
 export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
-  const t = getTransporter();
+  const t = await getTransporter();
 
   if (!t) {
     if (process.env.NODE_ENV === 'development') {
@@ -34,8 +44,9 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
   }
 
   try {
+    const cfg = await smtpConfig();
     await t.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@dilipda.com',
+      from: cfg?.from || 'noreply@dilipda.com',
       to,
       subject: 'Your CIT Student Verification OTP',
       text: `Your OTP for CIT student verification is: ${otp}\n\nThis OTP expires in 10 minutes.\n\n- Dilip Da`,
@@ -49,7 +60,7 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
 
 export async function sendDeliveryOtpEmail(to: string, otp: string, trackingCode: string): Promise<boolean> {
   if (!to) return false;
-  const t = getTransporter();
+  const t = await getTransporter();
   if (!t) {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[DEV EMAIL] To: ${to}, Delivery OTP for ${trackingCode}: ${otp}`);
@@ -59,8 +70,9 @@ export async function sendDeliveryOtpEmail(to: string, otp: string, trackingCode
   }
 
   try {
+    const cfg = await smtpConfig();
     await t.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@dilipda.com',
+      from: cfg?.from || 'noreply@dilipda.com',
       to,
       subject: `Delivery OTP — Order ${trackingCode}`,
       text: `Your delivery OTP for order ${trackingCode} is: ${otp}\n\nTell this code to your delivery partner to confirm delivery.\nThis OTP expires in 5 minutes.\n\n- Dilip Da`,
@@ -94,7 +106,7 @@ interface OrderNotificationInfo {
 
 export async function sendOrderNotificationEmail(to: string, order: OrderNotificationInfo): Promise<boolean> {
   if (!to) return false;
-  const t = getTransporter();
+  const t = await getTransporter();
   if (!t) {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[DEV EMAIL] Order notification for ${order.trackingCode}`);
@@ -106,8 +118,9 @@ export async function sendOrderNotificationEmail(to: string, order: OrderNotific
   const itemsHtml = order.items.map((i) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">${i.name}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${i.quantity}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">₹${i.price}</td></tr>`).join('');
 
   try {
+    const cfg = await smtpConfig();
     await t.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@dilipda.com',
+      from: cfg?.from || 'noreply@dilipda.com',
       to,
       subject: `🆕 New Order — ${order.trackingCode}`,
       html: `

@@ -1,3 +1,5 @@
+import { getSetting } from '@/lib/settings';
+
 interface InlineButton {
   text: string;
   callback_data: string;
@@ -8,8 +10,22 @@ interface TelegramMessageResult {
   chat?: { id: number };
 }
 
-async function callBot(method: string, body: Record<string, unknown>) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+let telegramConfigCache: { token: string; chatId: string; fetchedAt: number } | null = null;
+const CONFIG_TTL_MS = 10_000;
+
+async function getTelegramConfig(): Promise<{ token: string | null; chatId: string | null }> {
+  if (telegramConfigCache && Date.now() - telegramConfigCache.fetchedAt < CONFIG_TTL_MS) {
+    return { token: telegramConfigCache.token, chatId: telegramConfigCache.chatId };
+  }
+  const enabled = (await getSetting('telegram_enabled')) ?? 'true';
+  const token = enabled === 'false' ? null : ((await getSetting('telegram_bot_token')) || process.env.TELEGRAM_BOT_TOKEN || null);
+  const chatId = enabled === 'false' ? null : ((await getSetting('telegram_chat_id')) || process.env.TELEGRAM_CHAT_ID || null);
+  telegramConfigCache = { token: token ?? '', chatId: chatId ?? '', fetchedAt: Date.now() };
+  return { token, chatId };
+}
+
+async function callBot(method: string, body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const { token } = await getTelegramConfig();
   if (!token) return null;
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -24,8 +40,8 @@ async function callBot(method: string, body: Record<string, unknown>) {
   }
 }
 
-export async function sendTelegramMessage(text: string) {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+export async function sendTelegramMessage(text: string): Promise<TelegramMessageResult | null> {
+  const { chatId } = await getTelegramConfig();
   if (!chatId) {
     if (process.env.NODE_ENV === 'development') console.log(`[DEV TELEGRAM] ${text}`);
     return null;
@@ -37,7 +53,7 @@ export async function sendTelegramMessageWithButtons(
   text: string,
   buttons: InlineButton[][]
 ): Promise<TelegramMessageResult | null> {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const { chatId } = await getTelegramConfig();
   if (!chatId) {
     if (process.env.NODE_ENV === 'development') console.log(`[DEV TELEGRAM] ${text}`, buttons);
     return null;
@@ -51,8 +67,9 @@ export async function sendTelegramMessageWithButtons(
 }
 
 export async function sendTelegramPhoto(caption: string, pngBuffer: Buffer, buttons: InlineButton[][] = []) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const config = await getTelegramConfig();
+  const token = config.token;
+  const chatId = config.chatId;
   if (!token || !chatId) {
     if (process.env.NODE_ENV === 'development') console.log(`[DEV TELEGRAM PHOTO] ${caption}`);
     return null;
@@ -94,4 +111,9 @@ export async function answerCallbackQuery(callbackQueryId: string, text?: string
     text: text ?? '',
     show_alert: false,
   });
+}
+
+export async function telegramChatId(): Promise<string | number | null> {
+  const { chatId } = await getTelegramConfig();
+  return chatId ? Number(chatId) : null;
 }
