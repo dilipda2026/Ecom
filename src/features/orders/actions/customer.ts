@@ -262,7 +262,46 @@ export async function confirmPayment(orderId: string) {
     .eq('id', orderId);
 
   if (error) return { success: false, error: 'Failed to confirm payment' };
+
+  await recordPayment(orderId);
   return { success: true };
+}
+
+async function recordPayment(orderId: string) {
+  const supabase = createServiceClient();
+  if (!supabase) return;
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, user_id, total, payment_method')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order) return;
+
+  const { data: existing } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('order_id', orderId)
+    .limit(1)
+    .maybeSingle();
+  if (existing) return;
+
+  const method = order.payment_method ?? 'razorpay';
+  const gateway =
+    method === 'bnpl' ? 'bnpl'
+    : method === 'cod' ? 'manual'
+    : method === 'upi' ? 'upi'
+    : 'razorpay';
+
+  await supabase.from('payments').insert({
+    order_id: order.id,
+    user_id: order.user_id ?? null,
+    amount: order.total,
+    currency: 'INR',
+    payment_method: method,
+    gateway,
+    status: 'confirmed',
+  });
 }
 
 export async function failPayment(orderId: string) {
