@@ -14,7 +14,7 @@ import RecentOrders from '@/features/home/components/RecentOrders';
 import { useHomeOrders } from '@/features/home/lib/useHomeOrders';
 import { isActiveOrder, isCompletedOrder } from '@/features/orders/types';
 import { useAuthStore } from '@/features/auth/store';
-import { menuSections } from '@/features/menu/data';
+import { useMenu } from '@/features/menu/hooks/useMenu';
 
 export default function HomeMenu() {
   const [query, setQuery] = useState('');
@@ -23,6 +23,7 @@ export default function HomeMenu() {
   const [priceCap, setPriceCap] = useState<number | null>(null);
   const [popularOnly, setPopularOnly] = useState(false);
 
+  const { sections } = useMenu();
   const { user, isAuthenticated } = useAuthStore();
   const { orders } = useHomeOrders();
   const visibleOrders = useMemo(() => (isAuthenticated ? (orders ?? []) : []), [isAuthenticated, orders]);
@@ -31,7 +32,7 @@ export default function HomeMenu() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return menuSections
+    return sections
       .filter((s) => activeCategory === 'All' || s.category === activeCategory)
       .flatMap((s) => s.items)
       .filter((i) => {
@@ -41,7 +42,7 @@ export default function HomeMenu() {
         if (q && !i.name.toLowerCase().includes(q)) return false;
         return true;
       });
-  }, [query, vegOnly, activeCategory, priceCap, popularOnly]);
+  }, [sections, query, vegOnly, activeCategory, priceCap, popularOnly]);
 
   function clearFilters() {
     setQuery('');

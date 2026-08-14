@@ -28,6 +28,12 @@
 
 * { box-sizing: border-box; }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -42,6 +48,23 @@ body {
 
 img { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; }
+
+select {
+  background-color: var(--color-zcard);
+  color: var(--color-ztext);
+}
+
+option {
+  background-color: var(--color-zcard);
+  color: var(--color-ztext);
+}
+
+.light-mode select,
+.light-mode option {
+  background-color: #ffffff;
+  color: #1c1c1c;
+}
+
 
 ::selection { background: var(--color-zred); color: white; }
 

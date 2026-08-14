@@ -12,8 +12,8 @@ import { orderTypeLabel } from '@/features/orders/types';
 import { menuSections } from '@/features/menu/data';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 
-const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 30_000;
 const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery'];
 const allMenuItems = menuSections.flatMap((s) => s.items);
@@ -24,24 +24,24 @@ function foodImageFor(name: string | undefined): string | undefined {
   return allMenuItems.find((i) => q.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(q))?.img;
 }
 
-function useCountdown(createdAt: string) {
-  const [remaining, setRemaining] = useState(() => CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime()));
+function useCountdown(createdAt: string, windowMs: number) {
+  const [remaining, setRemaining] = useState(() => windowMs - (Date.now() - new Date(createdAt).getTime()));
 
   useEffect(() => {
     if (remaining <= 0) return;
     const id = setInterval(() => {
-      const r = CANCELLATION_WINDOW_MS - (Date.now() - new Date(createdAt).getTime());
+      const r = windowMs - (Date.now() - new Date(createdAt).getTime());
       setRemaining(r);
       if (r <= 0) clearInterval(id);
     }, 1000);
     return () => clearInterval(id);
-  }, [createdAt, remaining]);
+  }, [createdAt, remaining, windowMs]);
 
   return Math.max(0, remaining);
 }
 
-function canCancelByTime(createdAt: string): boolean {
-  return Date.now() - new Date(createdAt).getTime() < CANCELLATION_WINDOW_MS;
+function canCancelByTime(createdAt: string, windowMs: number): boolean {
+  return Date.now() - new Date(createdAt).getTime() < windowMs;
 }
 
 const statusTextColors: Record<string, string> = {
@@ -61,12 +61,12 @@ function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
 }
 
-function OrderCard({ order, index, onCancel }: { order: Order; index: number; onCancel: (id: string, reason: string) => void }) {
+function OrderCard({ order, index, onCancel, cancellationWindowMs }: { order: Order; index: number; onCancel: (id: string, reason: string) => void; cancellationWindowMs: number }) {
   const [cancelling, setCancelling] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const remaining = useCountdown(order.created_at);
-  const timeCanCancel = canCancelByTime(order.created_at);
+  const remaining = useCountdown(order.created_at, cancellationWindowMs);
+  const timeCanCancel = canCancelByTime(order.created_at, cancellationWindowMs);
   const canCancel = timeCanCancel && (order.status === 'pending' || order.status === 'accepted');
   const items = order.order_items ?? [];
   const first = items[0];
@@ -206,6 +206,8 @@ export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('orders');
   const { isAuthenticated, user } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, taxAmount, total, totalItems } = useCartStore();
+  const publicSettings = usePublicSettings();
+  const cancellationWindowMs = publicSettings.cancellationWindowMinutes * 60_000;
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [page, setPage] = useState(1);
@@ -445,7 +447,7 @@ export default function OrdersPage() {
               <>
                 <div className="space-y-4">
                   {filteredOrders.map((order, index) => (
-                    <OrderCard key={order.id} order={order} index={index} onCancel={handleCancelOrder} />
+                    <OrderCard key={order.id} order={order} index={index} onCancel={handleCancelOrder} cancellationWindowMs={cancellationWindowMs} />
                   ))}
                 </div>
 

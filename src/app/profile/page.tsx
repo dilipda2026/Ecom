@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle, BadgeCheck, CreditCard, HelpCircle } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, LayoutDashboard, Pencil, X, Check, Loader2, RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, AlertTriangle, BadgeCheck, CreditCard, HelpCircle, Instagram, Facebook, Globe, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -12,9 +12,10 @@ import type { DashboardStats, AdminOrder } from '@/features/admin/types';
 import { getUserOrders } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
 import { getCreditAccount } from '@/features/bnpl/actions';
+import { getWalletDetails } from '@/features/wallet/actions';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
-import { STORE_CONFIG } from '@/config/store';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { isStoreOpen, nextOrderByCutoff, formatClock } from '@/features/menu/lib/store-hours';
 import { usePolling } from '@/hooks/usePolling';
 
@@ -29,20 +30,22 @@ function foodImageFor(name: string | undefined): string | undefined {
 
 function StoreStatusPill() {
   const [now, setNow] = useState(() => new Date());
+  const settings = usePublicSettings();
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const open = isStoreOpen(STORE_CONFIG.hours, now);
-  const cutoff = open ? nextOrderByCutoff(STORE_CONFIG.orderByCutoffs, now) : null;
+  const hours = { open: settings.hours.open, close: settings.hours.close };
+  const open = isStoreOpen(hours, now);
+  const cutoff = open ? nextOrderByCutoff(settings.orderByCutoffs, now) : null;
 
   return (
     <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-zborder bg-zcard px-4 py-3">
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'bg-zgreen' : 'bg-amber-500'}`} />
       <p className="text-xs font-semibold text-ztext truncate">
-        {open ? `Open now · Kitchen closes ${formatClock(STORE_CONFIG.hours.close)}` : `Closed now · Opens tomorrow ${formatClock(STORE_CONFIG.hours.open)}`}
+        {open ? `Open now · Kitchen closes ${formatClock(hours.close)}` : `Closed now · Opens tomorrow ${formatClock(hours.open)}`}
       </p>
       {cutoff && (
         <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 border border-amber-500/25 rounded-full px-2.5 py-1">
@@ -59,6 +62,7 @@ function StoreStatusPill() {
 export default function ProfilePage() {
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
   const [tab, setTab] = useState<'profile' | 'dashboard'>('profile');
+  const settings = usePublicSettings();
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -85,8 +89,13 @@ export default function ProfilePage() {
   }, [isAuthenticated]);
 
   async function loadWallet() {
-    const res = await getCreditAccount();
-    if (res.success && res.data) setWalletCash(res.data.available_credit);
+    const res = await getWalletDetails();
+    if (res.success && res.data) {
+      setWalletCash(res.data.balance);
+    } else {
+      const creditRes = await getCreditAccount();
+      if (creditRes.success && creditRes.data) setWalletCash(creditRes.data.available_credit);
+    }
   }
 
   useEffect(() => {
@@ -285,7 +294,7 @@ export default function ProfilePage() {
                 <p className="text-lg font-extrabold text-ztext">{ordersLoading ? '—' : orderCount}</p>
                 <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
-              <Link href="/dashboard/student/credit" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
+              <Link href="/dashboard/student/wallet" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
                 <p className="text-lg font-extrabold text-ztext">
                   {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
                 </p>
@@ -453,7 +462,7 @@ export default function ProfilePage() {
               </Link>
 
               {/* Help & support */}
-              <Link href="tel:6000212823" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
+              <Link href={`tel:${settings.supportPhone || '6000212823'}`} className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
                 <HelpCircle size={18} className="text-zred shrink-0" />
                 <div className="flex-1">
                   <p className="font-semibold text-ztext text-sm">Help &amp; Customer Support</p>
@@ -494,11 +503,44 @@ export default function ProfilePage() {
               </p>
               <div className="mt-3 space-y-2">
                 <div className="flex items-center gap-2 text-xs text-ztext-light">
-                  <MapPin size={14} className="text-ztext-muted" /> Near CIT Kokrajhar, 2nd Gate
+                  <MapPin size={14} className="text-ztext-muted" /> {settings.address || 'Near CIT Kokrajhar, 2nd Gate'}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-ztext-light">
-                  <Phone size={14} className="text-ztext-muted" /> 6000212823
+                  <Phone size={14} className="text-ztext-muted" /> {settings.supportPhone || '6000212823'}
                 </div>
+                {settings.supportEmail && (
+                  <div className="flex items-center gap-2 text-xs text-ztext-light">
+                    <Mail size={14} className="text-ztext-muted" /> {settings.supportEmail}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {settings.whatsapp && (
+                    <a href={`https://wa.me/${settings.whatsapp.replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-ztext-light hover:text-zgreen transition-colors">
+                      <MessageSquare size={12} /> WhatsApp
+                    </a>
+                  )}
+                  {settings.instagram && (
+                    <a href={settings.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-ztext-light hover:text-pink-500 transition-colors">
+                      <Instagram size={12} /> Instagram
+                    </a>
+                  )}
+                  {settings.facebook && (
+                    <a href={settings.facebook} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-ztext-light hover:text-blue-500 transition-colors">
+                      <Facebook size={12} /> Facebook
+                    </a>
+                  )}
+                  {settings.website && (
+                    <a href={settings.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-ztext-light hover:text-ztext transition-colors">
+                      <Globe size={12} /> Website
+                    </a>
+                  )}
+                </div>
+                {(settings.storeUpiId || settings.storeUpiName) && (
+                  <div className="flex items-center gap-2 text-xs text-ztext-light pt-2 border-t border-zborder">
+                    <span className="text-ztext-muted">UPI:</span>
+                    <span>{settings.storeUpiName || ''} {settings.storeUpiId ? `@${settings.storeUpiId}` : ''}</span>
+                  </div>
+                )}
               </div>
             </div>
 

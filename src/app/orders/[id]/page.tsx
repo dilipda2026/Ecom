@@ -9,9 +9,9 @@ import { getCustomerDeliveryInfo } from '@/features/delivery/actions';
 import { getOrderTimelineEvent, orderTypeLabel } from '@/features/orders/types';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
 
-const CANCELLATION_WINDOW_MS = 120_000;
 const POLL_INTERVAL_MS = 15_000;
 
 interface DeliveryInfo {
@@ -31,6 +31,8 @@ interface DeliveryInfo {
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const publicSettings = usePublicSettings();
+  const cancellationWindowMs = publicSettings.cancellationWindowMinutes * 60_000;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -45,12 +47,12 @@ export default function OrderDetailPage() {
     const res = await getUserOrder(id);
     if (res.success && res.data) {
       setOrder(res.data);
-      if (!silent) setRemaining(CANCELLATION_WINDOW_MS - (Date.now() - new Date(res.data.created_at).getTime()));
+      if (!silent) setRemaining(cancellationWindowMs - (Date.now() - new Date(res.data.created_at).getTime()));
     }
     const deliveryRes = await getCustomerDeliveryInfo(id);
     if (deliveryRes.success && deliveryRes.data) setDeliveryInfo(deliveryRes.data);
     setLoading(false);
-  }, [id]);
+  }, [id, cancellationWindowMs]);
 
   useEffect(() => {
     loadOrder(); // eslint-disable-line react-hooks/set-state-in-effect

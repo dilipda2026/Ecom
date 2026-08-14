@@ -11,6 +11,7 @@ export interface CartState {
   items: CartItem[];
   lastAddedAt: number | null;
   lastAddedRect: { left: number; top: number; width: number; height: number } | null;
+  pricing: { deliveryFee: number; taxRate: number };
 }
 
 export interface CartStore extends CartState {
@@ -19,6 +20,7 @@ export interface CartStore extends CartState {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  setPricing: (pricing: { deliveryFee: number; taxRate: number }) => void;
   totalItems: () => number;
   subtotal: () => number;
   deliveryFee: () => number;

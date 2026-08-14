@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
-import { editTelegramMessage, answerCallbackQuery } from '@/lib/telegram';
+import { editTelegramMessage, answerCallbackQuery, telegramChatId } from '@/lib/telegram';
 import { getStatusButtons } from '@/lib/notifications';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -67,8 +67,8 @@ export async function POST(req: Request) {
 
     const { id: callbackId, from, data, message } = body.callback_query;
 
-    const authorizedChatId = process.env.TELEGRAM_CHAT_ID;
-    if (!authorizedChatId || String(from.id) !== authorizedChatId) {
+    const authorizedChatId = await telegramChatId();
+    if (authorizedChatId === null || String(from.id) !== String(authorizedChatId)) {
       await answerCallbackQuery(callbackId, 'Unauthorized');
       return NextResponse.json({ ok: false, error: 'Unauthorized' });
     }

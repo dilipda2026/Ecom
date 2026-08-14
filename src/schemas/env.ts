@@ -6,6 +6,7 @@ const urlOrLocalhost = z.string().refine((v) => {
 }, 'Must be a valid URL');
 
 export const envSchema = z.object({
+  SETTINGS_ENC_KEY: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),

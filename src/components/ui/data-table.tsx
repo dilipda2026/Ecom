@@ -241,10 +241,12 @@ export function StatusFilter({ value, onChange, options }: {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-2 text-sm border border-zborder rounded-xl focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred bg-zcard appearance-none cursor-pointer transition-all"
+      className="px-3.5 py-2 text-sm border border-zborder rounded-xl focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred bg-zcard text-ztext cursor-pointer transition-all"
     >
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <option key={opt.value} value={opt.value} className="bg-zcard text-ztext py-1">
+          {opt.label}
+        </option>
       ))}
     </select>
   );

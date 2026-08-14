@@ -47,7 +47,7 @@ export default function RecentOrders({ orders }: { orders: Order[] }) {
           </Link>
         </div>
 
-        <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+        <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide px-0.5 sm:px-0 pb-1 max-w-full">
           {orders.map((order) => {
             const first = order.order_items?.[0];
             const firstImg = matchMenuItem(first?.product_name)?.img;

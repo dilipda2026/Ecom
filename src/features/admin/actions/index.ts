@@ -3,6 +3,8 @@
 import { adminRepository } from '../repositories';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
+import { encryptSecret, isEncryptionConfigured } from '@/lib/settings-crypto';
+import { clearSettingsCache } from '@/lib/settings';
 import type { AdminFilter } from '../types';
 
 async function authorizeAdmin() {
@@ -510,24 +512,81 @@ export async function processRefund(paymentId: string, amount: number, reason: s
 export async function getSystemSettings() {
   try {
     await authorizeAdmin();
-    const data = await adminRepository.getSystemSettings();
+    const raw = await adminRepository.getSystemSettings();
+    const data = raw.map((s) => {
+      if (s.is_secret) {
+        const hasValue = !!s.value;
+        return { ...s, value: '', has_value: hasValue };
+      }
+      return { ...s, has_value: !!s.value };
+    });
     return { success: true, data };
   } catch (e) {
     return { success: false, error: (e as Error).message, data: null };
   }
 }
 
+function validateSettingValue(setting: { type: string; is_secret: boolean }, value: string): string | null {
+  if (setting.is_secret && !value.trim()) return null;
+  const num = Number(value);
+  switch (setting.type) {
+    case 'number':
+      if (value.trim() !== '' && (!Number.isFinite(num) || num < 0)) return 'Value must be a non-negative number';
+      return null;
+    case 'boolean':
+      if (value.trim() !== '' && value !== 'true' && value !== 'false') return 'Value must be true or false';
+      return null;
+    case 'json':
+      if (value.trim() === '') return null;
+      try {
+        JSON.parse(value);
+      } catch {
+        return 'Value must be valid JSON';
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
 export async function updateSystemSetting(id: string, value: string) {
   try {
     const { user } = await authorizeAdmin();
+    const all = await adminRepository.getSystemSettings();
+    const setting = all.find((s) => s.id === id);
+    if (!setting) return { success: false, error: 'Setting not found' };
+
+    const validationError = validateSettingValue(setting, value);
+    if (validationError) return { success: false, error: validationError };
+
+    if (setting.is_secret) {
+      if (!value.trim()) {
+        await adminRepository.createAuditLog({
+          table_name: 'system_settings',
+          record_id: id,
+          action: 'update',
+          new_data: { value: '(unchanged)' },
+          changed_by: user.id,
+        });
+        return { success: true, skipped: true };
+      }
+      if (!isEncryptionConfigured()) {
+        return { success: false, error: 'SETTINGS_ENC_KEY is not set — secrets cannot be saved' };
+      }
+      const encrypted = encryptSecret(value);
+      if (!encrypted) return { success: false, error: 'Failed to encrypt secret' };
+      value = encrypted;
+    }
+
     await adminRepository.updateSystemSetting(id, value, user.id);
     await adminRepository.createAuditLog({
       table_name: 'system_settings',
       record_id: id,
       action: 'update',
-      new_data: { value },
+      new_data: { value: setting.is_secret ? '(encrypted)' : value },
       changed_by: user.id,
     });
+    clearSettingsCache();
     return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };
@@ -673,9 +732,8 @@ export async function bulkRestoreMerchants(userIds: string[], reason: string) {
 export async function getLowStockProducts() {
   try {
     await authorizeAdmin();
-    const settings = await adminRepository.getSystemSettings();
-    const thresholdSetting = settings.find((s) => s.key === 'inventory_threshold');
-    const threshold = thresholdSetting ? parseInt(thresholdSetting.value, 10) : 5;
+    const { getNumericSetting } = await import('@/lib/settings');
+    const threshold = await getNumericSetting('inventory_threshold', 5);
     const data = await adminRepository.getLowStockProducts(threshold);
     return { success: true, data };
   } catch (e) {

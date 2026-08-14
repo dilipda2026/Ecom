@@ -32,7 +32,7 @@ export interface ProductFormData {
   price: number;
   compare_at_price?: number;
   cost_per_unit?: number;
-  unit: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
+  unit?: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
   category_id?: string;
   is_vegetarian?: boolean;
   is_vegan?: boolean;
@@ -42,6 +42,8 @@ export interface ProductFormData {
   image?: string;
   stock_quantity?: number;
   track_inventory?: boolean;
+  is_available?: boolean;
+  is_active?: boolean;
   tags?: string[];
 }
 
@@ -61,6 +63,7 @@ export interface Category {
 export interface CategoryFormData {
   name: string;
   description?: string;
+  display_order?: number;
   is_active?: boolean;
 }
 

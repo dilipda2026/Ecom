@@ -6,6 +6,7 @@ import type { CartItem } from '@/features/cart/types';
 import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
+import { getSetting, getNumericSetting, getBooleanSetting } from '@/lib/settings';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -34,6 +35,11 @@ export async function createOrder(params: CreateOrderParams) {
   const { user } = await getServerSession();
   if (!user) return { success: false, error: 'Please sign in to place your order' };
 
+  const maintenanceMode = await getBooleanSetting('maintenance_mode', false);
+  if (maintenanceMode) {
+    return { success: false, error: 'The store is currently in maintenance mode. Please try again later.' };
+  }
+
   let restaurantId: string;
   try {
     const res = await fetch(`${url}/rest/v1/restaurants?select=id&deleted_at=is.null&limit=1`, {
@@ -53,12 +59,24 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }
 
+  const activeGateway = (await getSetting('payment_gateway_active')) || 'razorpay';
+  const isOnline = ['razorpay', 'phonepe', 'gpay'].includes(paymentMethod);
+  if (isOnline && (activeGateway === 'none' || paymentMethod !== activeGateway)) {
+    return { success: false, error: 'Online payments are disabled or the selected gateway is not active. Please choose Wallet or Cash on Delivery.' };
+  }
+
+  const paymentMethodDb =
+    paymentMethod === 'bnpl' ? 'bnpl'
+    : paymentMethod === 'cod' ? 'cod'
+    : paymentMethod === 'phonepe' || paymentMethod === 'gpay' ? 'upi'
+    : 'razorpay';
+
   const orderPayload = {
     user_id: user?.id ?? null,
     restaurant_id: restaurantId,
     status: 'pending',
     payment_status: 'pending',
-    payment_method: paymentMethod === 'bnpl' ? 'bnpl' : paymentMethod === 'cod' ? 'cod' : 'razorpay',
+    payment_method: paymentMethodDb,
     subtotal,
     delivery_fee: deliveryFee,
     tax_amount: taxAmount,
@@ -244,7 +262,46 @@ export async function confirmPayment(orderId: string) {
     .eq('id', orderId);
 
   if (error) return { success: false, error: 'Failed to confirm payment' };
+
+  await recordPayment(orderId);
   return { success: true };
+}
+
+async function recordPayment(orderId: string) {
+  const supabase = createServiceClient();
+  if (!supabase) return;
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, user_id, total, payment_method')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order) return;
+
+  const { data: existing } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('order_id', orderId)
+    .limit(1)
+    .maybeSingle();
+  if (existing) return;
+
+  const method = order.payment_method ?? 'razorpay';
+  const gateway =
+    method === 'bnpl' ? 'bnpl'
+    : method === 'cod' ? 'manual'
+    : method === 'upi' ? 'upi'
+    : 'razorpay';
+
+  await supabase.from('payments').insert({
+    order_id: order.id,
+    user_id: order.user_id ?? null,
+    amount: order.total,
+    currency: 'INR',
+    payment_method: method,
+    gateway,
+    status: 'confirmed',
+  });
 }
 
 export async function failPayment(orderId: string) {
@@ -328,8 +385,10 @@ export async function cancelUserOrder(orderId: string, reason: string) {
   if (order.status !== 'pending' && order.status !== 'accepted') return { success: false, error: 'Order can no longer be cancelled' };
 
   const elapsed = Date.now() - new Date(order.created_at).getTime();
-  if (elapsed > 120_000) {
-    return { success: false, error: 'Cancellation window has expired (2 minutes)' };
+  const cancellationWindowMinutes = await getNumericSetting('cancellation_window_minutes', 2);
+  const cancellationWindowMs = cancellationWindowMinutes * 60_000;
+  if (elapsed > cancellationWindowMs) {
+    return { success: false, error: `Cancellation window has expired (${cancellationWindowMinutes} minute${cancellationWindowMinutes === 1 ? '' : 's'})` };
   }
 
   const historyEntry = { status: 'cancelled', timestamp: new Date().toISOString(), note: reason || 'Cancelled by customer' };
