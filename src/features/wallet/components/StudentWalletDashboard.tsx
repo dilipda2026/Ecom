@@ -55,8 +55,18 @@ export default function StudentWalletDashboard() {
   }, []);
 
   useEffect(() => {
-    loadWallet();
-  }, [loadWallet]);
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      const res = await getWalletDetails();
+      if (!mounted) return;
+      if (res.success && res.data) {
+        setSummary(res.data);
+      }
+      setLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);

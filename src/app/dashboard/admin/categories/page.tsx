@@ -46,10 +46,6 @@ export default function AdminCategoriesPage() {
     return () => { mounted = false; };
   }, [loadCategories]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
@@ -198,7 +194,7 @@ export default function AdminCategoriesPage() {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           placeholder="Search categories..."
           className="input-z pl-10 text-sm"
         />

@@ -90,8 +90,8 @@ export async function verifyRazorpayPayment(
     }
 
     return { success: false, error: 'Invalid Razorpay payment signature' };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Razorpay verification error' };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Razorpay verification error' };
   }
 }
 

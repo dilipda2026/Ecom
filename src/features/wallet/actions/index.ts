@@ -45,7 +45,8 @@ export async function getWalletDetails(): Promise<{
     }
 
     // 3. Fetch transaction history
-    let rawTransactions: any[] = [];
+    type RawTransaction = Omit<WalletTransaction, 'amount'> & { amount?: number | string | null };
+    let rawTransactions: RawTransaction[] = [];
     try {
       const { data: txData } = await supabase
         .from('wallet_transactions')
@@ -80,11 +81,11 @@ export async function getWalletDetails(): Promise<{
     });
 
     // Calculate sum of total credits and debits from transactions
-    let creditSum = transactions
+    const creditSum = transactions
       .filter((t) => t.type === 'credit')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    let debitSum = transactions
+    const debitSum = transactions
       .filter((t) => t.type === 'debit')
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -102,9 +103,9 @@ export async function getWalletDetails(): Promise<{
         transactions,
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('getWalletDetails error:', err);
-    return { success: false, error: err.message || 'Failed to fetch wallet details' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch wallet details' };
   }
 }
 
@@ -216,9 +217,9 @@ export async function topupWallet(
     }
 
     return { success: true, newBalance: balanceAfter };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('topupWallet error:', err);
-    return { success: false, error: err.message || 'Failed to top up wallet' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to top up wallet' };
   }
 }
 
@@ -349,9 +350,9 @@ export async function deductWalletBalance(
     }
 
     return { success: true, newBalance: balanceAfter };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('deductWalletBalance error:', err);
-    return { success: false, error: err.message || 'Failed to deduct wallet balance' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to deduct wallet balance' };
   }
 }
 

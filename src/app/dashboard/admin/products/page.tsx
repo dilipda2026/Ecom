@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Plus, UtensilsCrossed, Edit3, Trash2, Eye, EyeOff, Save, X, Search, CheckCircle, AlertCircle, Leaf, Flame, ChevronLeft, ChevronRight
+  Plus, UtensilsCrossed, Edit3, Trash2, Eye, EyeOff, Save, X, Search, CheckCircle, AlertCircle, Leaf, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { getProducts, getCategories, createProductFromFormData, updateProductFromFormData, updateProduct, deleteProduct } from '@/features/products/actions';
+import { getProducts, getCategories, updateProduct, deleteProduct } from '@/features/products/actions';
 import type { Product, Category } from '@/features/products/types';
 import { Skeleton, EmptyState } from '@/components/ui';
 
@@ -29,7 +29,7 @@ export default function AdminProductsPage() {
   const [isVegetarian, setIsVegetarian] = useState(true);
   const [isVegan, setIsVegan] = useState(false);
   const [isGlutenFree, setIsGlutenFree] = useState(false);
-  const [spiceLevel, setSpiceLevel] = useState<number>(0);
+  const [, setSpiceLevel] = useState<number>(0);
   const [prepTime, setPrepTime] = useState<string>('15');
   const [stockQuantity, setStockQuantity] = useState<string>('100');
   const [isAvailable, setIsAvailable] = useState(true);
@@ -62,10 +62,6 @@ export default function AdminProductsPage() {
     })();
     return () => { mounted = false; };
   }, [loadData]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedCategoryFilter]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -274,7 +270,7 @@ export default function AdminProductsPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             placeholder="Search products..."
             className="input-z pl-10 text-sm"
           />
@@ -282,7 +278,7 @@ export default function AdminProductsPage() {
 
         <select
           value={selectedCategoryFilter}
-          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+          onChange={(e) => { setSelectedCategoryFilter(e.target.value); setCurrentPage(1); }}
           className="input-z sm:w-56 text-sm"
         >
           <option value="all">All Categories ({categories.length})</option>
