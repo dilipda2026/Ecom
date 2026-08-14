@@ -498,7 +498,7 @@ export default function ProfilePage() {
                 <Store size={18} className="text-zred" /> About Dilip Da
               </h2>
               <p className="text-xs text-ztext-light leading-relaxed">
-                Homestyle Bengali food service near CIT Kokrajhar&apos;s 2nd gate.
+                Homestyle food service near CIT Kokrajhar&apos;s 2nd gate.
                 Fresh, authentic meals cooked with love — from classic fish curry to evening chai.
               </p>
               <div className="mt-3 space-y-2">

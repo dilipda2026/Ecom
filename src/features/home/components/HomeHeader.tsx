@@ -19,7 +19,7 @@ export default function HomeHeader({ user, liveOrder }: HomeHeaderProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Hello, {firstName}!</h1>
-            <p className="mt-0.5 text-xs font-medium text-white/90">Dilip Da · Homestyle Bengali meals</p>
+            <p className="mt-0.5 text-xs font-medium text-white/90">Dilip Da · Homestyle meals</p>
           </div>
         </div>
 
@@ -29,7 +29,7 @@ export default function HomeHeader({ user, liveOrder }: HomeHeaderProps) {
         </p>
 
         {liveOrder && (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-zcard border border-zborder px-3 py-2 shadow-sm">
             <span className="flex items-center gap-2 text-xs font-bold text-ztext min-w-0">
               <Bike size={16} className="text-zred shrink-0" />
               <span className="truncate">Your live order is arriving!</span>

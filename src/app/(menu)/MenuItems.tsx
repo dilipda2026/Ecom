@@ -92,7 +92,7 @@ export function MenuItems({ sections: initialSections }: { sections: MenuSection
           placeholder="Search menu items, thalis, gravies..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-zcard border border-zborder rounded-xl text-[13px] text-ztext shadow-sm focus:outline-none focus:border-zred focus:ring-[3px] focus:ring-zred/10 transition-all"
+          className="w-full pl-10 pr-4 py-3 bg-zcard border border-zborder rounded-xl text-[10px] text-ztext shadow-sm focus:outline-none focus:border-zred focus:ring-[3px] focus:ring-zred/10 transition-all"
         />
       </div>
 
@@ -104,11 +104,11 @@ export function MenuItems({ sections: initialSections }: { sections: MenuSection
           aria-checked={vegOnly}
           aria-label="Toggle vegetarian only"
           onClick={() => setVegOnly(!vegOnly)}
-          className="flex items-center gap-1.5 bg-zcard border border-zborder pl-2.5 pr-2 py-1.5 rounded-full text-[11px] font-semibold text-ztext"
+          className="flex items-center gap-1.5 bg-zcard border border-zborder pl-2 pr-1.5 py-1 rounded-full text-[12px] font-semibold text-ztext"
         >
           Veg Only
-          <span className={`relative w-7 h-4 rounded-full transition-colors ${vegOnly ? 'bg-green-500' : 'bg-ztext-muted'}`}>
-            <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform duration-300 ${vegOnly ? 'translate-x-3' : ''}`} />
+          <span className={`relative w-5 h-3 rounded-full transition-colors ${vegOnly ? 'bg-green-500' : 'bg-ztext-muted'}`}>
+            <span className={`absolute top-0.5 left-0.5 w-2 h-2 bg-white rounded-full shadow transition-transform duration-300 ${vegOnly ? 'translate-x-[8px]' : ''}`} />
           </span>
         </button>
       </div>

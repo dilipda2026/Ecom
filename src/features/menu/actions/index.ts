@@ -10,6 +10,10 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
       return { success: true, sections: fallbackMenuSections, source: 'fallback' };
     }
 
+    const allowedNames = new Set(
+      fallbackMenuSections.flatMap((s) => s.items).map((i) => i.name.trim().toLowerCase()),
+    );
+
     // 1. Fetch active categories
     const { data: categories, error: catError } = await supabase
       .from('categories')
@@ -40,6 +44,9 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
     const sectionsMap = new Map<string, MenuItem[]>();
 
     for (const prod of products) {
+      const name = String(prod.name ?? '').trim().toLowerCase();
+      if (!name || !allowedNames.has(name)) continue;
+
       const categoryName = (prod.category_id && categoryMap.get(prod.category_id)) || 'Specials';
       if (!sectionsMap.has(categoryName)) {
         sectionsMap.set(categoryName, []);
@@ -59,10 +66,16 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
       sectionsMap.get(categoryName)!.push(item);
     }
 
-    const sections: MenuSection[] = Array.from(sectionsMap.entries()).map(([category, items]) => ({
-      category,
-      items,
-    }));
+    const sections: MenuSection[] = Array.from(sectionsMap.entries())
+      .filter(([, items]) => items.length > 0)
+      .map(([category, items]) => ({
+        category,
+        items,
+      }));
+
+    if (sections.length === 0) {
+      return { success: true, sections: fallbackMenuSections, source: 'fallback' };
+    }
 
     return { success: true, sections, source: 'db' };
   } catch (err) {

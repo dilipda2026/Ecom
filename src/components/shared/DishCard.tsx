@@ -70,18 +70,18 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity, variant =
           {qty === 0 ? (
             <button
               onClick={(e) => onAdd(e)}
-              className="mt-2.5 w-full h-8 flex items-center justify-center gap-1 rounded-lg text-[12px] font-bold text-zred bg-zred/10 border border-zred/40 transition-all hover:bg-zred hover:text-white hover:shadow-z"
+              className="mt-1.5 w-full h-5 flex items-center justify-center gap-1 rounded-md text-[12px] font-bold text-zred bg-zred/10 border border-zred/40 transition-all hover:bg-zred hover:text-white hover:shadow-z"
             >
               <Plus size={12} /> Add
             </button>
           ) : (
-            <div className="mt-2.5 w-full h-8 flex items-center justify-between bg-zred rounded-lg px-1.5 text-white">
-              <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-6 h-full flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors">
-                <Minus size={13} />
+            <div className="mt-1.5 w-full h-5 flex items-center justify-between bg-zred rounded-md px-1 text-white">
+              <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-5 h-full flex items-center justify-center hover:bg-white/20 rounded transition-colors">
+                <Minus size={11} />
               </button>
               <span className="text-[12px] font-bold">{qty}</span>
-              <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-6 h-full flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors">
-                <Plus size={13} />
+              <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-5 h-full flex items-center justify-center hover:bg-white/20 rounded transition-colors">
+                <Plus size={11} />
               </button>
             </div>
           )}
@@ -115,18 +115,18 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity, variant =
           {qty === 0 ? (
             <button
               onClick={(e) => onAdd(e)}
-              className="h-8 min-w-[64px] px-3 flex items-center justify-center gap-1 text-[11px] font-bold text-zred bg-white rounded-lg shadow-md hover:bg-zred/10 transition-colors"
+              className="h-5 min-w-[48px] px-2 flex items-center justify-center gap-1 text-[12px] font-bold text-zred bg-white rounded-md shadow-md hover:bg-zred/10 transition-colors"
             >
               <Plus size={12} /> ADD
             </button>
           ) : (
-            <div className="h-8 flex items-center justify-between bg-white rounded-lg shadow-md px-1">
-              <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-7 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded-lg transition-colors">
-                <Minus size={13} />
+            <div className="h-5 flex items-center justify-between bg-white rounded-md shadow-md px-0.5">
+              <button onClick={() => onUpdateQuantity(-1)} aria-label={`Decrease ${dish.name}`} className="w-5 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded transition-colors">
+                <Minus size={11} />
               </button>
-              <span className="w-6 text-center text-xs font-bold text-zinc-800">{qty}</span>
-              <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-7 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded-lg transition-colors">
-                <Plus size={13} />
+              <span className="w-5 text-center text-[12px] font-bold text-zinc-800">{qty}</span>
+              <button onClick={() => onUpdateQuantity(1)} aria-label={`Increase ${dish.name}`} className="w-5 h-full flex items-center justify-center text-zred hover:bg-zred/10 rounded transition-colors">
+                <Plus size={11} />
               </button>
             </div>
           )}

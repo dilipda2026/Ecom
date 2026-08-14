@@ -12,7 +12,12 @@ export default function FloatingCartBar() {
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
   if (count === 0) return null;
-  if (pathname?.startsWith('/cart') || pathname?.startsWith('/orders') || pathname?.startsWith('/checkout')) return null;
+  if (
+    pathname?.startsWith('/cart') ||
+    pathname?.startsWith('/orders') ||
+    pathname?.startsWith('/checkout') ||
+    pathname?.startsWith('/profile')
+  ) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sticky-above-nav pointer-events-none">

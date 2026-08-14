@@ -8,7 +8,7 @@ import { Search } from 'lucide-react';
 const slides = [
   { img: '/images/Chicken Curry.jpg', top: 'Fresh thalis', bottom: 'from ₹60', note: 'Chicken, pork & veg thalis made fresh daily' },
   { img: '/images/Pork Thali.webp', top: 'Homestyle gravy', bottom: 'Chicken & Pork', note: 'Rich curries straight from the kitchen' },
-  { img: '/images/Aloo Posto.jpg', top: 'Veg & Non-Veg', bottom: 'Both available', note: 'Classic Bengali dishes, every day' },
+  { img: '/images/Aloo Posto.jpg', top: 'Veg & Non-Veg', bottom: 'Both available', note: 'Classic homestyle dishes, every day' },
 ];
 
 interface HeroProps {
@@ -31,13 +31,13 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroP
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4">
         {/* Search + veg toggle */}
         <div className="flex gap-2.5 animate-hero-in">
-          <div className="flex-1 flex items-center gap-2.5 bg-zcard border border-zborder rounded-xl px-3.5 py-2.5 focus-within:border-zred/60 transition-colors">
+          <div className="flex-1 flex items-center gap-2.5 bg-zcard border border-zborder rounded-xl px-3.5 py-2.0 focus-within:border-zred/60 transition-colors">
             <Search size={16} className="text-ztext-muted shrink-0" />
             <input
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder="Search &quot;chicken thali&quot;"
-              className="flex-1 bg-transparent text-sm text-ztext outline-none placeholder:text-ztext-muted min-w-0"
+              className="flex-1 bg-transparent text-[12px] text-ztext outline-none placeholder:text-ztext-muted min-w-0"
               aria-label="Search dishes"
             />
           </div>
