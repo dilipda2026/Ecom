@@ -3,7 +3,6 @@
 import { getSetting, getNumericSetting, getJsonSetting } from '@/lib/settings';
 
 export interface PublicStoreSettings {
-  activeGateway: 'razorpay' | 'phonepe' | 'gpay' | 'none';
   razorpayKeyId: string;
   gpayUpiId: string;
   gpayUpiName: string;
@@ -25,10 +24,7 @@ export interface PublicStoreSettings {
 }
 
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
-  const activeGateway = ((await getSetting('payment_gateway_active')) ?? 'razorpay') as PublicStoreSettings['activeGateway'];
-
   return {
-    activeGateway: ['razorpay', 'phonepe', 'gpay', 'none'].includes(activeGateway) ? activeGateway : 'razorpay',
     razorpayKeyId: (await getSetting('razorpay_key_id')) || '',
     gpayUpiId: (await getSetting('gpay_upi_id')) || '',
     gpayUpiName: (await getSetting('gpay_upi_name')) || '',
@@ -49,7 +45,14 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
       { label: 'lunch', time: (await getSetting('store_order_cutoff_lunch')) || '10:45' },
       { label: 'dinner', time: (await getSetting('store_order_cutoff_dinner')) || '18:45' },
     ],
-    deliveryLocations: await getJsonSetting<string[]>('store_delivery_locations', ['SNM, CIT Kokrajhar']),
+    deliveryLocations: await getJsonSetting<string[]>('store_delivery_locations', [
+      'SNM, CIT Kokrajhar',
+      'SJ, CIT Kokrajhar',
+      'JD, CIT Kokrajhar',
+      'Staff Quarter, CIT Kokrajhar',
+      'Gambari Girls Hostel, CIT Kokrajhar',
+      'Mtech Quarter, CIT Kokrajhar',
+    ]),
     deliveryFee: await getNumericSetting('delivery_fee', 10),
     taxPercentage: await getNumericSetting('tax_percentage', 5),
     cancellationWindowMinutes: await getNumericSetting('cancellation_window_minutes', 2),

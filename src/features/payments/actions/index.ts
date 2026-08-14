@@ -1,7 +1,13 @@
 'use server';
 
 import { env } from '@/config/env';
-import { getSetting } from '@/lib/settings';
+import { getSetting, getPaymentMethodAvailability } from '@/lib/settings';
+import type { PaymentMethodAvailability } from '@/lib/settings';
+
+/** Methods that are both enabled by the owner and configured. No secrets returned. */
+export async function getAvailablePaymentMethods(): Promise<PaymentMethodAvailability[]> {
+  return getPaymentMethodAvailability();
+}
 
 export async function createRazorpayOrder(amount: number, currency = 'INR'): Promise<
   { success: true; data: { id: string; amount: number; currency: string } } | { success: false; error: string }

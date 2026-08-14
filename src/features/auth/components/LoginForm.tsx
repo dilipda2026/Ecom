@@ -37,19 +37,29 @@ export default function LoginForm() {
       }
       return;
     }
+    if (!user) {
+      setError('Sign-in failed. Please try again.');
+      return;
+    }
 
-    useAuthStore.getState().setUser(user);
+    let role = user.role;
+    if (!role) {
+      const { profile } = await authService.fetchProfile(user.id);
+      role = profile?.role ?? null;
+    }
+
+    useAuthStore.getState().setUser({ ...user, role });
 
     const roleTarget: Record<string, string> = {
-      admin: '/admin',
-      super_admin: '/admin',
+      admin: '/dashboard/admin',
+      super_admin: '/dashboard/admin',
       delivery: '/dashboard/delivery',
     };
 
-    if (user?.role) {
-      const target = (next && next.startsWith('/') && !roleTarget[user.role])
+    if (role) {
+      const target = (next && next.startsWith('/') && !roleTarget[role])
         ? next
-        : (roleTarget[user.role] ?? '/');
+        : (roleTarget[role] ?? '/');
       window.location.href = target;
     } else {
       window.location.href = '/auth/onboarding';

@@ -61,3 +61,51 @@ export async function getBooleanSetting(key: string, fallback: boolean): Promise
   if (!raw) return fallback;
   return raw === 'true';
 }
+
+export interface PaymentMethodAvailability {
+  id: string;
+  enabled: boolean;
+  configured: boolean;
+}
+
+/**
+ * Resolve which payment methods are available at checkout. Each method is
+ * enabled via its own system_settings toggle. When a toggle key is missing
+ * (legacy DB), the value is derived from payment_gateway_active so existing
+ * setups keep working without intervention. A method is available only when it
+ * is enabled AND has the credentials it needs. Only booleans are returned —
+ * secrets never leave the server.
+ */
+export async function getPaymentMethodAvailability(): Promise<PaymentMethodAvailability[]> {
+  const gateway = (await getSetting('payment_gateway_active')) || 'razorpay';
+
+  const toggleEnabled = async (key: string, legacyDefault: boolean): Promise<boolean> => {
+    const raw = await getSetting(key);
+    if (raw === null) return legacyDefault;
+    return raw === 'true';
+  };
+
+  const [wallet, razorpay, phonepe, gpay, cod] = await Promise.all([
+    toggleEnabled('payment_method_wallet_enabled', true),
+    toggleEnabled('payment_method_razorpay_enabled', gateway === 'razorpay'),
+    toggleEnabled('payment_method_phonepe_enabled', gateway === 'phonepe'),
+    toggleEnabled('payment_method_gpay_enabled', gateway === 'gpay'),
+    toggleEnabled('payment_method_cod_enabled', true),
+  ]);
+
+  const [razorpayKeyId, razorpayKeySecret, merchantId, saltKey, upiId] = await Promise.all([
+    getSetting('razorpay_key_id'),
+    getSetting('razorpay_key_secret'),
+    getSetting('phonepe_merchant_id'),
+    getSetting('phonepe_salt_key'),
+    getSetting('gpay_upi_id'),
+  ]);
+
+  return [
+    { id: 'wallet', enabled: wallet, configured: true },
+    { id: 'razorpay', enabled: razorpay, configured: !!razorpayKeyId && !!razorpayKeySecret },
+    { id: 'phonepe', enabled: phonepe, configured: !!merchantId && !!saltKey },
+    { id: 'gpay', enabled: gpay, configured: !!upiId },
+    { id: 'cod', enabled: cod, configured: true },
+  ];
+}

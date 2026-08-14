@@ -2,21 +2,29 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserRound, Home, UtensilsCrossed, ClipboardList, Heart, ChevronLeft } from 'lucide-react';
+import { UserRound, Home, UtensilsCrossed, ClipboardList, Heart, ChevronLeft, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/shared/ThemeToggle';
 
-const navLinks = [
+const customerLinks = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { label: 'Orders', href: '/orders', icon: ClipboardList },
+  { label: 'Profile', href: '/profile', icon: UserRound },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const navLinks = isAdmin
+    ? [
+        { label: 'Profile', href: '/profile', icon: UserRound },
+        { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+      ]
+    : customerLinks;
 
   function isActive(href: string): boolean {
     if (href === '/') return pathname === '/';
@@ -61,15 +69,11 @@ export default function Navbar() {
           <ThemeToggle className="icon-button-z" />
           {isLoading ? (
             <div className="w-8 h-8 rounded-full bg-zgray animate-pulse" />
-          ) : isAuthenticated ? (
-            <Link href="/profile" className="icon-button-z" aria-label="Profile">
-              <UserRound size={18} />
-            </Link>
-          ) : (
+          ) : !isAuthenticated ? (
             <Link href="/auth/login" className="button-z button-z-primary text-sm px-4">
               Sign in
             </Link>
-          )}
+          ) : null}
         </div>
 
         {/* Mobile: logo + theme + favorites (bottom nav handles navigation) */}

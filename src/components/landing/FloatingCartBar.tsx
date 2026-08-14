@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useCartStore } from '@/features/cart/store';
 
@@ -8,15 +9,32 @@ export default function FloatingCartBar() {
   const pathname = usePathname();
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
+  const [nearBottom, setNearBottom] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const doc = document.documentElement;
+      setNearBottom(window.innerHeight + window.scrollY >= doc.scrollHeight - 200);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
   if (count === 0) return null;
+  if (nearBottom) return null;
   if (
     pathname?.startsWith('/cart') ||
     pathname?.startsWith('/orders') ||
     pathname?.startsWith('/checkout') ||
-    pathname?.startsWith('/profile')
+    pathname?.startsWith('/profile') ||
+    pathname?.startsWith('/dashboard')
   ) return null;
 
   return (

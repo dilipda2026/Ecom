@@ -9,7 +9,8 @@ import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { createOrder, confirmPayment, sendOrderNotification } from '@/features/orders/actions/customer';
-import { createRazorpayOrder } from '@/features/payments/actions';
+import { createRazorpayOrder, getAvailablePaymentMethods } from '@/features/payments/actions';
+import type { PaymentMethodAvailability } from '@/lib/settings';
 import { getWalletDetails, deductWalletBalance } from '@/features/wallet/actions';
 import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
@@ -23,15 +24,6 @@ const basePaymentMethods = [
   { id: 'gpay', label: 'Pay with Google Pay', desc: 'Pay using GPay UPI', icon: CreditCard },
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your food arrives', icon: Banknote },
 ];
-
-function activeGatewayMethods(active: string) {
-  return basePaymentMethods.filter((pm) => {
-    if (pm.id === 'razorpay') return active === 'razorpay';
-    if (pm.id === 'phonepe') return active === 'phonepe';
-    if (pm.id === 'gpay') return active === 'gpay';
-    return true;
-  });
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -51,8 +43,26 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const publicSettings = usePublicSettings();
   const razorpayKey = publicSettings.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  const allPaymentMethods = activeGatewayMethods(publicSettings.activeGateway);
+  const [availableMethods, setAvailableMethods] = useState<PaymentMethodAvailability[]>([]);
+  const [methodsLoaded, setMethodsLoaded] = useState(false);
+  const paymentMethods = basePaymentMethods.filter((pm) => {
+    const avail = availableMethods.find((a) => a.id === pm.id);
+    return avail ? avail.enabled && avail.configured : false;
+  });
+  const selectedMethod = paymentMethods.some((pm) => pm.id === paymentMethod) ? paymentMethod : (paymentMethods[0]?.id ?? paymentMethod);
   const deliveryLocations = publicSettings.deliveryLocations.map((loc) => ({ value: loc, label: loc.split(',')[0] }));
+
+  useEffect(() => {
+    let cancelled = false;
+    getAvailablePaymentMethods().then((methods) => {
+      if (cancelled) return;
+      setAvailableMethods(methods);
+      setMethodsLoaded(true);
+    }).catch(() => {
+      if (!cancelled) setMethodsLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     useCartStore.getState().setPricing({ deliveryFee: publicSettings.deliveryFee, taxRate: publicSettings.taxPercentage / 100 });
@@ -132,7 +142,7 @@ export default function CheckoutPage() {
     setError('');
     const isOnline = pm === 'razorpay' || pm === 'phonepe' || pm === 'gpay';
     if (isOnline && !razorpayKey) {
-      setError(`${publicSettings.activeGateway === 'none' ? 'Online payments are disabled by the store owner.' : 'Online payments are not configured. Please choose Wallet or Cash on Delivery.'}`);
+      setError('Online payments are not configured. Please choose Wallet or Cash on Delivery.');
       return false;
     }
     if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
@@ -241,11 +251,11 @@ export default function CheckoutPage() {
   }
 
   async function handlePlaceOrder() {
-    await placeOrder(paymentMethod);
+    await placeOrder(selectedMethod);
   }
 
   async function handleUpiPayment() {
-    const pm = publicSettings.activeGateway === 'phonepe' ? 'phonepe' : publicSettings.activeGateway === 'gpay' ? 'gpay' : 'razorpay';
+    const pm = selectedMethod;
     const valid = await validateAndPlace(pm);
     if (!valid) return;
     await initiateRazorpayPayment(pm, { method: 'upi', description: `Pay via ${pm === 'phonepe' ? 'PhonePe' : pm === 'gpay' ? 'GPay' : 'UPI'}` });
@@ -358,27 +368,31 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v) && paymentMethod === 'cod') setPaymentMethod('wallet'); }} />
+              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v) && selectedMethod === 'cod') setPaymentMethod(paymentMethods.find((p) => p.id !== 'cod')?.id ?? 'wallet'); }} />
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
                   <CreditCard size={15} className="text-zred shrink-0" /> Payment method
                 </h2>
                 <div className="space-y-2">
-                  {allPaymentMethods.filter((pm) => pm.id !== 'cod' || canPayOnDelivery(orderType)).map((pm) => (
+                  {!methodsLoaded ? (
+                    <p className="text-xs text-ztext-lighter flex items-center gap-2 py-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading payment options...
+                    </p>
+                  ) : paymentMethods.filter((pm) => pm.id !== 'cod' || canPayOnDelivery(orderType)).map((pm) => (
                     <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
                       className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
-                        paymentMethod === pm.id
+                        selectedMethod === pm.id
                           ? 'border-zred bg-red-500/10 shadow-z'
                           : 'border-zborder hover:border-ztext-light hover:bg-zgray'
                       }`}
                     >
-                      <pm.icon size={16} className={`mt-0.5 shrink-0 ${paymentMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
+                      <pm.icon size={16} className={`mt-0.5 shrink-0 ${selectedMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
                       <div>
                         <p className="font-medium text-ztext text-xs">{pm.label}</p>
                         <p className="text-[10px] text-ztext-light mt-0.5">{pm.desc}</p>
                       </div>
-                      {paymentMethod === pm.id && (
+                      {selectedMethod === pm.id && (
                         <span className="ml-auto w-4 h-4 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-zcard" />
                         </span>
@@ -387,7 +401,7 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                {paymentMethod === 'wallet' && (
+                {selectedMethod === 'wallet' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
                       walletBalance !== null && (walletBalance - total()) >= -500
@@ -421,7 +435,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {paymentMethod === 'phonepe' && (
+                {selectedMethod === 'phonepe' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
                     <div className="grid grid-cols-2 gap-3">
@@ -440,7 +454,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {paymentMethod === 'gpay' && (
+                {selectedMethod === 'gpay' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
                     <div className="grid grid-cols-2 gap-3">
@@ -459,7 +473,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {paymentMethod === 'razorpay' && (
+                {selectedMethod === 'razorpay' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <p className="text-xs font-semibold text-ztext mb-3">Pay using UPI Apps</p>
                     <div className="grid grid-cols-2 gap-3">

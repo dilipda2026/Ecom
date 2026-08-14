@@ -6,7 +6,7 @@ import type { CartItem } from '@/features/cart/types';
 import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
-import { getSetting, getNumericSetting, getBooleanSetting } from '@/lib/settings';
+import { getNumericSetting, getBooleanSetting, getPaymentMethodAvailability } from '@/lib/settings';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -59,10 +59,11 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }
 
-  const activeGateway = (await getSetting('payment_gateway_active')) || 'razorpay';
+  const availability = await getPaymentMethodAvailability();
+  const avail = availability.find((a) => a.id === paymentMethod);
   const isOnline = ['razorpay', 'phonepe', 'gpay'].includes(paymentMethod);
-  if (isOnline && (activeGateway === 'none' || paymentMethod !== activeGateway)) {
-    return { success: false, error: 'Online payments are disabled or the selected gateway is not active. Please choose Wallet or Cash on Delivery.' };
+  if (!avail || !avail.enabled || (isOnline && !avail.configured)) {
+    return { success: false, error: 'This payment method is currently unavailable. Please choose another.' };
   }
 
   const paymentMethodDb =

@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Home, UtensilsCrossed, ClipboardList, User } from 'lucide-react';
+import { Home, UtensilsCrossed, ClipboardList, User, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
 
-const tabs = [
+const customerTabs = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { label: 'Orders', href: '/orders', icon: ClipboardList },
@@ -21,6 +21,14 @@ export default function BottomNav() {
   const lastAddedAt = useCartStore((s) => s.lastAddedAt);
   const lastViewedAt = useCartStore((s) => s.lastViewedAt);
   const markCartViewed = useCartStore((s) => s.markCartViewed);
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const tabs = isAdmin
+    ? [
+        { label: 'Profile', href: '/profile', icon: User },
+        { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+      ]
+    : customerTabs;
 
   useEffect(() => {
     if (pathname === '/cart' || pathname === '/orders') markCartViewed();

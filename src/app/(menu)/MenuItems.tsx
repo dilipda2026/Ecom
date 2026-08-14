@@ -104,7 +104,7 @@ export function MenuItems({ sections: initialSections }: { sections: MenuSection
           aria-checked={vegOnly}
           aria-label="Toggle vegetarian only"
           onClick={() => setVegOnly(!vegOnly)}
-          className="flex items-center gap-1.5 bg-zcard border border-zborder pl-2 pr-1.5 py-1 rounded-full text-[12px] font-semibold text-ztext"
+          className="flex items-center gap-1.5 bg-zcard border border-zborder pl-2 pr-1.5 py-1 rounded-full text-[10px] font-semibold text-ztext"
         >
           Veg Only
           <span className={`relative w-5 h-3 rounded-full transition-colors ${vegOnly ? 'bg-green-500' : 'bg-ztext-muted'}`}>

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { getPublicSettings, type PublicStoreSettings } from '@/features/settings/actions';
 
 const FALLBACK: PublicStoreSettings = {
-  activeGateway: 'razorpay',
   razorpayKeyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? '',
   gpayUpiId: process.env.NEXT_PUBLIC_STORE_UPI_ID ?? '',
   gpayUpiName: process.env.NEXT_PUBLIC_STORE_UPI_NAME ?? 'Dilip Da',
@@ -22,7 +21,14 @@ const FALLBACK: PublicStoreSettings = {
     { label: 'lunch', time: '10:45' },
     { label: 'dinner', time: '18:45' },
   ],
-  deliveryLocations: ['SNM, CIT Kokrajhar'],
+  deliveryLocations: [
+    'SNM, CIT Kokrajhar',
+    'SJ, CIT Kokrajhar',
+    'JD, CIT Kokrajhar',
+    'Staff Quarter, CIT Kokrajhar',
+    'Gambari Girls Hostel, CIT Kokrajhar',
+    'Mtech Quarter, CIT Kokrajhar',
+  ],
   deliveryFee: 10,
   taxPercentage: 5,
   cancellationWindowMinutes: 2,
