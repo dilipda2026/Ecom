@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Home, UtensilsCrossed, ClipboardList, User } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
-import { getUserOrders } from '@/features/orders/actions/customer';
-import { isActiveOrder } from '@/features/orders/types';
+import { useCartStore } from '@/features/cart/store';
 
 const tabs = [
   { label: 'Home', href: '/', icon: Home },
@@ -18,24 +17,21 @@ const tabs = [
 export default function BottomNav() {
   const pathname = usePathname();
   const { isAuthenticated, user } = useAuthStore();
-  const [activeOrderCount, setActiveOrderCount] = useState(0);
+  const items = useCartStore((s) => s.items);
+  const lastAddedAt = useCartStore((s) => s.lastAddedAt);
+  const lastViewedAt = useCartStore((s) => s.lastViewedAt);
+  const markCartViewed = useCartStore((s) => s.markCartViewed);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    let cancelled = false;
-    getUserOrders(1, 10).then((res) => {
-      if (!cancelled && res.success && res.data) {
-        setActiveOrderCount(res.data.orders.filter((o) => isActiveOrder(o.status)).length);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
+    if (pathname === '/cart' || pathname === '/orders') markCartViewed();
+  }, [pathname, markCartViewed]);
 
-  const badgeCount = isAuthenticated ? activeOrderCount : 0;
+  const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  const hasUnviewedItems =
+    cartCount > 0 && (lastAddedAt == null || lastViewedAt == null || lastAddedAt > lastViewedAt);
+  const badgeCount = hasUnviewedItems ? cartCount : 0;
 
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard')) return null;
+  if (pathname?.startsWith('/admin')) return null;
   if (user?.role === 'delivery') return null;
 
   function isActive(href: string) {

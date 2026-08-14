@@ -1,39 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useCartStore } from '@/features/cart/store';
 
-const HIDE_DELAY = 8000;
-
 export default function FloatingCartBar() {
+  const pathname = usePathname();
   const items = useCartStore((s) => s.items);
-  const lastAddedAt = useCartStore((s) => s.lastAddedAt);
   const total = useCartStore((s) => s.total);
-  const [now, setNow] = useState(() => Date.now());
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const visible = count > 0 && lastAddedAt != null && now - lastAddedAt < HIDE_DELAY;
-
   if (count === 0) return null;
+  if (pathname?.startsWith('/cart') || pathname?.startsWith('/orders') || pathname?.startsWith('/checkout')) return null;
 
   return (
-    <div
-      className={`fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sticky-above-nav pointer-events-none transition-all duration-300 ${
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
-      }`}
-    >
+    <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 sticky-above-nav pointer-events-none">
       <Link
         href="/cart"
-        className={`mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-slate-900 text-white px-4 py-3 border border-white/10 shadow-z-modal hover:brightness-125 transition-[filter] ${
-          visible ? 'pointer-events-auto' : 'pointer-events-none'
-        }`}
+        className="mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl bg-slate-900 text-white px-4 py-3 border border-white/10 shadow-z-modal hover:brightness-125 transition-[filter] pointer-events-auto"
       >
         <div>
           <p className="text-xs font-bold leading-tight">

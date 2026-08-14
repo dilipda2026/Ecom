@@ -6,7 +6,6 @@ import StatusStrip from '@/components/landing/StatusStrip';
 import OfferCards from '@/components/landing/OfferCards';
 import FavoritesShelf from '@/components/landing/FavoritesShelf';
 import FeaturedDishes from '@/components/landing/FeaturedDishes';
-import FloatingCartBar from '@/components/landing/FloatingCartBar';
 import Reveal from '@/components/shared/Reveal';
 import HomeHeader from '@/features/home/components/HomeHeader';
 import SpecialsShelf from '@/features/home/components/SpecialsShelf';
@@ -84,7 +83,6 @@ export default function HomeMenu() {
         onPopularOnly={setPopularOnly}
         onClear={clearFilters}
       />
-      <FloatingCartBar />
     </>
   );
 }

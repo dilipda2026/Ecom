@@ -10,6 +10,7 @@ export interface CartItem {
 export interface CartState {
   items: CartItem[];
   lastAddedAt: number | null;
+  lastViewedAt: number | null;
   lastAddedRect: { left: number; top: number; width: number; height: number } | null;
   pricing: { deliveryFee: number; taxRate: number };
 }
@@ -20,6 +21,7 @@ export interface CartStore extends CartState {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  markCartViewed: () => void;
   setPricing: (pricing: { deliveryFee: number; taxRate: number }) => void;
   totalItems: () => number;
   subtotal: () => number;

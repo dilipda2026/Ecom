@@ -11,6 +11,7 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [] as CartItem[],
       lastAddedAt: null as number | null,
+      lastViewedAt: null as number | null,
       lastAddedRect: null as { left: number; top: number; width: number; height: number } | null,
       pricing: defaultPricing,
 
@@ -36,6 +37,8 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => set({ items: [], lastAddedAt: null }),
 
+      markCartViewed: () => set({ lastViewedAt: Date.now() }),
+
       setPricing: (pricing) => set({ pricing }),
 
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
@@ -44,6 +47,6 @@ export const useCartStore = create<CartStore>()(
       taxAmount: () => Math.round(get().subtotal() * get().pricing.taxRate),
       total: () => get().subtotal() + get().deliveryFee() + get().taxAmount(),
     }),
-    { name: 'dilipda-cart', partialize: (state) => ({ items: state.items }) },
+    { name: 'dilipda-cart', partialize: (state) => ({ items: state.items, lastAddedAt: state.lastAddedAt, lastViewedAt: state.lastViewedAt }) },
   ),
 );

@@ -6,6 +6,7 @@ import './globals.css';
 
 const NavbarWrapper = dynamic(() => import('@/components/shared/NavbarWrapper'));
 const BottomNav = dynamic(() => import('@/components/shared/BottomNav'));
+const FloatingCartBar = dynamic(() => import('@/components/landing/FloatingCartBar'));
 const Toast = dynamic(() => import('@/components/shared/Toast'));
 const FlyingBird = dynamic(() => import('@/components/shared/FlyingBird'));
 const FavoritesSync = dynamic(() => import('@/components/shared/FavoritesSync'));
@@ -13,9 +14,9 @@ const FavoritesSync = dynamic(() => import('@/components/shared/FavoritesSync'))
 export const metadata: Metadata = {
   title: {
     template: '%s | Dilip Da',
-    default: 'Dilip Da — Homestyle Bengali Meals near CIT Kokrajhar',
+    default: 'Dilip Da — Homestyle Meals near CIT Kokrajhar',
   },
-  description: 'Dilip Da is a homestyle Bengali food service run by Dilip da, serving fresh meals near CIT Kokrajhar. Order online for delivery.',
+  description: 'Dilip Da is a homestyle food service run by Dilip da, serving fresh meals near CIT Kokrajhar. Order online for delivery.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Footer />
           <FlyingBird />
           <BottomNav />
+          <FloatingCartBar />
           <Toast />
           <FavoritesSync />
         </Providers>

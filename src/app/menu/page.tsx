@@ -2,7 +2,6 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { menuSections } from '@/features/menu/data';
-import FloatingCartBar from '@/components/landing/FloatingCartBar';
 
 const MenuItems = dynamic(() => import('../(menu)/MenuItems').then((m) => ({ default: m.MenuItems })));
 
@@ -33,7 +32,6 @@ export default function MenuPage() {
 
         <MenuItems sections={menuSections} />
       </div>
-      <FloatingCartBar />
     </div>
   );
 }
