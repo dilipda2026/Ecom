@@ -89,7 +89,7 @@ export default function ProductsPage() {
           {filtered.map((p) => (
             <div key={p.id} className="bg-zcard rounded-xl border border-zborder p-4 flex items-center gap-4 hover:shadow-z transition-shadow">
               <div className="w-12 h-12 rounded-lg bg-zgray overflow-hidden shrink-0 relative">
-                {p.image ? <Image src={p.image} alt={p.name} fill className="object-cover" sizes="48px" /> : <div className="w-full h-full flex items-center justify-center text-ztext-muted"><UtensilsCrossed size={18} /></div>}
+                {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/Chicken Curry.jpg'; }} /> : <div className="w-full h-full flex items-center justify-center text-ztext-muted"><UtensilsCrossed size={18} /></div>}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

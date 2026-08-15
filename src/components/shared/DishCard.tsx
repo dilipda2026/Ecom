@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { Minus, Plus, Star } from 'lucide-react';
 import FavoriteButton from '@/components/shared/FavoriteButton';
@@ -29,18 +30,21 @@ interface DishCardProps {
 export default function DishCard({ dish, qty, onAdd, onUpdateQuantity, variant = 'default' }: DishCardProps) {
   const menu = menuItemById.get(dish.id);
   const rating = dish.rating ?? menu?.rating;
+  const [imgError, setImgError] = useState(false);
+  const displayImg = imgError || !dish.img ? '/images/Chicken Curry.jpg' : dish.img;
 
   if (variant === 'menu') {
     return (
       <div className="group flex flex-col h-full rounded-2xl border border-zborder bg-zcard overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-z hover:border-ztext-lighter">
         <div className="relative h-28 sm:h-32 bg-zgray overflow-hidden">
           <Image
-            src={dish.img}
+            src={displayImg}
             alt={dish.name}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             sizes="(max-width: 640px) 50vw, 300px"
             loading="lazy"
+            onError={() => setImgError(true)}
           />
           {dish.popular && (
             <span className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm text-white text-[9px] font-semibold px-1.5 py-0.5 rounded tracking-wide">
@@ -94,12 +98,13 @@ export default function DishCard({ dish, qty, onAdd, onUpdateQuantity, variant =
     <div className="group relative flex flex-col h-full">
       <div className="relative h-40 sm:h-44 rounded-2xl overflow-hidden bg-zgray shadow-z">
         <Image
-          src={dish.img}
+          src={displayImg}
           alt={dish.name}
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 640px) 50vw, 300px"
           loading="lazy"
+          onError={() => setImgError(true)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
         <div className={`absolute top-2 left-2 flex items-center justify-center w-4 h-4 rounded-sm bg-white/90 backdrop-blur-sm shadow-sm border ${dish.veg ? 'border-green-600' : 'border-red-600'}`}>
