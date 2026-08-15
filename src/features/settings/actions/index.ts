@@ -1,6 +1,6 @@
 'use server';
 
-import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails } from '@/lib/settings';
+import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails, getAdminEmails } from '@/lib/settings';
 
 export interface PublicStoreSettings {
   razorpayKeyId: string;
@@ -22,6 +22,7 @@ export interface PublicStoreSettings {
   taxPercentage: number;
   cancellationWindowMinutes: number;
   deliveryEmails: string[];
+  adminEmails: string[];
 }
 
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
@@ -58,5 +59,6 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     taxPercentage: await getNumericSetting('tax_percentage', 5),
     cancellationWindowMinutes: await getNumericSetting('cancellation_window_minutes', 2),
     deliveryEmails: await getDeliveryEmails(),
+    adminEmails: await getAdminEmails(),
   };
 }

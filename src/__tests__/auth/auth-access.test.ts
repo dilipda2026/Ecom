@@ -18,6 +18,8 @@ describe('auth-access', () => {
     expect(isAdminEmail('lastw5232@gmail.com')).toBe(true);
     expect(isAdminEmail('LASTW5232@GMAIL.COM')).toBe(true);
     expect(isAdminEmail('notadmin@gmail.com')).toBe(false);
+    expect(isAdminEmail('extra-admin@gmail.com', ['extra-admin@gmail.com'])).toBe(true);
+    expect(isAdminEmail('notadmin@gmail.com', ['extra-admin@gmail.com'])).toBe(false);
   });
 
   it('allows only allowlisted delivery emails', () => {

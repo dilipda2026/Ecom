@@ -9,8 +9,9 @@ export function isCitStudentEmail(email: string) {
   return email.trim().toLowerCase().endsWith('@cit.ac.in');
 }
 
-export function isAdminEmail(email: string) {
-  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+export function isAdminEmail(email: string, extraAdminEmails: string[] = []) {
+  const target = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(target) || extraAdminEmails.some((e) => e.trim().toLowerCase() === target);
 }
 
 /**
@@ -22,6 +23,6 @@ export function isDeliveryEmail(email: string, extraDeliveryEmails: string[] = [
   return DELIVERY_EMAILS.includes(target) || extraDeliveryEmails.some((e) => e.trim().toLowerCase() === target);
 }
 
-export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = []) {
-  return isCitStudentEmail(email) || isAdminEmail(email) || isDeliveryEmail(email, extraDeliveryEmails);
+export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = [], extraAdminEmails: string[] = []) {
+  return isCitStudentEmail(email) || isAdminEmail(email, extraAdminEmails) || isDeliveryEmail(email, extraDeliveryEmails);
 }

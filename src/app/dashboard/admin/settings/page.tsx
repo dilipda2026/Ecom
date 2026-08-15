@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
-  RefreshCw, Loader2, Save, Pencil,
+  RefreshCw, Loader2, Save, Pencil, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
@@ -158,7 +158,7 @@ export default function AdminSettingsPage() {
               onChange={(e) => setVal(setting.key, e.target.value)}
               className={`${inputClass} text-right`}
             />
-          ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' ? (
+          ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' || setting.key === 'admin_emails' ? (
             <textarea
               rows={3}
               value={val}
@@ -307,6 +307,13 @@ export default function AdminSettingsPage() {
           title: 'Delivery Personnels',
           subtitle: 'Emails allowed to sign up as delivery partners. Separate multiple emails with commas or new lines.',
           keys: ['delivery_person_emails'],
+        })}
+
+        {renderCard({
+          icon: ShieldCheck,
+          title: 'Administrators',
+          subtitle: 'Emails allowed to sign up as store administrators. Separate multiple emails with commas or new lines.',
+          keys: ['admin_emails'],
         })}
 
         {renderCard({

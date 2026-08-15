@@ -25,7 +25,8 @@ export default function LoginForm() {
     const normalizedEmail = email.toLowerCase().trim();
     const publicConfig = await getPublicSettings().catch(() => null);
     const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
-    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails)) {
+    const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
+    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails, adminEmails)) {
       setError('Only CIT students and authorized staff can sign in.');
       return;
     }

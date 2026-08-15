@@ -19,6 +19,7 @@ type AccountType = 'student' | 'delivery' | 'admin';
 const accountTypes: { value: AccountType; label: string; desc: string; emoji: string }[] = [
   { value: 'student', label: 'Student', desc: 'CIT student, order food for delivery', emoji: '🎓' },
   { value: 'delivery', label: 'Delivery Partner', desc: 'Deliver food and earn money', emoji: '🛵' },
+  { value: 'admin', label: 'Administrator', desc: 'Manage the store dashboard', emoji: '⚙️' },
 ];
 
 export default function SignupForm() {
@@ -69,9 +70,10 @@ export default function SignupForm() {
     if (!normalizedEmail.includes('@')) { showToast('Enter a valid email'); return; }
     const publicConfig = await getPublicSettings().catch(() => null);
     const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
+    const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
     if (accountType === 'student' && !isCitStudentEmail(normalizedEmail)) { showToast('Only for CIT students'); return; }
     if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail, deliveryEmails)) { showToast('This email is not approved for delivery partners'); return; }
-    if (accountType === 'admin' && !isAdminEmail(normalizedEmail)) { showToast('This email is not approved for admin access'); return; }
+    if (accountType === 'admin' && !isAdminEmail(normalizedEmail, adminEmails)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
     setDevOtp(null);
     const res = await sendSignupOtp(normalizedEmail);

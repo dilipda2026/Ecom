@@ -33,6 +33,7 @@ const FALLBACK: PublicStoreSettings = {
   taxPercentage: 5,
   cancellationWindowMinutes: 2,
   deliveryEmails: [],
+  adminEmails: [],
 };
 
 export function usePublicSettings(): PublicStoreSettings {

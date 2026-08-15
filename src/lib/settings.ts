@@ -74,6 +74,11 @@ export async function getDeliveryEmails(): Promise<string[]> {
   return parseEmailList(await getSetting('delivery_person_emails'));
 }
 
+/** Administrator emails configured by the owner in General Settings */
+export async function getAdminEmails(): Promise<string[]> {
+  return parseEmailList(await getSetting('admin_emails'));
+}
+
 export interface PaymentMethodAvailability {
   id: string;
   enabled: boolean;
