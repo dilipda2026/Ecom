@@ -60,6 +60,20 @@ export async function getBooleanSetting(key: string, fallback: boolean): Promise
   return raw === 'true';
 }
 
+/** Parse comma/newline separated email list into trimmed, lowercased entries */
+export function parseEmailList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[\n,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+}
+
+/** Delivery person emails configured by the owner in General Settings */
+export async function getDeliveryEmails(): Promise<string[]> {
+  return parseEmailList(await getSetting('delivery_person_emails'));
+}
+
 export interface PaymentMethodAvailability {
   id: string;
   enabled: boolean;

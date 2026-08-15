@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
+import { getDeliveryEmails } from '@/lib/settings';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -162,7 +163,7 @@ export async function setupDeliveryAccount(formData: FormData) {
   const { user } = await getServerSession();
   if (!user) return { error: 'Not authenticated', redirect: null };
 
-  if (!isDeliveryEmail(user.email)) {
+  if (!isDeliveryEmail(user.email, await getDeliveryEmails())) {
     return { error: 'This email is not approved for delivery partners', redirect: null };
   }
 

@@ -13,10 +13,15 @@ export function isAdminEmail(email: string) {
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
-export function isDeliveryEmail(email: string) {
-  return DELIVERY_EMAILS.includes(email.trim().toLowerCase());
+/**
+ * A delivery email is valid when it is in the built-in default list OR in the
+ * owner-configured list (from General Settings).
+ */
+export function isDeliveryEmail(email: string, extraDeliveryEmails: string[] = []) {
+  const target = email.trim().toLowerCase();
+  return DELIVERY_EMAILS.includes(target) || extraDeliveryEmails.some((e) => e.trim().toLowerCase() === target);
 }
 
-export function isAllowedSigninEmail(email: string) {
-  return isCitStudentEmail(email) || isAdminEmail(email) || isDeliveryEmail(email);
+export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = []) {
+  return isCitStudentEmail(email) || isAdminEmail(email) || isDeliveryEmail(email, extraDeliveryEmails);
 }

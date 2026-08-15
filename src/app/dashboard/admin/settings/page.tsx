@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
-  CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal,
+  CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
   RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert, Save, Pencil,
   type LucideIcon,
 } from 'lucide-react';
@@ -191,7 +191,7 @@ export default function AdminSettingsPage() {
               onChange={(e) => setVal(setting.key, e.target.value)}
               className={`${inputClass} text-right`}
             />
-          ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' ? (
+          ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' ? (
             <textarea
               rows={3}
               value={val}
@@ -333,6 +333,13 @@ export default function AdminSettingsPage() {
             'store_support_phone', 'store_support_email', 'notification_email', 'store_address',
             'store_whatsapp', 'store_instagram', 'store_facebook', 'store_website',
           ],
+        })}
+
+        {renderCard({
+          icon: Bike,
+          title: 'Delivery Personnels',
+          subtitle: 'Emails allowed to sign up as delivery partners. Separate multiple emails with commas or new lines.',
+          keys: ['delivery_person_emails'],
         })}
 
         {renderCard({

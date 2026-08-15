@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { isAllowedSigninEmail } from '@/config/auth-access';
+import { getPublicSettings } from '@/features/settings/actions';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
 export default function LoginForm() {
@@ -14,13 +16,16 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const next = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('next') : null;
+  const publicSettings = usePublicSettings();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
     const normalizedEmail = email.toLowerCase().trim();
-    if (!isAllowedSigninEmail(normalizedEmail)) {
+    const publicConfig = await getPublicSettings().catch(() => null);
+    const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
+    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails)) {
       setError('Only CIT students and authorized staff can sign in.');
       return;
     }

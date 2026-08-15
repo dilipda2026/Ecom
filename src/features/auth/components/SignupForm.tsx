@@ -6,7 +6,9 @@ import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
 import { setupDeliveryAccount, setupAdminAccount } from '@/features/auth/actions';
+import { getPublicSettings } from '@/features/settings/actions';
 import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { showToast } from '@/components/shared/Toast';
 import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail, Bike } from 'lucide-react';
 
@@ -20,6 +22,7 @@ const accountTypes: { value: AccountType; label: string; desc: string; emoji: st
 ];
 
 export default function SignupForm() {
+  const publicSettings = usePublicSettings();
   const [step, setStep] = useState<'email' | 'otp' | 'account'>('email');
   const [accountType, setAccountType] = useState<AccountType>('student');
   const [email, setEmail] = useState('');
@@ -64,8 +67,10 @@ export default function SignupForm() {
   async function handleSendOtp() {
     const normalizedEmail = email.toLowerCase().trim();
     if (!normalizedEmail.includes('@')) { showToast('Enter a valid email'); return; }
+    const publicConfig = await getPublicSettings().catch(() => null);
+    const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
     if (accountType === 'student' && !isCitStudentEmail(normalizedEmail)) { showToast('Only for CIT students'); return; }
-    if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail)) { showToast('This email is not approved for delivery partners'); return; }
+    if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail, deliveryEmails)) { showToast('This email is not approved for delivery partners'); return; }
     if (accountType === 'admin' && !isAdminEmail(normalizedEmail)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
     setDevOtp(null);
