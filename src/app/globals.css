@@ -134,8 +134,6 @@ option {
 .input-z {
   height: 3rem;
   width: 100%;
-  padding-left: 1rem;
-  padding-right: 1rem;
   border-radius: var(--radius-z);
   border: 1px solid var(--color-zborder);
   background: var(--color-zcard);
@@ -146,6 +144,12 @@ option {
 }
 .input-z:focus { border-color: var(--color-zred); }
 .input-z::placeholder { color: var(--color-ztext-muted); }
+@layer components {
+  .input-z {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
 
 .icon-button-z {
   display: grid;
