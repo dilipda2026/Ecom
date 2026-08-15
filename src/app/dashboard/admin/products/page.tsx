@@ -590,7 +590,12 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder overflow-hidden shrink-0 flex items-center justify-center">
                           {prod.image ? (
-                            <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
+                            <img
+                              src={prod.image}
+                              alt={prod.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/Chicken Curry.jpg'; }}
+                            />
                           ) : (
                             <UtensilsCrossed size={18} className="text-ztext-muted" />
                           )}
