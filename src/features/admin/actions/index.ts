@@ -512,21 +512,14 @@ export async function getSystemSettings() {
   try {
     await authorizeAdmin();
     const raw = await adminRepository.getSystemSettings();
-    const data = raw.map((s) => {
-      if (s.is_secret) {
-        const hasValue = !!s.value;
-        return { ...s, value: '', has_value: hasValue };
-      }
-      return { ...s, has_value: !!s.value };
-    });
+    const data = raw.map((s) => ({ ...s, has_value: !!s.value }));
     return { success: true, data };
   } catch (e) {
     return { success: false, error: (e as Error).message, data: null };
   }
 }
 
-function validateSettingValue(setting: { type: string; is_secret: boolean }, value: string): string | null {
-  if (setting.is_secret && !value.trim()) return null;
+function validateSettingValue(setting: { type: string }, value: string): string | null {
   const num = Number(value);
   switch (setting.type) {
     case 'number':
@@ -558,25 +551,12 @@ export async function updateSystemSetting(id: string, value: string) {
     const validationError = validateSettingValue(setting, value);
     if (validationError) return { success: false, error: validationError };
 
-    if (setting.is_secret) {
-      if (!value.trim()) {
-        await adminRepository.createAuditLog({
-          table_name: 'system_settings',
-          record_id: id,
-          action: 'update',
-          new_data: { value: '(unchanged)' },
-          changed_by: user.id,
-        });
-        return { success: true, skipped: true };
-      }
-    }
-
     await adminRepository.updateSystemSetting(id, value, user.id);
     await adminRepository.createAuditLog({
       table_name: 'system_settings',
       record_id: id,
       action: 'update',
-      new_data: { value: setting.is_secret ? '(updated)' : value },
+      new_data: { value },
       changed_by: user.id,
     });
     clearSettingsCache();

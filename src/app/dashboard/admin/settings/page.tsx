@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
-  RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert, Save, Pencil,
+  RefreshCw, Loader2, Save, Pencil,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
@@ -28,7 +28,6 @@ export default function AdminSettingsPage() {
   const [editing, setEditing] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const { toasts, addToast, removeToast } = useToast();
 
   const fetchSettings = useCallback(async () => {
@@ -37,7 +36,7 @@ export default function AdminSettingsPage() {
       const data = res.data as SystemSetting[];
       setSettings(data);
       const values: Record<string, string> = {};
-      data.forEach((s) => { values[s.key] = s.is_secret ? '' : s.value; });
+      data.forEach((s) => { values[s.key] = s.value ?? ''; });
       setEditingValues(values);
       setOriginalValues({ ...values });
     }
@@ -51,7 +50,6 @@ export default function AdminSettingsPage() {
 
   const isDirty = (s: SystemSetting): boolean => {
     const cur = editingValues[s.key] ?? '';
-    if (s.is_secret) return cur.trim() !== '';
     return cur !== (originalValues[s.key] ?? s.value);
   };
 
@@ -101,12 +99,6 @@ export default function AdminSettingsPage() {
   const get = (key: string): SystemSetting | undefined => settings.find((s) => s.key === key);
   const setVal = (key: string, v: string) => setEditingValues((prev) => ({ ...prev, [key]: v }));
 
-  const handleCopy = (key: string) => {
-    const v = editingValues[key] ?? '';
-    if (!v.trim()) return;
-    navigator.clipboard?.writeText(v).then(() => addToast('Copied to clipboard', 'success')).catch(() => {});
-  };
-
   const isEnabled = (key: string) => editingValues[key] === 'true';
   const paymentCredentialKeys = [
     ...(isEnabled('payment_method_razorpay_enabled') ? ['razorpay_key_id', 'razorpay_key_secret'] : []),
@@ -128,8 +120,6 @@ export default function AdminSettingsPage() {
     const setting = get(settingKey);
     if (!setting) return null;
     const label = LABELS[setting.key] ?? setting.key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    const isSecret = setting.is_secret;
-    const isRevealed = revealed[setting.key];
     const val = editingValues[setting.key] ?? '';
     const disabled = saving || !editing;
 
@@ -138,7 +128,6 @@ export default function AdminSettingsPage() {
         <div className="min-w-0">
           <label className="block text-sm font-semibold text-ztext">
             {label}
-            {isSecret && <ShieldAlert size={11} className="inline text-amber-500 ml-1" />}
           </label>
           {setting.description && <span className="text-xs text-ztext-lighter">{setting.description}</span>}
         </div>
@@ -160,28 +149,6 @@ export default function AdminSettingsPage() {
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${val === 'true' ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
-            </div>
-          ) : isSecret ? (
-            <div className="relative w-full">
-              {!isRevealed && setting.has_value && (
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm select-none">••••••••</span>
-              )}
-              <input
-                type={isRevealed ? 'text' : 'password'}
-                value={val}
-                disabled={disabled}
-                onChange={(e) => setVal(setting.key, e.target.value)}
-                placeholder={setting.has_value ? 'blank = keep current' : 'Not set'}
-                className={`${inputClass} pl-3 pr-16 ${!isRevealed && setting.has_value ? 'text-transparent' : ''}`}
-              />
-              <div className="absolute right-2 flex items-center gap-1 text-ztext-lighter">
-                <button type="button" onClick={() => setRevealed((prev) => ({ ...prev, [setting.key]: !prev[setting.key] }))} className="p-1 hover:text-ztext transition-colors" aria-label="Toggle visibility">
-                  {isRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-                <button type="button" onClick={() => handleCopy(setting.key)} className="p-1 hover:text-ztext transition-colors" aria-label="Copy">
-                  <Copy className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           ) : setting.type === 'number' ? (
             <input
@@ -320,7 +287,7 @@ export default function AdminSettingsPage() {
         {renderCard({
           icon: CreditCard,
           title: 'Payments',
-          subtitle: 'Credentials for the enabled methods. Secrets are stored encrypted and never shown.',
+          subtitle: 'Credentials for the enabled methods.',
           keys: paymentCredentialKeys,
         })}
 
@@ -353,7 +320,7 @@ export default function AdminSettingsPage() {
         {renderCard({
           icon: Mail,
           title: 'SMTP / Email',
-          subtitle: 'Used for OTP and order emails. Secrets are stored encrypted.',
+          subtitle: 'Used for OTP and order emails.',
           toggleKey: 'smtp_enabled',
           keys: ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from'],
         })}
