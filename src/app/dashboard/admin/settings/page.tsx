@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal,
-  RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert,
+  RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert, Save,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
@@ -23,8 +23,9 @@ const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 t
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const { toasts, addToast, removeToast } = useToast();
 
@@ -36,6 +37,7 @@ export default function AdminSettingsPage() {
       const values: Record<string, string> = {};
       data.forEach((s) => { values[s.key] = s.is_secret ? '' : s.value; });
       setEditingValues(values);
+      setOriginalValues({ ...values });
     }
     setLoading(false);
   }, []);
@@ -45,36 +47,46 @@ export default function AdminSettingsPage() {
     fetchSettings();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSave = async (id: string, key: string, valueOverride?: string, opts?: { silent?: boolean }) => {
-    const target = settings.find((s) => s.id === id);
-    const val = valueOverride !== undefined ? valueOverride : (editingValues[key] ?? '');
-    if (target?.is_secret && !val.trim()) {
-      if (!opts?.silent) addToast(`${key.replace(/_/g, ' ')} · leave blank to keep current value`, 'success');
+  const isDirty = (s: SystemSetting): boolean => {
+    const cur = editingValues[s.key] ?? '';
+    if (s.is_secret) return cur.trim() !== '';
+    return cur !== (originalValues[s.key] ?? s.value);
+  };
+
+  const handleSave = async () => {
+    const dirty = settings.filter(isDirty);
+    if (dirty.length === 0) {
+      addToast('No changes to save', 'info');
       return;
     }
-    if (target?.type === 'json') {
-      if (!val.trim()) {
-        if (!opts?.silent) addToast(`${key.replace(/_/g, ' ')} · empty value not allowed, keeping current`, 'error');
-        fetchSettings();
-        return;
-      }
-      try {
-        JSON.parse(val);
-      } catch {
-        if (!opts?.silent) addToast(`${key.replace(/_/g, ' ')} · invalid JSON, keeping current`, 'error');
-        fetchSettings();
-        return;
+    for (const s of dirty) {
+      if (s.type === 'json') {
+        const val = editingValues[s.key] ?? '';
+        if (!val.trim()) {
+          addToast(`${s.key.replace(/_/g, ' ')} · empty value not allowed`, 'error');
+          return;
+        }
+        try {
+          JSON.parse(val);
+        } catch {
+          addToast(`${s.key.replace(/_/g, ' ')} · invalid JSON`, 'error');
+          return;
+        }
       }
     }
-    setSaving(id);
-    const res = await updateSystemSetting(id, val);
-    if (res.success) {
-      if (!opts?.silent) addToast(`${key.replace(/_/g, ' ')} saved`, 'success');
-      fetchSettings();
+    setSaving(true);
+    const errors: string[] = [];
+    for (const s of dirty) {
+      const res = await updateSystemSetting(s.id, editingValues[s.key] ?? '');
+      if (!res.success) errors.push(res.error ?? s.key);
+    }
+    setSaving(false);
+    if (errors.length) {
+      addToast(`Saved ${dirty.length - errors.length}/${dirty.length} · ${errors.join('; ')}`, 'error');
     } else {
-      addToast(res.error ?? 'Failed to save', 'error');
+      addToast(`Saved ${dirty.length} change${dirty.length > 1 ? 's' : ''}`, 'success');
     }
-    setSaving(null);
+    fetchSettings();
   };
 
   const get = (key: string): SystemSetting | undefined => settings.find((s) => s.key === key);
@@ -110,7 +122,7 @@ export default function AdminSettingsPage() {
     const isSecret = setting.is_secret;
     const isRevealed = revealed[setting.key];
     const val = editingValues[setting.key] ?? '';
-    const disabled = saving === setting.id;
+    const disabled = saving;
 
     return (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
@@ -134,7 +146,6 @@ export default function AdminSettingsPage() {
                 onClick={() => {
                   const newVal = val === 'true' ? 'false' : 'true';
                   setVal(setting.key, newVal);
-                  handleSave(setting.id, setting.key, newVal);
                 }}
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${val === 'true' ? 'bg-zred' : 'bg-zsurface'}`}
               >
@@ -151,7 +162,6 @@ export default function AdminSettingsPage() {
                 value={val}
                 disabled={disabled}
                 onChange={(e) => setVal(setting.key, e.target.value)}
-                onBlur={() => handleSave(setting.id, setting.key, undefined, { silent: true })}
                 placeholder={setting.has_value ? 'blank = keep current' : 'Not set'}
                 className={`${inputClass} pl-3 pr-16 ${!isRevealed && setting.has_value ? 'text-transparent' : ''}`}
               />
@@ -170,7 +180,6 @@ export default function AdminSettingsPage() {
               value={val}
               disabled={disabled}
               onChange={(e) => setVal(setting.key, e.target.value)}
-              onBlur={() => handleSave(setting.id, setting.key, undefined, { silent: true })}
               className={`${inputClass} text-right`}
             />
           ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' ? (
@@ -179,7 +188,6 @@ export default function AdminSettingsPage() {
               value={val}
               disabled={disabled}
               onChange={(e) => setVal(setting.key, e.target.value)}
-              onBlur={() => handleSave(setting.id, setting.key, undefined, { silent: true })}
               className={`${inputClass} resize-none`}
             />
           ) : (
@@ -188,7 +196,6 @@ export default function AdminSettingsPage() {
               value={val}
               disabled={disabled}
               onChange={(e) => setVal(setting.key, e.target.value)}
-              onBlur={() => handleSave(setting.id, setting.key, undefined, { silent: true })}
               className={inputClass}
             />
           )}
@@ -205,8 +212,6 @@ export default function AdminSettingsPage() {
       onClick={() => {
         const newVal = on ? 'false' : 'true';
         setVal(key, newVal);
-        const setting = get(key);
-        if (setting) handleSave(setting.id, key, newVal);
       }}
       className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 ${on ? 'bg-zred' : 'bg-zsurface'}`}
     >
@@ -248,9 +253,20 @@ export default function AdminSettingsPage() {
     );
   };
 
+  const dirtyCount = settings.filter(isDirty).length;
+
   return (
     <div>
       <PageHeader title="General Settings" description="Payment methods, credentials, telegram, owner links and SMTP">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="button-z button-z-primary flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {dirtyCount > 0 ? `Save Changes (${dirtyCount})` : 'Save Changes'}
+        </button>
         <button onClick={() => { setLoading(true); fetchSettings(); }} aria-label="Refresh settings" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
           {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
         </button>
