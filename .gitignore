@@ -51,3 +51,8 @@ demo
 .env.example
 .env.production
 .env.staging
+
+# logs
+dev-server.log
+*.server.log
+server.log
