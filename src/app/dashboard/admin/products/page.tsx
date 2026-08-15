@@ -2,18 +2,20 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Plus, UtensilsCrossed, Edit3, Trash2, Eye, EyeOff, Save, X, Search, CheckCircle, AlertCircle, Leaf, ChevronLeft, ChevronRight
+  Plus, UtensilsCrossed, Edit3, Trash2, Eye, EyeOff, Save, X, Search, CheckCircle, AlertCircle, Leaf, ChevronLeft, ChevronRight, RotateCcw, Archive
 } from 'lucide-react';
-import { getProducts, getCategories, updateProduct, deleteProduct } from '@/features/products/actions';
+import { getProducts, getCategories, updateProduct, deleteProduct, restoreProduct } from '@/features/products/actions';
 import type { Product, Category } from '@/features/products/types';
 import { Skeleton, EmptyState } from '@/components/ui';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [archivedProducts, setArchivedProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
+  const [view, setView] = useState<'active' | 'archived'>('active');
   
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -44,12 +46,14 @@ export default function AdminProductsPage() {
   const ITEMS_PER_PAGE = 10;
 
   const loadData = useCallback(async () => {
-    const [prodRes, catRes] = await Promise.all([
+    const [prodRes, catRes, archRes] = await Promise.all([
       getProducts({}),
       getCategories(true),
+      getProducts({ deletedOnly: true }),
     ]);
     if (prodRes.success && prodRes.data) setProducts(prodRes.data);
     if (catRes.success && catRes.data) setCategories(catRes.data);
+    if (archRes.success && archRes.data) setArchivedProducts(archRes.data);
   }, []);
 
   useEffect(() => {
@@ -190,10 +194,25 @@ export default function AdminProductsPage() {
     if (!confirm(`Are you sure you want to delete product "${prod.name}"?`)) return;
     const res = await deleteProduct(prod.id);
     if (res.success) {
-      showToast(`Product "${prod.name}" deleted.`);
+      if (res.archived) {
+        showToast(`"${prod.name}" archived — it has order history, so it was hidden from the menu. Orders remain intact.`);
+      } else {
+        showToast(`Product "${prod.name}" deleted.`);
+      }
       loadData();
     } else {
       alert(res.error || 'Failed to delete product');
+    }
+  };
+
+  const handleRestore = async (prod: Product) => {
+    if (!confirm(`Restore archived product "${prod.name}"?`)) return;
+    const res = await restoreProduct(prod.id);
+    if (res.success) {
+      showToast(`Product "${prod.name}" restored.`);
+      loadData();
+    } else {
+      alert(res.error || 'Failed to restore product');
     }
   };
 
@@ -205,7 +224,8 @@ export default function AdminProductsPage() {
     }
   };
 
-  const filteredProducts = products.filter((p) => {
+  const source = view === 'archived' ? archivedProducts : products;
+  const filteredProducts = source.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.description && p.description.toLowerCase().includes(search.toLowerCase()));
     const matchesCategory = selectedCategoryFilter === 'all' || p.category_id === selectedCategoryFilter;
@@ -252,14 +272,39 @@ export default function AdminProductsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-ztext">Create & Manage Products</h1>
           <p className="text-xs sm:text-sm text-ztext-light mt-0.5">
-            Manage your store items & food menu ({products.length} total products)
+            Manage your store items & food menu ({products.length} active · {archivedProducts.length} archived)
           </p>
         </div>
+        {view === 'active' ? (
+          <button
+            onClick={openCreateForm}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zred text-white text-sm font-semibold rounded-xl hover:bg-zred-dark transition-all shadow-z shrink-0"
+          >
+            <Plus size={18} /> Add New Product
+          </button>
+        ) : (
+          <button
+            onClick={() => setView('active')}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zcard border border-zborder text-ztext text-sm font-semibold rounded-xl hover:bg-zgray transition-all shrink-0"
+          >
+            <Archive size={18} /> Back to Active
+          </button>
+        )}
+      </div>
+
+      {/* View Tabs */}
+      <div className="inline-flex items-center gap-1 bg-zcard border border-zborder rounded-xl p-1">
         <button
-          onClick={openCreateForm}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zred text-white text-sm font-semibold rounded-xl hover:bg-zred-dark transition-all shadow-z shrink-0"
+          onClick={() => setView('active')}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${view === 'active' ? 'bg-zred text-white shadow-sm' : 'text-ztext-light hover:text-ztext'}`}
         >
-          <Plus size={18} /> Add New Product
+          Active ({products.length})
+        </button>
+        <button
+          onClick={() => setView('archived')}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${view === 'archived' ? 'bg-zred text-white shadow-sm' : 'text-ztext-light hover:text-ztext'}`}
+        >
+          Archived ({archivedProducts.length})
         </button>
       </div>
 
@@ -515,8 +560,14 @@ export default function AdminProductsPage() {
       {filteredProducts.length === 0 ? (
         <EmptyState
           icon={UtensilsCrossed}
-          title="No products found"
-          description={search ? 'No products match your filter criteria.' : 'Create your first product to display on the menu.'}
+          title={view === 'archived' ? 'No archived products' : 'No products found'}
+          description={
+            search
+              ? 'No products match your filter criteria.'
+              : view === 'archived'
+                ? 'Archived products are hidden from the menu but keep their order history.'
+                : 'Create your first product to display on the menu.'
+          }
         />
       ) : (
         <div className="bg-zcard rounded-2xl border border-zborder overflow-hidden">
@@ -595,29 +646,48 @@ export default function AdminProductsPage() {
                     </td>
 
                     <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleToggleActive(prod)}
-                          title={prod.is_active ? 'Hide Product' : 'Show Product'}
-                          className="p-2 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
-                        >
-                          {prod.is_active ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                        <button
-                          onClick={() => openEditForm(prod)}
-                          title="Edit Product"
-                          className="p-2 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(prod)}
-                          title="Delete Product"
-                          className="p-2 rounded-lg hover:bg-red-500/10 text-ztext-lighter hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+                      {view === 'archived' ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleRestore(prod)}
+                            title="Restore Product"
+                            className="p-2 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-emerald-400 transition-colors"
+                          >
+                            <RotateCcw size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(prod)}
+                            title="Delete Permanently"
+                            className="p-2 rounded-lg hover:bg-red-500/10 text-ztext-lighter hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleToggleActive(prod)}
+                            title={prod.is_active ? 'Hide Product' : 'Show Product'}
+                            className="p-2 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+                          >
+                            {prod.is_active ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                          <button
+                            onClick={() => openEditForm(prod)}
+                            title="Edit Product"
+                            className="p-2 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+                          >
+                            <Edit3 size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(prod)}
+                            title="Delete Product"
+                            className="p-2 rounded-lg hover:bg-red-500/10 text-ztext-lighter hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

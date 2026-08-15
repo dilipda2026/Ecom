@@ -10,6 +10,7 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  archived?: boolean;
 }
 
 async function getMerchantRestaurantId(): Promise<string | null> {
@@ -214,24 +215,31 @@ export async function updateProductFromFormData(productId: string, formData: For
 }
 
 export async function archiveProduct(productId: string): Promise<ApiResponse<void>> {
-  const existing = await productRepository.findById(productId);
+  const existing = await productRepository.findById(productId, true);
   if (!existing) return { success: false, error: 'Product not found' };
   const ok = await productRepository.softDelete(productId, existing.restaurant_id);
-  return ok ? { success: true } : { success: false, error: 'Failed to archive' };
+  return ok ? { success: true, archived: true } : { success: false, error: 'Failed to archive' };
 }
 
 export async function restoreProduct(productId: string): Promise<ApiResponse<void>> {
-  const existing = await productRepository.findById(productId);
+  const existing = await productRepository.findById(productId, true);
   if (!existing) return { success: false, error: 'Product not found' };
   const ok = await productRepository.restore(productId, existing.restaurant_id);
   return ok ? { success: true } : { success: false, error: 'Failed to restore' };
 }
 
 export async function deleteProduct(productId: string): Promise<ApiResponse<void>> {
-  const existing = await productRepository.findById(productId);
+  const existing = await productRepository.findById(productId, true);
   if (!existing) return { success: false, error: 'Product not found' };
+  const hasHistory = await productRepository.hasOrderHistory(productId);
+  if (hasHistory) {
+    const ok = await productRepository.softDelete(productId, existing.restaurant_id);
+    return ok
+      ? { success: true, archived: true }
+      : { success: false, error: 'Failed to archive product with order history' };
+  }
   const ok = await productRepository.hardDelete(productId, existing.restaurant_id);
-  return ok ? { success: true } : { success: false, error: 'Cannot delete: product has order history' };
+  return ok ? { success: true, archived: false } : { success: false, error: 'Failed to delete product' };
 }
 
 export async function updateProductStock(productId: string, quantity: number): Promise<ApiResponse<Product>> {

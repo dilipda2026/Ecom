@@ -14,9 +14,13 @@ export class ProductRepository {
       .from('products')
       .select(PRODUCT_COLUMNS)
       .eq('restaurant_id', restaurantId)
-      .is('deleted_at', null)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
+    if (filter.deletedOnly) {
+      query = query.not('deleted_at', 'is', null);
+    } else if (!filter.includeDeleted) {
+      query = query.is('deleted_at', null);
+    }
     if (filter.category_id) query = query.eq('category_id', filter.category_id);
     if (filter.is_active !== undefined) query = query.eq('is_active', filter.is_active);
     if (filter.is_available !== undefined) query = query.eq('is_available', filter.is_available);
@@ -30,15 +34,15 @@ export class ProductRepository {
     return (data ?? []) as Product[];
   }
 
-  async findById(id: string): Promise<Product | null> {
+  async findById(id: string, includeDeleted = false): Promise<Product | null> {
     const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
-    const { data } = await supabase
+    let query = supabase
       .from('products')
       .select(PRODUCT_COLUMNS)
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle();
+      .eq('id', id);
+    if (!includeDeleted) query = query.is('deleted_at', null);
+    const { data } = await query.maybeSingle();
     return data as Product | null;
   }
 
@@ -134,6 +138,16 @@ export class ProductRepository {
       .eq('id', id)
       .eq('restaurant_id', restaurantId);
     return !error;
+  }
+
+  async hasOrderHistory(id: string): Promise<boolean> {
+    const supabase = createServiceClient() ?? (await createServerSupabaseClient());
+    if (!supabase) return false;
+    const { data: refs, error } = await supabase.from('order_items').select('id').eq('product_id', id).limit(1);
+    if (error) {
+      console.error('Order history check error:', error);
+    }
+    return !!refs && refs.length > 0;
   }
 
   async hardDelete(id: string, restaurantId: string): Promise<boolean> {

@@ -73,6 +73,8 @@ export interface ProductsFilter {
   is_available?: boolean;
   search?: string;
   low_stock?: boolean;
+  includeDeleted?: boolean;
+  deletedOnly?: boolean;
   page?: number;
   pageSize?: number;
 }
