@@ -105,7 +105,7 @@ export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending'
     } catch {}
   }
 
-  const emailTo = (await getSetting('store_support_email')) || process.env.NOTIFICATION_EMAIL;
+  const emailTo = (await getSetting('notification_email')) || (await getSetting('store_support_email')) || process.env.NOTIFICATION_EMAIL;
   if (emailTo) {
     sendOrderNotificationEmail(emailTo, order).catch(() => {});
   }

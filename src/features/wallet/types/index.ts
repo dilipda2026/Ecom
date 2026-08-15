@@ -34,5 +34,6 @@ export interface WalletSummary {
   balance: number;
   totalCredit: number;
   totalDebit: number;
+  creditLimit: number;
   transactions: WalletTransaction[];
 }

@@ -1,5 +1,4 @@
 import { createServiceClient } from '@/infrastructure/supabase/service';
-import { decryptSecret } from '@/lib/settings-crypto';
 
 type SettingRow = { key: string; value: string; type: string; is_secret: boolean };
 
@@ -32,7 +31,6 @@ export async function getSetting(key: string): Promise<string | null> {
   const all = await loadAll();
   const row = all[key];
   if (!row || !row.value) return null;
-  if (row.is_secret) return decryptSecret(row.value) || null;
   return row.value;
 }
 

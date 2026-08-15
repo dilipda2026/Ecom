@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal,
-  RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert, Save,
+  RefreshCw, Loader2, Eye, EyeOff, Copy, ShieldAlert, Save, Pencil,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
 import { getSystemSettings, updateSystemSetting } from '@/features/admin/actions';
+import { authService } from '@/features/auth/services/auth-service';
 import type { SystemSetting } from '@/features/admin/types';
 
 const LABELS: Record<string, string> = {
@@ -24,6 +25,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
@@ -54,6 +56,12 @@ export default function AdminSettingsPage() {
   };
 
   const handleSave = async () => {
+    const session = await authService.getSession();
+    if (!session.user) {
+      addToast('Session expired — please sign in again', 'error');
+      window.location.href = '/auth/login';
+      return;
+    }
     const dirty = settings.filter(isDirty);
     if (dirty.length === 0) {
       addToast('No changes to save', 'info');
@@ -83,9 +91,10 @@ export default function AdminSettingsPage() {
     setSaving(false);
     if (errors.length) {
       addToast(`Saved ${dirty.length - errors.length}/${dirty.length} · ${errors.join('; ')}`, 'error');
-    } else {
-      addToast(`Saved ${dirty.length} change${dirty.length > 1 ? 's' : ''}`, 'success');
+      return;
     }
+    addToast(`Saved ${dirty.length} change${dirty.length > 1 ? 's' : ''}`, 'success');
+    setEditing(false);
     fetchSettings();
   };
 
@@ -122,7 +131,7 @@ export default function AdminSettingsPage() {
     const isSecret = setting.is_secret;
     const isRevealed = revealed[setting.key];
     const val = editingValues[setting.key] ?? '';
-    const disabled = saving;
+    const disabled = saving || !editing;
 
     return (
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
@@ -209,11 +218,12 @@ export default function AdminSettingsPage() {
       type="button"
       role="switch"
       aria-checked={on}
+      disabled={saving || !editing}
       onClick={() => {
         const newVal = on ? 'false' : 'true';
         setVal(key, newVal);
       }}
-      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 ${on ? 'bg-zred' : 'bg-zsurface'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-60 ${on ? 'bg-zred' : 'bg-zsurface'}`}
     >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
@@ -258,15 +268,36 @@ export default function AdminSettingsPage() {
   return (
     <div>
       <PageHeader title="General Settings" description="Payment methods, credentials, telegram, owner links and SMTP">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="button-z button-z-primary flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {dirtyCount > 0 ? `Save Changes (${dirtyCount})` : 'Save Changes'}
-        </button>
+        {editing ? (
+          <>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="button-z button-z-primary flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {dirtyCount > 0 ? `Save Changes (${dirtyCount})` : 'Save Changes'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditing(false); fetchSettings(); }}
+              disabled={saving}
+              className="button-z button-z-ghost flex items-center gap-2 text-sm px-4 py-2 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="button-z button-z-primary flex items-center gap-2 text-sm px-4 py-2"
+          >
+            <Pencil size={16} />
+            Edit Settings
+          </button>
+        )}
         <button onClick={() => { setLoading(true); fetchSettings(); }} aria-label="Refresh settings" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
           {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
         </button>
@@ -299,7 +330,7 @@ export default function AdminSettingsPage() {
           subtitle: 'Links and details shown across the store (footer, contact, checkout).',
           toggleKey: 'contact_enabled',
           keys: [
-            'store_support_phone', 'store_support_email', 'store_address',
+            'store_support_phone', 'store_support_email', 'notification_email', 'store_address',
             'store_whatsapp', 'store_instagram', 'store_facebook', 'store_website',
           ],
         })}
@@ -323,9 +354,9 @@ export default function AdminSettingsPage() {
         {renderCard({
           icon: IndianRupee,
           title: 'Pricing',
-          subtitle: 'Applied to cart at checkout.',
+          subtitle: 'Applied to cart at checkout and wallet overdraft.',
           toggleKey: 'pricing_enabled',
-          keys: ['delivery_fee', 'tax_percentage'],
+          keys: ['delivery_fee', 'tax_percentage', 'wallet_credit_limit'],
         })}
 
         {renderCard({

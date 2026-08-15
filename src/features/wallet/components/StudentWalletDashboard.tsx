@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay } from '../actions';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
-import { createRazorpayOrder } from '@/features/payments/actions';
+import { createRazorpayOrder, getAvailablePaymentMethods } from '@/features/payments/actions';
+import type { PaymentMethodAvailability } from '@/lib/settings';
 import type { WalletSummary, WalletTransaction } from '../types';
 
 export default function StudentWalletDashboard() {
@@ -34,9 +35,11 @@ export default function StudentWalletDashboard() {
   // Top Up Modal State
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupAmount, setTopupAmount] = useState('500');
-  const [paymentMethod, setPaymentMethod] = useState('Razorpay (Cards, NetBanking, UPI)');
+  const [paymentMethod, setPaymentMethod] = useState('Razorpay (UPI, Cards, NetBanking)');
   const [submittingTopup, setSubmittingTopup] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [availableMethods, setAvailableMethods] = useState<PaymentMethodAvailability[]>([]);
+  const [methodsLoaded, setMethodsLoaded] = useState(false);
 
 
   // Toast State
@@ -66,6 +69,18 @@ export default function StudentWalletDashboard() {
       setLoading(false);
     })();
     return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAvailablePaymentMethods().then((methods) => {
+      if (cancelled) return;
+      setAvailableMethods(methods);
+      setMethodsLoaded(true);
+    }).catch(() => {
+      if (!cancelled) setMethodsLoaded(true);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const showToast = (msg: string) => {
@@ -170,6 +185,19 @@ export default function StudentWalletDashboard() {
   const balance = summary?.balance ?? 0;
   const totalCredit = summary?.totalCredit ?? 0;
   const totalDebit = summary?.totalDebit ?? 0;
+  const creditLimit = summary?.creditLimit ?? 500;
+
+  const isAvail = (id: string) => {
+    const avail = availableMethods.find((a) => a.id === id);
+    return avail ? avail.enabled && avail.configured : false;
+  };
+
+  const walletMethods = [
+    { id: 'Razorpay (UPI, Cards, NetBanking)', label: 'Razorpay (UPI, Cards, NetBanking)', icon: CreditCard, badge: 'Instant & Verified', gate: () => isAvail('razorpay') },
+    { id: 'UPI Direct (GPay, PhonePe, Paytm)', label: 'UPI Direct (GPay, PhonePe, Paytm)', icon: QrCode, gate: () => isAvail('gpay') || isAvail('phonepe') },
+  ].filter((pm) => pm.gate());
+
+  const hasPaymentMethods = methodsLoaded && walletMethods.length > 0;
 
   const filteredTransactions = (summary?.transactions || []).filter((tx) => {
     const matchesFilter = filter === 'all' || tx.type === filter;
@@ -228,7 +256,7 @@ export default function StudentWalletDashboard() {
             </h2>
             {balance < 0 && (
               <p className="text-xs font-semibold text-red-400 pt-1 flex items-center gap-1">
-                ⚠️ Negative Balance (Overdraft used: ₹{Math.abs(balance).toLocaleString('en-IN')}, limit ₹500)
+                ⚠️ Negative Balance (Overdraft used: ₹{Math.abs(balance).toLocaleString('en-IN')}, limit ₹{creditLimit.toLocaleString('en-IN')})
               </p>
             )}
 
@@ -243,7 +271,7 @@ export default function StudentWalletDashboard() {
                 <span>Total Spent: -₹{totalDebit.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zgray border border-zborder text-ztext-light text-xs font-semibold">
-                <span>Credit Limit: ₹500</span>
+                <span>Credit Limit: ₹{creditLimit.toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
@@ -270,6 +298,9 @@ export default function StudentWalletDashboard() {
             <button
               onClick={() => {
                 setModalError('');
+                if (walletMethods[0] && !walletMethods.some((pm) => pm.id === paymentMethod)) {
+                  setPaymentMethod(walletMethods[0].id);
+                }
                 setShowTopupModal(true);
               }}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-zred to-zred-dark text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg hover:shadow-zred/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -484,48 +515,54 @@ export default function StudentWalletDashboard() {
               </div>
 
               {/* Payment Method Selector */}
-              <div>
-                <label className="text-[11px] font-semibold text-ztext-lighter block mb-1.5">Payment Method</label>
-                <div className="space-y-2">
-                  {[
-                    {
-                      id: 'Razorpay (Cards, NetBanking, UPI)',
-                      label: 'Razorpay (UPI, Cards, NetBanking)',
-                      icon: CreditCard,
-                      badge: 'Instant & Verified',
-                    },
-                    { id: 'UPI (GPay / PhonePe)', label: 'UPI Direct (GPay, PhonePe, Paytm)', icon: QrCode },
-                    { id: 'Credit / Debit Card', label: 'Credit / Debit Card Direct', icon: CreditCard },
-                  ].map((pm) => (
-                    <label
-                      key={pm.id}
-                      onClick={() => setPaymentMethod(pm.id)}
-                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                        paymentMethod === pm.id
-                          ? 'bg-zred/10 border-zred text-ztext'
-                          : 'bg-zgray border-zborder text-ztext-light hover:text-ztext'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <pm.icon size={16} className="text-zred shrink-0" />
-                        <span className="text-xs font-semibold">{pm.label}</span>
-                        {pm.badge && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-zred/20 text-zred font-bold">
-                            {pm.badge}
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        checked={paymentMethod === pm.id}
-                        onChange={() => setPaymentMethod(pm.id)}
-                        className="accent-zred shrink-0"
-                      />
-                    </label>
-                  ))}
+              {methodsLoaded && walletMethods.length > 0 && (
+                <div>
+                  <label className="text-[11px] font-semibold text-ztext-lighter block mb-1.5">Payment Method</label>
+                  <div className="space-y-2">
+                    {walletMethods.map((pm) => (
+                      <label
+                        key={pm.id}
+                        onClick={() => setPaymentMethod(pm.id)}
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                          paymentMethod === pm.id
+                            ? 'bg-zred/10 border-zred text-ztext'
+                            : 'bg-zgray border-zborder text-ztext-light hover:text-ztext'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <pm.icon size={16} className="text-zred shrink-0" />
+                          <span className="text-xs font-semibold">{pm.label}</span>
+                          {pm.badge && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zred/20 text-zred font-bold">
+                              {pm.badge}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="radio"
+                          name="payment_method"
+                          checked={paymentMethod === pm.id}
+                          onChange={() => setPaymentMethod(pm.id)}
+                          className="accent-zred shrink-0"
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {methodsLoaded && walletMethods.length === 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>No payment methods are enabled by the store. Contact the owner to enable wallet top-ups.</span>
+                </div>
+              )}
+
+              {!methodsLoaded && (
+                <div className="p-3 bg-zgray rounded-xl text-xs text-ztext-lighter flex items-center gap-2 animate-pulse">
+                  Loading payment options…
+                </div>
+              )}
 
               {modalError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 flex items-center gap-2">
@@ -545,7 +582,7 @@ export default function StudentWalletDashboard() {
 
                 <button
                   type="submit"
-                  disabled={submittingTopup}
+                  disabled={submittingTopup || !hasPaymentMethods}
                   className="flex-1 py-2.5 bg-zred text-white rounded-xl text-xs font-bold hover:bg-zred-dark transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5 shadow-z"
                 >
                   {submittingTopup ? (

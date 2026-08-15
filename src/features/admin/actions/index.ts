@@ -3,7 +3,6 @@
 import { adminRepository } from '../repositories';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
-import { encryptSecret, isEncryptionConfigured } from '@/lib/settings-crypto';
 import { clearSettingsCache } from '@/lib/settings';
 import type { AdminFilter } from '../types';
 
@@ -570,12 +569,6 @@ export async function updateSystemSetting(id: string, value: string) {
         });
         return { success: true, skipped: true };
       }
-      if (!isEncryptionConfigured()) {
-        return { success: false, error: 'SETTINGS_ENC_KEY is not set — secrets cannot be saved' };
-      }
-      const encrypted = encryptSecret(value);
-      if (!encrypted) return { success: false, error: 'Failed to encrypt secret' };
-      value = encrypted;
     }
 
     await adminRepository.updateSystemSetting(id, value, user.id);
@@ -583,7 +576,7 @@ export async function updateSystemSetting(id: string, value: string) {
       table_name: 'system_settings',
       record_id: id,
       action: 'update',
-      new_data: { value: setting.is_secret ? '(encrypted)' : value },
+      new_data: { value: setting.is_secret ? '(updated)' : value },
       changed_by: user.id,
     });
     clearSettingsCache();

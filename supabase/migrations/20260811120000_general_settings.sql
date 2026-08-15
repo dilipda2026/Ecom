@@ -3,7 +3,7 @@
 -- Adds is_secret flag + seeds new keys. Payment methods gain 'upi'.
 -- ============================================================================
 
--- Secrets flag: marks values stored encrypted (AES-256-GCM via SETTINGS_ENC_KEY)
+-- Secrets flag: marks fields treated as credentials (masked in admin UI)
 alter table public.system_settings
   add column if not exists is_secret boolean not null default false;
 
@@ -25,16 +25,16 @@ insert into public.system_settings (key, value, type, is_secret, description) va
   -- Payment gateway (mutual exclusion - exactly one active gateway)
   ('payment_gateway_active', 'razorpay', 'string', false, 'Active payment gateway. Only one is used at a time: razorpay, phonepe, gpay or none'),
   ('razorpay_key_id', '', 'string', false, 'Razorpay Key ID (public)'),
-  ('razorpay_key_secret', '', 'string', true, 'Razorpay Key Secret - stored encrypted'),
+  ('razorpay_key_secret', '', 'string', true, 'Razorpay Key Secret (confidential)'),
   ('phonepe_merchant_id', '', 'string', false, 'PhonePe merchant ID'),
-  ('phonepe_salt_key', '', 'string', true, 'PhonePe salt key - stored encrypted'),
+  ('phonepe_salt_key', '', 'string', true, 'PhonePe salt key (confidential)'),
   ('phonepe_salt_index', '1', 'number', false, 'PhonePe salt index'),
   ('gpay_upi_id', '', 'string', false, 'Google Pay / UPI ID (name@bank)'),
   ('gpay_upi_name', '', 'string', false, 'Merchant name shown for Google Pay UPI'),
 
   -- Telegram connection
   ('telegram_enabled', 'true', 'boolean', false, 'Enable Telegram order notifications'),
-  ('telegram_bot_token', '', 'string', true, 'Telegram bot token - stored encrypted'),
+  ('telegram_bot_token', '', 'string', true, 'Telegram bot token (confidential)'),
   ('telegram_chat_id', '', 'string', false, 'Telegram chat id to receive order updates'),
   
   -- Owner links / storefront
@@ -55,8 +55,8 @@ insert into public.system_settings (key, value, type, is_secret, description) va
   -- SMTP
   ('smtp_host', '', 'string', false, 'SMTP host'),
   ('smtp_port', '', 'number', false, 'SMTP port'),
-  ('smtp_user', '', 'string', true, 'SMTP username - stored encrypted'),
-  ('smtp_pass', '', 'string', true, 'SMTP password - stored encrypted'),
+  ('smtp_user', '', 'string', true, 'SMTP username (confidential)'),
+  ('smtp_pass', '', 'string', true, 'SMTP password (confidential)'),
   ('smtp_from', '', 'string', false, 'From address for outgoing mail'),
   -- Pricing (wired into cart at checkout)
   ('delivery_fee', '10', 'number', false, 'Flat delivery fee for hostel delivery'),

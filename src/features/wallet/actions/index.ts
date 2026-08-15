@@ -2,7 +2,14 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
+import { getNumericSetting } from '@/lib/settings';
 import type { Wallet, WalletTransaction, WalletSummary } from '../types';
+
+const DEFAULT_CREDIT_LIMIT = 500;
+
+async function getCreditLimit(): Promise<number> {
+  return getNumericSetting('wallet_credit_limit', DEFAULT_CREDIT_LIMIT);
+}
 
 /**
  * Fetch full wallet details for current authenticated user
@@ -100,6 +107,7 @@ export async function getWalletDetails(): Promise<{
         balance: currentBalance,
         totalCredit,
         totalDebit,
+        creditLimit: await getCreditLimit(),
         transactions,
       },
     };
@@ -283,7 +291,7 @@ export async function deductWalletBalance(
       .eq('id', user.id)
       .maybeSingle();
 
-    const CREDIT_LIMIT = 500;
+    const CREDIT_LIMIT = await getCreditLimit();
     const balanceBefore = Number(profile?.wallet_balance) || 0;
     if (balanceBefore - amount < -CREDIT_LIMIT) {
       return { success: false, error: `Credit limit reached (-₹${CREDIT_LIMIT}). Available balance: ₹${balanceBefore.toLocaleString('en-IN')}` };
