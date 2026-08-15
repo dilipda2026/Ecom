@@ -10,10 +10,6 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
       return { success: true, sections: fallbackMenuSections, source: 'fallback' };
     }
 
-    const allowedNames = new Set(
-      fallbackMenuSections.flatMap((s) => s.items).map((i) => i.name.trim().toLowerCase()),
-    );
-
     // 1. Fetch active categories
     const { data: categories, error: catError } = await supabase
       .from('categories')
@@ -44,9 +40,6 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
     const sectionsMap = new Map<string, MenuItem[]>();
 
     for (const prod of products) {
-      const name = String(prod.name ?? '').trim().toLowerCase();
-      if (!name || !allowedNames.has(name)) continue;
-
       const categoryName = (prod.category_id && categoryMap.get(prod.category_id)) || 'Specials';
       if (!sectionsMap.has(categoryName)) {
         sectionsMap.set(categoryName, []);

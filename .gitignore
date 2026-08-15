@@ -54,5 +54,6 @@ demo
 
 # logs
 dev-server.log
+dev-server.err.log
 *.server.log
 server.log
