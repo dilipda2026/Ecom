@@ -1,4 +1,4 @@
-const DEFAULT_ADMIN_EMAILS = ['lastw5232@gmail.com'];
+const DEFAULT_ADMIN_EMAILS = ['lastw5232@gmail.com', 'u24cse1026@cit.ac.in'];
 const DEFAULT_DELIVERY_EMAILS = ['chetanlimbu694@gmail.com'];
 
 export const CIT_STUDENT_DOMAIN = 'cit.ac.in';
