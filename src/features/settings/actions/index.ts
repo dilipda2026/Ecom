@@ -19,7 +19,7 @@ export interface PublicStoreSettings {
   orderByCutoffs: { label: string; time: string }[];
   deliveryLocations: string[];
   deliveryFee: number;
-  taxPercentage: number;
+  maintenanceFee: number;
   cancellationWindowMinutes: number;
   deliveryEmails: string[];
   adminEmails: string[];
@@ -58,7 +58,7 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
       'Mtech Quarter, CIT Kokrajhar',
     ]),
     deliveryFee: await getNumericSetting('delivery_fee', 10),
-    taxPercentage: await getNumericSetting('tax_percentage', 5),
+    maintenanceFee: await getNumericSetting('maintenance_fee', 1),
     cancellationWindowMinutes: await getNumericSetting('cancellation_window_minutes', 2),
     deliveryEmails: await getDeliveryEmails(),
     adminEmails: await getAdminEmails(),

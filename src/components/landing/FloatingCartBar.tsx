@@ -55,7 +55,7 @@ export default function FloatingCartBar() {
           <p className="text-xs font-bold leading-tight">
             {count} item{count > 1 ? 's' : ''} · ₹{total()}
           </p>
-          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Taxes &amp; fees calculated at checkout</p>
+          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Fees calculated at checkout</p>
         </div>
         <span className="shrink-0 inline-flex items-center justify-center bg-zred text-white text-xs font-bold px-3.5 py-2 rounded-lg hover:bg-zred-dark transition-colors">
           View Cart

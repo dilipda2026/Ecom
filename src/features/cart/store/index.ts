@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, CartStore } from '@/features/cart/types';
 
-const defaultPricing = { deliveryFee: 10, taxRate: 0.05 };
+const defaultPricing = { deliveryFee: 10, maintenanceFee: 1 };
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -14,6 +14,7 @@ export const useCartStore = create<CartStore>()(
       lastViewedAt: null as number | null,
       lastAddedRect: null as { left: number; top: number; width: number; height: number } | null,
       pricing: defaultPricing,
+      orderType: 'room_delivery' as const,
 
       addItem: (item) => {
         const existing = get().items.find((i) => i.id === item.id);
@@ -41,12 +42,14 @@ export const useCartStore = create<CartStore>()(
 
       setPricing: (pricing) => set({ pricing }),
 
+      setOrderType: (orderType) => set({ orderType }),
+
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-      deliveryFee: () => get().items.length > 0 ? get().pricing.deliveryFee : 0,
-      taxAmount: () => Math.round(get().subtotal() * get().pricing.taxRate),
-      total: () => get().subtotal() + get().deliveryFee() + get().taxAmount(),
+      deliveryFee: () => get().items.length > 0 && get().orderType !== 'takeaway' ? get().pricing.deliveryFee : 0,
+      maintenanceFee: () => get().items.length > 0 ? get().pricing.maintenanceFee : 0,
+      total: () => get().subtotal() + get().deliveryFee() + get().maintenanceFee(),
     }),
-    { name: 'dilipda-cart', partialize: (state) => ({ items: state.items, lastAddedAt: state.lastAddedAt, lastViewedAt: state.lastViewedAt }) },
+    { name: 'dilipda-cart', partialize: (state) => ({ items: state.items, lastAddedAt: state.lastAddedAt, lastViewedAt: state.lastViewedAt, orderType: state.orderType }) },
   ),
 );

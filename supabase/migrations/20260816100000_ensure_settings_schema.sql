@@ -42,6 +42,7 @@ insert into public.system_settings (key, value, type, is_secret, description) va
   ('student_eligibility_verified_email', 'true', 'boolean', false, 'Require verified email for BNPL'),
   ('merchant_commission_percentage', '5', 'number', false, 'Default commission percentage charged to merchants'),
   ('tax_percentage', '5', 'number', false, 'Default tax percentage on orders'),
+  ('maintenance_fee', '1', 'number', false, 'Flat maintenance fee charged per order'),
   ('platform_fee_per_order', '0', 'number', false, 'Fixed platform fee per order'),
   ('maintenance_mode', 'false', 'boolean', false, 'Enable maintenance mode for the platform'),
   ('order_timeout_minutes', '30', 'number', false, 'Minutes before pending orders are auto-cancelled'),

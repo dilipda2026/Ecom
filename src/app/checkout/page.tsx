@@ -28,9 +28,9 @@ const basePaymentMethods = [
 export default function CheckoutPage() {
   const router = useRouter();
   const store = useCartStore();
-  const { items, subtotal, deliveryFee, taxAmount, total, clearCart } = store;
+  const { items, subtotal, deliveryFee, maintenanceFee, total, clearCart } = store;
   const { user, isAuthenticated, isLoading } = useAuthStore();
-  const [orderType, setOrderType] = useState<OrderType | null>('room_delivery');
+  const [orderType, setOrderType] = useState<OrderType | null>(() => useCartStore.getState().orderType);
   const [paymentMethod, setPaymentMethod] = useState('wallet');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [address, setAddress] = useState('');
@@ -65,8 +65,8 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    useCartStore.getState().setPricing({ deliveryFee: publicSettings.deliveryFee, taxRate: publicSettings.taxPercentage / 100 });
-  }, [publicSettings.deliveryFee, publicSettings.taxPercentage]);
+    useCartStore.getState().setPricing({ deliveryFee: publicSettings.deliveryFee, maintenanceFee: publicSettings.maintenanceFee });
+  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -127,7 +127,7 @@ export default function CheckoutPage() {
       items,
       subtotal: subtotal(),
       deliveryFee: deliveryFee(),
-      taxAmount: taxAmount(),
+      maintenanceFee: maintenanceFee(),
       total: total(),
       paymentMethod: pm,
       address,
@@ -368,7 +368,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); if (!canPayOnDelivery(v) && selectedMethod === 'cod') setPaymentMethod(paymentMethods.find((p) => p.id !== 'cod')?.id ?? 'wallet'); }} />
+              <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); useCartStore.getState().setOrderType(v); if (!canPayOnDelivery(v) && selectedMethod === 'cod') setPaymentMethod(paymentMethods.find((p) => p.id !== 'cod')?.id ?? 'wallet'); }} />
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
@@ -523,8 +523,12 @@ export default function CheckoutPage() {
                 </div>
                 <div className="border-t border-zborder mt-3 pt-3 space-y-1.5 text-xs">
                   <div className="flex justify-between text-ztext-light"><span>Subtotal</span><span className="font-medium text-ztext">₹{subtotal()}</span></div>
-                  <div className="flex justify-between text-ztext-light"><span>Delivery fee</span><span className="font-medium text-ztext">{deliveryFee() > 0 ? `₹${deliveryFee()}` : 'Free'}</span></div>
-                  <div className="flex justify-between text-ztext-light"><span>Tax</span><span className="font-medium text-ztext">₹{taxAmount()}</span></div>
+                  {orderType === 'takeaway' ? (
+                    <div className="flex justify-between text-ztext-light"><span>Delivery fee</span><span className="font-medium text-zgreen">Free (Take Away)</span></div>
+                  ) : (
+                    <div className="flex justify-between text-ztext-light"><span>Delivery fee</span><span className="font-medium text-ztext">{deliveryFee() > 0 ? `₹${deliveryFee()}` : 'Free'}</span></div>
+                  )}
+                  <div className="flex justify-between text-ztext-light"><span>Maintenance fee</span><span className="font-medium text-ztext">₹{maintenanceFee()}</span></div>
                   <div className="border-t border-zborder pt-2.5 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
                 </div>
                 {error && <p className="text-xs mt-2 flex items-center gap-1 text-zred"><span className="w-1.5 h-1.5 rounded-full bg-zred" />{error}</p>}

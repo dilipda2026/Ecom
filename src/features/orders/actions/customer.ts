@@ -12,7 +12,7 @@ interface CreateOrderParams {
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
-  taxAmount: number;
+  maintenanceFee: number;
   total: number;
   paymentMethod: string;
   address: string;
@@ -82,11 +82,19 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Restaurant not available' };
   }
 
-  const { items, subtotal, deliveryFee, taxAmount, total, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
+  const { items, subtotal, deliveryFee, maintenanceFee, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
 
   if (paymentMethod === 'cod' && orderType && orderType !== 'room_delivery') {
     return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }
+
+  // Take Away orders are picked up from the restaurant — no delivery fee.
+  // The server enforces this so the stored order total can never include a
+  // delivery charge even if a stale client value slips through.
+  const isTakeaway = orderType === 'takeaway';
+  const effectiveDeliveryFee = isTakeaway ? 0 : Number(deliveryFee) || 0;
+  const effectiveMaintenanceFee = Number(maintenanceFee) || 0;
+  const effectiveTotal = Number(subtotal) + effectiveDeliveryFee + effectiveMaintenanceFee;
 
   const availability = await getPaymentMethodAvailability();
   const avail = availability.find((a) => a.id === paymentMethod);
@@ -108,10 +116,10 @@ export async function createOrder(params: CreateOrderParams) {
     payment_status: 'pending',
     payment_method: paymentMethodDb,
     subtotal,
-    delivery_fee: deliveryFee,
-    tax_amount: taxAmount,
+    delivery_fee: effectiveDeliveryFee,
+    tax_amount: effectiveMaintenanceFee,
     discount_amount: 0,
-    total,
+    total: effectiveTotal,
     customer_name: customerName || user?.fullName || null,
     customer_email: customerEmail || user?.email || null,
     customer_phone: customerPhone || null,

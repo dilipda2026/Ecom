@@ -10,7 +10,7 @@ import { useAuthStore } from '@/features/auth/store';
 export default function CartPage() {
   const router = useRouter();
   const store = useCartStore();
-  const { items, updateQuantity, removeItem, clearCart, subtotal, deliveryFee, taxAmount, total, totalItems } = store;
+  const { items, updateQuantity, removeItem, clearCart, subtotal, deliveryFee, maintenanceFee, total, totalItems } = store;
   const { isAuthenticated, isLoading } = useAuthStore();
   const count = totalItems();
 
@@ -80,7 +80,7 @@ export default function CartPage() {
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between text-ztext-light"><span>Item total</span><span className="font-medium text-ztext">₹{subtotal()}</span></div>
                 <div className="flex justify-between text-ztext-light"><span>Delivery fee</span><span className="font-medium text-ztext">{deliveryFee() > 0 ? `₹${deliveryFee()}` : 'Free'}</span></div>
-                <div className="flex justify-between text-ztext-light"><span>Tax</span><span className="font-medium text-ztext">₹{taxAmount()}</span></div>
+                <div className="flex justify-between text-ztext-light"><span>Maintenance fee</span><span className="font-medium text-ztext">₹{maintenanceFee()}</span></div>
                 <div className="border-t border-zborder pt-2 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
               </div>
               <button onClick={goToCheckout} className="button-z button-z-primary w-full mt-4 h-10 text-sm font-bold">
@@ -94,7 +94,7 @@ export default function CartPage() {
         <div className="lg:hidden sticky bottom-0 sticky-above-nav bg-zcard border-t border-zborder shadow-z-modal -mx-4 px-4 py-3 mt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] text-ztext-light">{count} item{count > 1 ? 's' : ''} • ₹{subtotal()} + ₹{deliveryFee() + taxAmount()} fees</p>
+              <p className="text-[10px] text-ztext-light">{count} item{count > 1 ? 's' : ''} • ₹{subtotal()} + ₹{deliveryFee() + maintenanceFee()} fees</p>
               <p className="text-sm font-bold text-ztext">₹{total()}</p>
             </div>
             <button onClick={goToCheckout} className="button-z button-z-primary text-xs font-bold px-5 h-9">

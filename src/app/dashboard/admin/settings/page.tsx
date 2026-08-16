@@ -17,6 +17,7 @@ const LABELS: Record<string, string> = {
   payment_method_phonepe_enabled: 'PhonePe',
   payment_method_gpay_enabled: 'Google Pay',
   payment_method_cod_enabled: 'Cash on Delivery',
+  maintenance_fee: 'Maintenance fee (₹)',
 };
 
 const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred';
@@ -337,7 +338,7 @@ export default function AdminSettingsPage() {
           title: 'Pricing',
           subtitle: 'Applied to cart at checkout and wallet overdraft.',
           toggleKey: 'pricing_enabled',
-          keys: ['delivery_fee', 'tax_percentage', 'wallet_credit_limit'],
+          keys: ['delivery_fee', 'maintenance_fee', 'wallet_credit_limit'],
         })}
 
         {renderCard({

@@ -139,7 +139,7 @@ export default function OrderDetailPage() {
           <div className="border-t border-zborder mt-3 pt-3 space-y-1 text-sm">
             <div className="flex justify-between text-ztext-light"><span>Subtotal</span><span>₹{order.subtotal}</span></div>
             <div className="flex justify-between text-ztext-light"><span>Delivery</span><span>{order.delivery_fee > 0 ? `₹${order.delivery_fee}` : 'Free'}</span></div>
-            <div className="flex justify-between text-ztext-light"><span>Tax</span><span>₹{order.tax_amount}</span></div>
+            <div className="flex justify-between text-ztext-light"><span>Maintenance fee</span><span>₹{order.tax_amount}</span></div>
             {order.discount_amount > 0 && (
               <div className="flex justify-between text-green-500"><span>Discount</span><span>-₹{order.discount_amount}</span></div>
             )}

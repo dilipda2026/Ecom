@@ -205,7 +205,7 @@ function OrderCard({ order, index, onCancel, cancellationWindowMs }: { order: Or
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('orders');
   const { isAuthenticated, user } = useAuthStore();
-  const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, taxAmount, total, totalItems } = useCartStore();
+  const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, maintenanceFee, total, totalItems } = useCartStore();
   const publicSettings = usePublicSettings();
   const cancellationWindowMs = publicSettings.cancellationWindowMinutes * 60_000;
   const [orders, setOrders] = useState<Order[]>([]);
@@ -347,7 +347,7 @@ export default function OrdersPage() {
                   <div className="mt-6 pt-4 border-t border-zborder flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-bold text-ztext">Total: ₹{total()}</p>
-                      <p className="text-[10px] text-ztext-light mt-0.5">Includes ₹{deliveryFee() + taxAmount()} fees</p>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Includes ₹{deliveryFee() + maintenanceFee()} fees</p>
                     </div>
                     <Link
                       href={isAuthenticated ? '/checkout' : '/auth/login?next=/checkout'}

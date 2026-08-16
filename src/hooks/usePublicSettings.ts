@@ -30,7 +30,7 @@ const FALLBACK: PublicStoreSettings = {
     'Mtech Quarter, CIT Kokrajhar',
   ],
   deliveryFee: 10,
-  taxPercentage: 5,
+  maintenanceFee: 1,
   cancellationWindowMinutes: 2,
   deliveryEmails: [],
   adminEmails: [],

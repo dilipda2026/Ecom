@@ -7,7 +7,7 @@ describe('System Settings', () => {
     max_credit_limit: { value: '50000', type: 'number' },
     min_credit_limit: { value: '1000', type: 'number' },
     merchant_commission_percentage: { value: '5', type: 'number' },
-    tax_percentage: { value: '5', type: 'number' },
+    maintenance_fee: { value: '1', type: 'number' },
     maintenance_mode: { value: 'false', type: 'boolean' },
     order_timeout_minutes: { value: '30', type: 'number' },
     inventory_threshold: { value: '5', type: 'number' },
