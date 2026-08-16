@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
+import { createAdminClient } from '@/infrastructure/supabase/admin';
 import { isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 import { getDeliveryEmails, getAdminEmails } from '@/lib/settings';
 
@@ -240,6 +241,21 @@ export async function sendPasswordResetEmail(email: string) {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`,
   });
 
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+/**
+ * Auto-confirm a freshly signed-up user's email. The app's own OTP flow already
+ * proved email ownership before the account is created, so we can skip Supabase's
+ * separate confirmation-link email (avoids the "Please verify your email" loop and
+ * email rate limits).
+ */
+export async function confirmSignupEmail(userId: string) {
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    email_confirm: true,
+  });
   if (error) return { error: error.message };
   return { error: null };
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
-import { setupDeliveryAccount, setupAdminAccount } from '@/features/auth/actions';
+import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail } from '@/features/auth/actions';
 import { getPublicSettings } from '@/features/settings/actions';
 import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
@@ -112,6 +112,15 @@ export default function SignupForm() {
     if (err) { setError(err); return; }
     if (!user) { setError('Check your email for a confirmation link.'); return; }
 
+    if (user.id) {
+      await confirmSignupEmail(user.id).catch(() => null);
+    }
+
+    // Establish an active session immediately so the user isn't forced to
+    // sign in again. Email ownership was already proven by the OTP step.
+    const { user: sessionUser } = await authService.signIn(email, password);
+    const activeUser = sessionUser ?? user;
+
     try {
       const supabase = (await import('@/infrastructure/supabase/service')).createServiceClient();
       if (supabase) {
@@ -128,7 +137,7 @@ export default function SignupForm() {
       }
     } catch {}
 
-    useAuthStore.getState().setUser(user);
+    useAuthStore.getState().setUser(activeUser);
 
     if (accountType === 'delivery') {
       const formData = new FormData();

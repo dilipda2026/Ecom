@@ -86,16 +86,21 @@ begin
     'active_merchants', (select count(distinct r.owner_id) from public.restaurants r where r.status = 'active' and r.deleted_at is null),
     'pending_merchant_approvals', (select count(*) from public.restaurants where status = 'pending' and deleted_at is null),
     'recent_activity', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', al.id,
-        'action', al.action,
-        'entity_type', al.table_name,
-        'entity_id', al.record_id,
-        'user_name', coalesce(p.full_name, 'System'),
-        'created_at', al.created_at
-      ) order by al.created_at desc limit 10)
-      from public.audit_logs al
-      left join public.profiles p on p.id = al.changed_by
+      select jsonb_agg(sub.x)
+      from (
+        select jsonb_build_object(
+          'id', al.id,
+          'action', al.action,
+          'entity_type', al.table_name,
+          'entity_id', al.record_id,
+          'user_name', coalesce(p.full_name, 'System'),
+          'created_at', al.created_at
+        ) as x
+        from public.audit_logs al
+        left join public.profiles p on p.id = al.changed_by
+        order by al.created_at desc
+        limit 10
+      ) sub
     ), '[]'::jsonb)
   ) into v_result;
   return v_result;
