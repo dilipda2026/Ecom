@@ -245,6 +245,33 @@ export async function isEmailRegistered(email: string) {
   return { registered: match };
 }
 
+/**
+ * Create a new account via the service role so no Supabase confirmation email
+ * is sent. Email ownership is already proven by the app's own OTP flow, so the
+ * account is created pre-confirmed and the user can sign in immediately.
+ */
+export async function createUserAccount(input: {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+}) {
+  const admin = createAdminClient();
+  const { email, password, fullName, phone } = input;
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      phone: phone ?? '',
+      role: 'student',
+    },
+  });
+  if (error) return { user: null, error: error.message };
+  return { user: data.user ? { id: data.user.id } : null, error: null };
+}
+
 export async function sendPasswordResetEmail(email: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { error: 'Service not configured' };

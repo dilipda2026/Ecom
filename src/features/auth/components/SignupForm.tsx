@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
-import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail, isEmailRegistered } from '@/features/auth/actions';
+import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail, isEmailRegistered, createUserAccount } from '@/features/auth/actions';
 import { getPublicSettings } from '@/features/settings/actions';
 import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
@@ -113,19 +113,24 @@ export default function SignupForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { user, error: err } = await authService.signUp(email, password, fullName, phone || undefined);
+    const { user: created, error: err } = await createUserAccount({
+      email,
+      password,
+      fullName,
+      phone: phone || undefined,
+    });
     setLoading(false);
     if (err) { setError(err); return; }
-    if (!user) { setError('Check your email for a confirmation link.'); return; }
+    if (!created) { setError('Check your email for a confirmation link.'); return; }
 
-    if (user.id) {
-      await confirmSignupEmail(user.id).catch(() => null);
+    if (created.id) {
+      await confirmSignupEmail(created.id).catch(() => null);
     }
 
     // Establish an active session immediately so the user isn't forced to
     // sign in again. Email ownership was already proven by the OTP step.
-    const { user: sessionUser } = await authService.signIn(email, password);
-    const activeUser = sessionUser ?? user;
+    const { user: activeUser } = await authService.signIn(email, password);
+    if (!activeUser) { setError('Account created. Please sign in.'); return; }
 
     try {
       const supabase = (await import('@/infrastructure/supabase/service')).createServiceClient();
@@ -138,7 +143,7 @@ export default function SignupForm() {
           profileUpdates.student_verified_at = new Date().toISOString();
         }
         if (Object.keys(profileUpdates).length > 0) {
-          await supabase.from('profiles').update(profileUpdates).eq('id', user.id);
+          await supabase.from('profiles').update(profileUpdates).eq('id', activeUser.id);
         }
       }
     } catch {}
