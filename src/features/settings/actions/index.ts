@@ -23,6 +23,8 @@ export interface PublicStoreSettings {
   cancellationWindowMinutes: number;
   deliveryEmails: string[];
   adminEmails: string[];
+  walletEnabled: boolean;
+  walletCreditLimit: number;
 }
 
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
@@ -60,5 +62,7 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     cancellationWindowMinutes: await getNumericSetting('cancellation_window_minutes', 2),
     deliveryEmails: await getDeliveryEmails(),
     adminEmails: await getAdminEmails(),
+    walletEnabled: (await getSetting('payment_method_wallet_enabled')) === 'true',
+    walletCreditLimit: await getNumericSetting('wallet_credit_limit', 500),
   };
 }

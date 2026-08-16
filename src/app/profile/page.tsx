@@ -232,12 +232,19 @@ export default function ProfilePage() {
                 <p className="text-lg font-extrabold text-ztext">{ordersLoading ? '—' : orderCount}</p>
                 <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
-              <Link href="/dashboard/student/wallet" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
-                <p className="text-lg font-extrabold text-ztext">
-                  {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
-                </p>
-                <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
-              </Link>
+              {settings.walletEnabled ? (
+                <Link href="/dashboard/student/wallet" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
+                  <p className="text-lg font-extrabold text-ztext">
+                    {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
+                  </p>
+                  <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
+                </Link>
+              ) : (
+                <div className="bg-zgray/50 rounded-xl border border-zborder p-3 text-center opacity-60 cursor-not-allowed select-none">
+                  <p className="text-lg font-extrabold text-ztext-lighter">—</p>
+                  <p className="text-[10px] text-ztext-light mt-0.5">Wallet Disabled</p>
+                </div>
+              )}
               <Link href="/favorites" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
                 <p className="text-lg font-extrabold text-ztext">{favoritesCount}</p>
                 <p className="text-[10px] text-ztext-light mt-0.5">Favorites</p>

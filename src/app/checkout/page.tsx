@@ -201,7 +201,7 @@ export default function CheckoutPage() {
     if (pm === 'wallet') {
       const orderTotal = total();
       const currentBalance = walletBalance ?? 0;
-      const CREDIT_LIMIT = 500;
+      const CREDIT_LIMIT = publicSettings.walletCreditLimit;
 
       if (currentBalance - orderTotal < -CREDIT_LIMIT) {
         setError(`Credit limit reached (Max overdraft: ₹${CREDIT_LIMIT}). Current balance: ₹${currentBalance.toLocaleString('en-IN')}, Order Total: ₹${orderTotal.toLocaleString('en-IN')}. Please top up your wallet.`);
@@ -404,19 +404,19 @@ export default function CheckoutPage() {
                 {selectedMethod === 'wallet' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
-                      walletBalance !== null && (walletBalance - total()) >= -500
+                      walletBalance !== null && (walletBalance - total()) >= -publicSettings.walletCreditLimit
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                         : 'bg-red-500/10 border-red-500/20 text-red-400'
                     }`}>
                       <div>
                         <p className="text-xs font-bold flex items-center gap-1.5">
-                          {walletBalance !== null && (walletBalance - total()) >= -500 ? (
+                          {walletBalance !== null && (walletBalance - total()) >= -publicSettings.walletCreditLimit ? (
                             <>
-                              <CheckCircle2 size={15} /> Dilip Da Wallet (₹500 Overdraft Allowed)
+                              <CheckCircle2 size={15} /> Dilip Da Wallet (₹{publicSettings.walletCreditLimit} Overdraft Allowed)
                             </>
                           ) : (
                             <>
-                              <AlertCircle size={15} /> Credit Limit Reached (Max Overdraft ₹500)
+                              <AlertCircle size={15} /> Credit Limit Reached (Max Overdraft ₹{publicSettings.walletCreditLimit})
                             </>
                           )}
                         </p>
