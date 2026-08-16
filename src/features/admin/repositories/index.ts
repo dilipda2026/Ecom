@@ -626,10 +626,29 @@ export class AdminRepository {
 
   async getSystemSettings(): Promise<SystemSetting[]> {
     const admin = createAdminClient();
-    const { data } = await admin
+    const fullSelect = 'id, key, value, type, is_secret, description, updated_by, created_at, updated_at';
+    const baseSelect = 'id, key, value, type, description, updated_by, created_at, updated_at';
+
+    // Try the full select first (is_secret exists after 20260811120000).
+    const { data, error } = await admin
       .from('system_settings')
-      .select('id, key, value, type, is_secret, description, updated_by, created_at, updated_at')
+      .select(fullSelect)
       .order('key', { ascending: true });
+
+    if (error && String(error.message).toLowerCase().includes('is_secret')) {
+      // Fresh/legacy DB without is_secret column (migration not applied).
+      // Fall back to the base columns and synthesize is_secret=false so the
+      // settings page still renders and remains editable.
+      const { data: fallback } = await admin
+        .from('system_settings')
+        .select(baseSelect)
+        .order('key', { ascending: true });
+      return ((fallback ?? []) as Array<Record<string, unknown>>).map((r) => ({
+        ...r,
+        is_secret: false,
+      })) as unknown as SystemSetting[];
+    }
+
     return (data ?? []) as SystemSetting[];
   }
 

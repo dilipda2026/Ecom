@@ -11,9 +11,25 @@ async function loadAll(): Promise<Record<string, SettingRow>> {
 
   const supabase = createServiceClient();
   if (!supabase) return {};
-  const { data } = await supabase
+
+  const { data, error } = await supabase
     .from('system_settings')
     .select('key, value, type, is_secret');
+
+  if (error && String(error.message).toLowerCase().includes('is_secret')) {
+    // Fresh/legacy DB without is_secret column (migration 20260811120000 not
+    // applied). Fall back to base columns so reading settings keeps working.
+    const { data: fallback } = await supabase
+      .from('system_settings')
+      .select('key, value, type');
+    const rowsFb: Record<string, SettingRow> = {};
+    (fallback ?? []).forEach((r) => {
+      rowsFb[r.key as string] = { ...(r as unknown as Record<string, unknown>), is_secret: false } as unknown as SettingRow;
+    });
+    cache = { data: rowsFb, fetchedAt: now };
+    return rowsFb;
+  }
+
   const rows: Record<string, SettingRow> = {};
   (data ?? []).forEach((r) => {
     rows[r.key as string] = r as unknown as SettingRow;

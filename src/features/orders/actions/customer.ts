@@ -47,8 +47,37 @@ export async function createOrder(params: CreateOrderParams) {
     });
     if (!res.ok) return { success: false, error: 'Restaurant not available' };
     const rows = await res.json();
-    if (!rows || rows.length === 0) return { success: false, error: 'Restaurant not available' };
-    restaurantId = rows[0].id;
+    if (rows && rows.length > 0) {
+      restaurantId = rows[0].id;
+    } else {
+      // No restaurant exists yet (fresh DB). Create a default one so checkout
+      // is never blocked. Mirrors getMerchantRestaurantId auto-create.
+      const { data: created, error: createErr } = await supabase
+        .from('restaurants')
+        .insert({
+          owner_id: user?.id ?? '00000000-0000-0000-0000-000000000000',
+          name: 'Dilip Da Main',
+          slug: `dilip-da-main-${Date.now().toString(36)}`,
+          address_line1: 'Near CIT Kokrajhar',
+          city: 'Kokrajhar',
+          state: 'Assam',
+          postal_code: '783370',
+          opening_time: '08:00',
+          closing_time: '22:00',
+          delivery_fee: 20,
+          min_order_amount: 50,
+          is_active: true,
+          is_open: true,
+          status: 'active',
+        })
+        .select('id')
+        .maybeSingle();
+      if (createErr || !created?.id) {
+        console.error('Failed to create default restaurant:', createErr);
+        return { success: false, error: 'Restaurant not available' };
+      }
+      restaurantId = created.id;
+    }
   } catch {
     return { success: false, error: 'Restaurant not available' };
   }
