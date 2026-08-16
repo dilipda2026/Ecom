@@ -14,11 +14,11 @@ describe('auth-access', () => {
     expect(isCitStudentEmail('fake@cit.ac.in.evil.com')).toBe(false);
   });
 
-  it('allows only allowlisted admin emails', () => {
-    expect(isAdminEmail('lastw5232@gmail.com')).toBe(true);
-    expect(isAdminEmail('LASTW5232@GMAIL.COM')).toBe(true);
-    expect(isAdminEmail('notadmin@gmail.com')).toBe(false);
-    expect(isAdminEmail('extra-admin@gmail.com', ['extra-admin@gmail.com'])).toBe(true);
+  it('allows only allowlisted admin emails (no hardcoded defaults)', () => {
+    expect(isAdminEmail('lastw5232@gmail.com')).toBe(false);
+    expect(isAdminEmail('someone@gmail.com')).toBe(false);
+    expect(isAdminEmail('lastw5232@gmail.com', ['lastw5232@gmail.com', 'other@gmail.com'])).toBe(true);
+    expect(isAdminEmail('LASTW5232@GMAIL.COM', ['lastw5232@gmail.com'])).toBe(true);
     expect(isAdminEmail('notadmin@gmail.com', ['extra-admin@gmail.com'])).toBe(false);
   });
 
@@ -29,7 +29,7 @@ describe('auth-access', () => {
 
   it('sign-in gate accepts CIT, admin, and delivery emails only', () => {
     expect(isAllowedSigninEmail('youremail@cit.ac.in')).toBe(true);
-    expect(isAllowedSigninEmail('lastw5232@gmail.com')).toBe(true);
+    expect(isAllowedSigninEmail('lastw5232@gmail.com', [], ['lastw5232@gmail.com'])).toBe(true);
     expect(isAllowedSigninEmail('outsider@yahoo.com')).toBe(false);
   });
 });
