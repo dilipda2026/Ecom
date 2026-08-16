@@ -233,6 +233,18 @@ export async function setupAdminAccount(formData: FormData) {
   return { error: null, redirect: '/admin' };
 }
 
+/**
+ * Check whether an email is already registered (exists in auth.users). Used to
+ * block duplicate signups for customers, admins, and delivery partners.
+ */
+export async function isEmailRegistered(email: string) {
+  const admin = createAdminClient();
+  const target = email.trim().toLowerCase();
+  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const match = (data?.users ?? []).some((u) => (u.email ?? '').toLowerCase() === target);
+  return { registered: match };
+}
+
 export async function sendPasswordResetEmail(email: string) {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { error: 'Service not configured' };

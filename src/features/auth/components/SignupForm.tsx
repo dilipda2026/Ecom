@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
-import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail } from '@/features/auth/actions';
+import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail, isEmailRegistered } from '@/features/auth/actions';
 import { getPublicSettings } from '@/features/settings/actions';
 import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
@@ -76,6 +76,12 @@ export default function SignupForm() {
     if (accountType === 'admin' && !isAdminEmail(normalizedEmail, adminEmails)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
     setDevOtp(null);
+    const existsCheck = await isEmailRegistered(normalizedEmail).catch(() => null);
+    if (existsCheck?.registered) {
+      setSending(false);
+      showToast('This email is already registered. Please sign in instead.');
+      return;
+    }
     const res = await sendSignupOtp(normalizedEmail);
     setEmail(normalizedEmail);
     setSending(false);
