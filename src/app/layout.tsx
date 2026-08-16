@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 import { Providers } from '@/providers';
 import Footer from '@/components/shared/Footer';
+import MaintenanceGate from '@/components/shared/MaintenanceGate';
 import './globals.css';
 
 const NavbarWrapper = dynamic(() => import('@/components/shared/NavbarWrapper'));
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning className="min-h-screen bg-zbg font-sans antialiased overflow-x-hidden w-full max-w-full">
         <Providers>
           <NavbarWrapper />
-          <main className="min-h-[calc(100vh-4rem)] has-bottom-nav overflow-x-hidden w-full max-w-full">{children}</main>
+          <main className="min-h-[calc(100vh-4rem)] has-bottom-nav overflow-x-hidden w-full max-w-full">
+            <MaintenanceGate>{children}</MaintenanceGate>
+          </main>
           <Footer />
           <FlyingBird />
           <BottomNav />

@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
 import { isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
-import { getDeliveryEmails, getAdminEmails } from '@/lib/settings';
+import { getDeliveryEmails, getAdminEmails, getBooleanSetting } from '@/lib/settings';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -243,6 +243,23 @@ export async function sendPasswordResetEmail(email: string) {
 
   if (error) return { error: error.message };
   return { error: null };
+}
+
+/**
+ * Report whether the platform is in maintenance mode, plus the signed-in user's
+ * role so the client can decide who sees the maintenance screen. Admin /
+ * super_admin / merchant / delivery staff are never blocked so they can manage
+ * the platform while it is under maintenance.
+ */
+export async function getMaintenanceStatus() {
+  const [maintenance, profileResult] = await Promise.all([
+    getBooleanSetting('maintenance_mode', false),
+    getServerProfile(),
+  ]);
+
+  const role = (profileResult?.profile as { role?: string } | null | undefined)?.role ?? null;
+  const isStaff = role === 'admin' || role === 'super_admin' || role === 'merchant' || role === 'delivery';
+  return { enabled: maintenance, isStaff };
 }
 
 /**
