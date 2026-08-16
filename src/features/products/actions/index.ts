@@ -74,21 +74,47 @@ export async function getProduct(productId: string): Promise<ApiResponse<Product
 
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { createAdminClient } from '@/infrastructure/supabase/admin';
 
+const PBUCKET = 'product-images';
+
+/**
+ * Persist a product image. Uploads to Supabase Storage (works on serverless
+ * hosts like Vercel where the local filesystem is read-only), falling back to
+ * the local `public/uploads` directory in case the bucket does not exist yet.
+ */
 export async function processImageFile(file: File | null): Promise<string | undefined> {
   if (!file || typeof file === 'string' || file.size === 0) return undefined;
   try {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    await mkdir(uploadsDir, { recursive: true });
-
     const fileExt = path.extname(file.name) || '.jpg';
     const cleanBaseName = path.basename(file.name, fileExt).toLowerCase().replace(/[^a-z0-9]/g, '-');
     const fileName = `product-${cleanBaseName}-${Date.now()}${fileExt}`;
-    const filePath = path.join(uploadsDir, fileName);
 
+    // Prefer Supabase Storage so uploads survive across serverless instances.
+    try {
+      const admin = createAdminClient();
+      const { error } = await admin.storage.from(PBUCKET).upload(fileName, buffer, {
+        contentType: file.type || 'image/jpeg',
+        cacheControl: '3600',
+        upsert: true,
+      });
+      if (!error) {
+        const { data } = admin.storage.from(PBUCKET).getPublicUrl(fileName);
+        if (data?.publicUrl) return data.publicUrl;
+      } else {
+        console.error('Storage upload failed, falling back to local:', error.message);
+      }
+    } catch (err) {
+      console.error('Storage upload threw, falling back to local:', err);
+    }
+
+    // Fallback: local filesystem (for local dev / non-serverless hosting).
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    await mkdir(uploadsDir, { recursive: true });
+    const filePath = path.join(uploadsDir, fileName);
     await writeFile(filePath, buffer);
     return `/uploads/${fileName}`;
   } catch (err) {

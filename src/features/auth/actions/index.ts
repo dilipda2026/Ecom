@@ -246,10 +246,10 @@ export async function sendPasswordResetEmail(email: string) {
 }
 
 /**
- * Report whether the platform is in maintenance mode, plus the signed-in user's
- * role so the client can decide who sees the maintenance screen. Admin /
- * super_admin / merchant / delivery staff are never blocked so they can manage
- * the platform while it is under maintenance.
+ * Report whether the platform is in maintenance mode and the signed-in user's
+ * role. The maintenance message is shown only to a signed-in, non-staff user;
+ * staff and logged-out users (including the login page) are never blocked so
+ * admins can always sign back in and disable maintenance.
  */
 export async function getMaintenanceStatus() {
   const [maintenance, profileResult] = await Promise.all([
@@ -258,8 +258,7 @@ export async function getMaintenanceStatus() {
   ]);
 
   const role = (profileResult?.profile as { role?: string } | null | undefined)?.role ?? null;
-  const isStaff = role === 'admin' || role === 'super_admin' || role === 'merchant' || role === 'delivery';
-  return { enabled: maintenance, isStaff };
+  return { enabled: maintenance, role };
 }
 
 /**

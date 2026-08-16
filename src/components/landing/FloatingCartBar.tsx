@@ -4,12 +4,17 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useCartStore } from '@/features/cart/store';
+import { useAuthStore } from '@/features/auth/store';
+import { useMaintenance } from '@/hooks/useMaintenance';
 
 export default function FloatingCartBar() {
   const pathname = usePathname();
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
   const [nearBottom, setNearBottom] = useState(false);
+  const { enabled } = useMaintenance();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.isLoading);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,7 +32,10 @@ export default function FloatingCartBar() {
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
+  if (authLoading) return null;
+  if (!isAuthenticated) return null;
   if (count === 0) return null;
+  if (enabled) return null;
   if (nearBottom) return null;
   if (
     pathname?.startsWith('/cart') ||

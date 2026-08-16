@@ -1,30 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Wrench } from 'lucide-react';
-import { getMaintenanceStatus } from '@/features/auth/actions';
+import { useMaintenance } from '@/hooks/useMaintenance';
 
 const STAFF_PREFIXES = ['/dashboard/admin', '/dashboard/merchant', '/dashboard/delivery', '/admin'];
 
 export default function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [state, setState] = useState<{ enabled: boolean; isStaff: boolean } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    getMaintenanceStatus()
-      .then((res) => { if (active) setState(res); })
-      .catch(() => { if (active) setState({ enabled: false, isStaff: false }); });
-    return () => { active = false; };
-  }, []);
-
-  if (!state || !state.enabled || state.isStaff) {
-    return <>{children}</>;
-  }
+  const { showMaintenance } = useMaintenance();
 
   const isStaffRoute = STAFF_PREFIXES.some((p) => pathname.startsWith(p));
-  if (isStaffRoute) {
+  if (!showMaintenance || isStaffRoute) {
     return <>{children}</>;
   }
 
