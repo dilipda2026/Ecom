@@ -61,6 +61,7 @@ insert into public.system_settings (key, value, type, is_secret, description) va
   ('telegram_enabled', 'true', 'boolean', false, 'Enable Telegram order notifications'),
   ('telegram_bot_token', '', 'string', true, 'Telegram bot token (confidential)'),
   ('telegram_chat_id', '', 'string', false, 'Telegram chat id to receive order updates'),
+  ('telegram_show_qr', 'true', 'boolean', false, 'Send pickup QR image in Telegram order notifications'),
   ('store_support_phone', '', 'string', false, 'Owner support phone shown across the store'),
   ('store_support_email', '', 'string', false, 'Owner support email'),
   ('store_address', '', 'string', false, 'Store address shown in footer / contact'),

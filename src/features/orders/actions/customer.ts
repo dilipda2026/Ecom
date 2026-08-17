@@ -6,7 +6,8 @@ import type { CartItem } from '@/features/cart/types';
 import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
-import { getNumericSetting, getBooleanSetting, getPaymentMethodAvailability } from '@/lib/settings';
+import { getNumericSetting, getBooleanSetting, getSetting, getPaymentMethodAvailability } from '@/lib/settings';
+import { minutesOf, formatClock } from '@/features/menu/lib/store-hours';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -40,14 +41,30 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'The store is currently in maintenance mode. Please try again later.' };
   }
 
+  // Store hours are compared in IST (UTC+5:30) so the check is correct on any
+  // server timezone. Uses the same config the storefront shows in StatusStrip.
+  const istNow = new Date(Date.now() + (5 * 60 + 30) * 60 * 1000);
+  const openTime = (await getSetting('store_hours_open')) || '10:00';
+  const closeTime = (await getSetting('store_hours_close')) || '21:30';
+  const istMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+  if (istMinutes < minutesOf(openTime) || istMinutes >= minutesOf(closeTime)) {
+    return {
+      success: false,
+      error: `The store is currently closed. We open at ${formatClock(openTime)} — please try again later.`,
+    };
+  }
+
   let restaurantId: string;
   try {
-    const res = await fetch(`${url}/rest/v1/restaurants?select=id&deleted_at=is.null&limit=1`, {
+    const res = await fetch(`${url}/rest/v1/restaurants?select=id,is_open&deleted_at=is.null&limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
     });
     if (!res.ok) return { success: false, error: 'Restaurant not available' };
     const rows = await res.json();
     if (rows && rows.length > 0) {
+      if (rows[0].is_open === false) {
+        return { success: false, error: 'The store is currently closed. Please try again later.' };
+      }
       restaurantId = rows[0].id;
     } else {
       // No restaurant exists yet (fresh DB). Create a default one so checkout

@@ -1,6 +1,6 @@
 'use server';
 
-import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails, getAdminEmails } from '@/lib/settings';
+import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails, getAdminEmails, getStoreIsOpen } from '@/lib/settings';
 
 export interface PublicStoreSettings {
   razorpayKeyId: string;
@@ -25,6 +25,7 @@ export interface PublicStoreSettings {
   adminEmails: string[];
   walletEnabled: boolean;
   walletCreditLimit: number;
+  isOpen: boolean;
 }
 
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
@@ -64,5 +65,6 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     adminEmails: await getAdminEmails(),
     walletEnabled: (await getSetting('payment_method_wallet_enabled')) === 'true',
     walletCreditLimit: await getNumericSetting('wallet_credit_limit', 500),
+    isOpen: (await getStoreIsOpen()) ?? true,
   };
 }

@@ -97,7 +97,10 @@ export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending'
 
   await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n${badge}`, buttons);
 
-  if (qrToken) {
+  // Send the pickup QR only when enabled. Toggle in General Settings ->
+  // Telegram. Defaults to sending when the setting row is missing.
+  const showQr = (await getSetting('telegram_show_qr')) ?? 'true';
+  if (qrToken && showQr === 'true') {
     try {
       const png = await QRCode.toBuffer(qrToken, { type: 'png', width: 512, margin: 2 });
       const caption = `🪪 <b>Pickup QR</b> — #${order.trackingCode}\nShow this at the store to assign a delivery partner.`;

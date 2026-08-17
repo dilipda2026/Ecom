@@ -2,6 +2,21 @@ import { createServiceClient } from '@/infrastructure/supabase/service';
 
 type SettingRow = { key: string; value: string; type: string; is_secret: boolean };
 
+/** Whether the store is marked open by the merchant (Open/Closed toggle). Null when unknown/no restaurant. */
+export async function getStoreIsOpen(): Promise<boolean | null> {
+  const supabase = createServiceClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from('restaurants')
+    .select('is_open')
+    .eq('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return data.is_open === true;
+}
+
 const TTL_MS = 15_000;
 let cache: { data: Record<string, SettingRow> | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
 

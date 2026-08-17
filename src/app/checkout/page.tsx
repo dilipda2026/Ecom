@@ -16,6 +16,7 @@ import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
 import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
+import { isStoreOpen, formatClock } from '@/features/menu/lib/store-hours';
 
 const basePaymentMethods = [
   { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
@@ -140,6 +141,15 @@ export default function CheckoutPage() {
 
   async function validateAndPlace(pm: string) {
     setError('');
+    const now = new Date();
+    if (publicSettings.isOpen === false) {
+      setError('The store is currently closed. Please try again later.');
+      return false;
+    }
+    if (!isStoreOpen(publicSettings.hours, now)) {
+      setError(`The store is currently closed. We open at ${formatClock(publicSettings.hours.open)} — please try again later.`);
+      return false;
+    }
     const isOnline = pm === 'razorpay' || pm === 'phonepe' || pm === 'gpay';
     if (isOnline && !razorpayKey) {
       setError('Online payments are not configured. Please choose Wallet or Cash on Delivery.');

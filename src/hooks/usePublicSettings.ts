@@ -36,6 +36,7 @@ const FALLBACK: PublicStoreSettings = {
   adminEmails: [],
   walletEnabled: true,
   walletCreditLimit: 500,
+  isOpen: true,
 };
 
 export function usePublicSettings(): PublicStoreSettings {

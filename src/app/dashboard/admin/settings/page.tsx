@@ -18,6 +18,7 @@ const LABELS: Record<string, string> = {
   payment_method_gpay_enabled: 'Google Pay',
   payment_method_cod_enabled: 'Cash on Delivery',
   maintenance_fee: 'Maintenance fee (₹)',
+  telegram_show_qr: 'Send pickup QR in Telegram',
 };
 
 const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred';
@@ -322,7 +323,7 @@ export default function AdminSettingsPage() {
           title: 'Telegram',
           subtitle: 'Order notifications delivered to the owner chat.',
           toggleKey: 'telegram_enabled',
-          keys: ['telegram_bot_token', 'telegram_chat_id'],
+          keys: ['telegram_bot_token', 'telegram_chat_id', 'telegram_show_qr'],
         })}
 
         {renderCard({
