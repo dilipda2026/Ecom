@@ -13,9 +13,18 @@ import RecentOrders from '@/features/home/components/RecentOrders';
 import { useHomeOrders } from '@/features/home/lib/useHomeOrders';
 import { isActiveOrder, isCompletedOrder } from '@/features/orders/types';
 import { useAuthStore } from '@/features/auth/store';
-import { useMenu } from '@/features/menu/hooks/useMenu';
+import { MenuProvider, useMenu } from '@/features/menu/components/MenuProvider';
+import type { MenuSection } from '@/features/menu/data';
 
-export default function HomeMenu() {
+export default function HomeMenu({ initialSections, initialSource }: { initialSections: MenuSection[]; initialSource: 'db' | 'fallback' }) {
+  return (
+    <MenuProvider initialSections={initialSections} initialSource={initialSource}>
+      <HomeContent />
+    </MenuProvider>
+  );
+}
+
+function HomeContent() {
   const [query, setQuery] = useState('');
   const [vegOnly, setVegOnly] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');

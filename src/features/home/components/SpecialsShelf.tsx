@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
-import { useMenu } from '@/features/menu/hooks/useMenu';
+import { useMenu } from '@/features/menu/components/MenuProvider';
 import type { MenuItem } from '@/features/menu/data';
 
 export default function SpecialsShelf() {

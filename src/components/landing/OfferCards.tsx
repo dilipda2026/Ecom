@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { UtensilsCrossed } from 'lucide-react';
-import { useMenu } from '@/features/menu/hooks/useMenu';
+import { useMenu } from '@/features/menu/components/MenuProvider';
 
 interface OfferCardsProps {
   active: string;

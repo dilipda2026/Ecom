@@ -1,13 +1,15 @@
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { menuSections } from '@/features/menu/data';
+import { getPublicMenu } from '@/features/menu/actions';
+import { MenuProvider } from '@/features/menu/components/MenuProvider';
 
 const MenuItems = dynamic(() => import('../(menu)/MenuItems').then((m) => ({ default: m.MenuItems })));
 
 export const metadata: Metadata = { title: 'Menu' };
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const menu = await getPublicMenu();
   return (
     <div className="page-pad">
       <div className="container-z mx-auto max-w-5xl">
@@ -30,7 +32,9 @@ export default function MenuPage() {
           </div>
         </div>
 
-        <MenuItems sections={menuSections} />
+        <MenuProvider initialSections={menu.sections} initialSource={menu.source}>
+          <MenuItems />
+        </MenuProvider>
       </div>
     </div>
   );
