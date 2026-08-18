@@ -65,6 +65,20 @@ option {
   color: #1c1c1c;
 }
 
+/* ===================================================
+   FLAT SURFACES — large containers are sharp-edged;
+   small controls (buttons, chips, inputs) keep a tiny
+   radius. rounded-full (pills, avatars, badges) untouched.
+=================================================== */
+.rounded-2xl,
+.rounded-3xl,
+.rounded-\[20px\],
+.rounded-\[18px\] { border-radius: 0; }
+.rounded-xl,
+.rounded-lg { border-radius: 0.25rem; }
+.rounded-md { border-radius: 0.25rem; }
+.rounded-sm { border-radius: 0.125rem; }
+
 
 ::selection { background: var(--color-zred); color: white; }
 
@@ -261,8 +275,8 @@ option {
   .h-20 { height: 4rem; }
   .input-z { height: 2.75rem; font-size: 0.8rem; }
 
-  .rounded-xl { border-radius: 0.625rem; }
-  .rounded-lg { border-radius: 0.4375rem; }
+  .rounded-xl { border-radius: 0.25rem; }
+  .rounded-lg { border-radius: 0.25rem; }
 }
 
 .light-mode {
