@@ -4,6 +4,7 @@ import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
 import { sendDeliveryOtpEmail } from '@/lib/email';
 import { deliveryRepository } from '../repositories';
+import type { Order } from '@/features/orders/types';
 import {
   isQrConfigured,
   signQrToken,
@@ -114,6 +115,73 @@ export async function generateDeliveryQr(orderId: string) {
   return { success: true, data: { token, expiresAt, trackingCode: order.data.tracking_code } };
 }
 
+async function claimOrderForPickup(
+  supabase: NonNullable<ReturnType<typeof createServiceClient>>,
+  user: { id: string },
+  order: Pick<Order, 'id' | 'status' | 'delivery_partner_id'>,
+  qrTokenHash?: string,
+): Promise<{ success: boolean; error?: string; data?: { orderId: string } }> {
+  const claimable = ['pending', 'accepted', 'preparing', 'ready', 'assigned'];
+  if (!claimable.includes(order.status)) {
+    if (order.status === 'out_for_delivery') {
+      return { success: false, error: 'The order has already been picked up by another delivery partner' };
+    }
+    if (order.status === 'delivered' || order.status === 'completed') {
+      return { success: false, error: 'This order has already been delivered' };
+    }
+    if (order.status === 'cancelled') {
+      return { success: false, error: 'This order has been cancelled' };
+    }
+    return { success: false, error: `Order is already ${order.status.replace(/_/g, ' ')} and can no longer be claimed` };
+  }
+
+  if (order.delivery_partner_id && order.delivery_partner_id !== user.id) {
+    return { success: false, error: 'The order has already been picked up by another delivery partner' };
+  }
+
+  const assignment = await deliveryRepository.getAssignmentByOrderId(order.id);
+  if (assignment && assignment.delivery_partner_id !== user.id) {
+    return { success: false, error: 'The order has already been picked up by another delivery partner' };
+  }
+  if (assignment && assignment.status !== 'assigned') {
+    return { success: false, error: 'The order has already been picked up by another delivery partner' };
+  }
+
+  const now = new Date().toISOString();
+
+  if (!assignment) {
+    const { error: insertError } = await supabase.from('delivery_assignments').insert({
+      order_id: order.id,
+      delivery_partner_id: user.id,
+      status: 'assigned',
+      assigned_at: now,
+      ...(qrTokenHash ? { qr_token_hash: qrTokenHash } : {}),
+    });
+    if (insertError) return { success: false, error: 'Failed to claim the order' };
+  }
+
+  const { error: assignmentError } = await supabase
+    .from('delivery_assignments')
+    .update({ status: 'picked_up', picked_up_at: now })
+    .eq('order_id', order.id)
+    .eq('delivery_partner_id', user.id);
+  if (assignmentError) return { success: false, error: 'Failed to start pickup' };
+
+  const { error: orderError } = await supabase
+    .from('orders')
+    .update({ status: 'out_for_delivery', delivery_partner_id: user.id })
+    .eq('id', order.id);
+  if (orderError) return { success: false, error: 'Failed to start pickup' };
+
+  const { error: partnerError } = await supabase
+    .from('delivery_partners')
+    .update({ is_online: true, is_available: false })
+    .eq('id', user.id);
+  if (partnerError) return { success: false, error: 'Failed to update your availability' };
+
+  return { success: true, data: { orderId: order.id } };
+}
+
 export async function startPickupManual(orderId: string) {
   const user = await authorizeDeliveryPartner();
   if (!user) return { success: false, error: 'Unauthorized' };
@@ -159,65 +227,16 @@ export async function startPickupByToken(token: string) {
   if (!supabase) return { success: false, error: 'Service not configured' };
 
   const verified = verifyQrToken(token);
-  if (!verified) return { success: false, error: 'QR/Order id expires — ask the store for a fresh QR.' };
+  if (!verified) return { success: false, error: 'QR/Order ID has expired — ask the store for a fresh QR.' };
 
   const order = await deliveryRepository.getOrderByTrackingCode(verified.trackingCode);
   if (!order) return { success: false, error: 'Order not found' };
 
   if (Date.now() - new Date(order.created_at).getTime() > DELIVERY_QR_TTL_MS) {
-    return { success: false, error: 'QR/Order id expires — ask the store for a fresh QR.' };
+    return { success: false, error: 'QR/Order ID has expired — ask the store for a fresh QR.' };
   }
 
-  const claimable = ['pending', 'accepted', 'preparing', 'ready', 'assigned'];
-  if (!claimable.includes(order.status)) {
-    return {
-      success: false,
-      error: `Order is already ${order.status.replace(/_/g, ' ')} and can no longer be claimed`,
-    };
-  }
-
-  if (order.delivery_partner_id && order.delivery_partner_id !== user.id) {
-    return { success: false, error: 'This order is already claimed by another delivery partner' };
-  }
-
-  const assignment = await deliveryRepository.getAssignmentByOrderId(order.id);
-  if (assignment && assignment.delivery_partner_id !== user.id) {
-    return { success: false, error: 'This order is already claimed by another delivery partner' };
-  }
-
-  const now = new Date().toISOString();
-
-  if (!assignment) {
-    const { error: insertError } = await supabase.from('delivery_assignments').insert({
-      order_id: order.id,
-      delivery_partner_id: user.id,
-      status: 'assigned',
-      assigned_at: now,
-      qr_token_hash: hashDeliveryOtp(token),
-    });
-    if (insertError) return { success: false, error: 'Failed to claim the order' };
-  }
-
-  const { error: assignmentError } = await supabase
-    .from('delivery_assignments')
-    .update({ status: 'picked_up', picked_up_at: now })
-    .eq('order_id', order.id)
-    .eq('delivery_partner_id', user.id);
-  if (assignmentError) return { success: false, error: 'Failed to start pickup' };
-
-  const { error: orderError } = await supabase
-    .from('orders')
-    .update({ status: 'out_for_delivery', delivery_partner_id: user.id })
-    .eq('id', order.id);
-  if (orderError) return { success: false, error: 'Failed to start pickup' };
-
-  const { error: partnerError } = await supabase
-    .from('delivery_partners')
-    .update({ is_online: true, is_available: false })
-    .eq('id', user.id);
-  if (partnerError) return { success: false, error: 'Failed to update your availability' };
-
-  return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code } };
+  return claimOrderForPickup(supabase, user, order, hashDeliveryOtp(token));
 }
 
 export async function startPickupByTrackingCode(code: string) {
@@ -233,32 +252,11 @@ export async function startPickupByTrackingCode(code: string) {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
 
   const { data: order } = isUuid
-    ? await supabase.from('orders').select('*').eq('id', trimmed).maybeSingle()
-    : await supabase.from('orders').select('*').eq('tracking_code', trimmed.toUpperCase()).maybeSingle();
+    ? await supabase.from('orders').select('id, status, delivery_partner_id').eq('id', trimmed).maybeSingle()
+    : await supabase.from('orders').select('id, status, delivery_partner_id').eq('tracking_code', trimmed.toUpperCase()).maybeSingle();
   if (!order) return { success: false, error: 'Order not found' };
 
-  const assignment = await deliveryRepository.getAssignmentByOrderId(order.id);
-  if (!assignment || assignment.delivery_partner_id !== user.id) {
-    return { success: false, error: 'This order is not assigned to you. Scan the store QR to claim it.' };
-  }
-  if (assignment.status !== 'assigned') {
-    return { success: false, error: `Order is already ${assignment.status.replace(/_/g, ' ')}` };
-  }
-  if (order.status !== 'assigned') {
-    return { success: false, error: 'Order is not ready for pickup yet' };
-  }
-
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('delivery_assignments')
-    .update({ status: 'picked_up', picked_up_at: now })
-    .eq('id', assignment.id);
-  if (error) return { success: false, error: 'Failed to start pickup' };
-
-  await supabase.from('orders').update({ status: 'out_for_delivery' }).eq('id', order.id);
-  await supabase.from('delivery_partners').update({ is_online: true }).eq('id', user.id);
-
-  return { success: true };
+  return claimOrderForPickup(supabase, user, order);
 }
 
 export async function generateOtpForOrder(orderId: string) {

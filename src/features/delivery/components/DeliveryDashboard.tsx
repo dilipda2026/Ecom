@@ -22,7 +22,7 @@ import { usePolling } from '@/hooks/usePolling';
 import { showToast } from '@/components/shared/Toast';
 import { useAuthStore } from '@/features/auth/store';
 import { groupDeliveriesByDay } from '@/features/delivery/lib/history';
-import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin, CameraOff, TrendingUp, Wallet, Search, CalendarDays } from 'lucide-react';
+import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin, CameraOff, Camera, TrendingUp, Wallet, Search, CalendarDays } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
@@ -236,78 +236,101 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   useEffect(() => {
     onClaimedRef.current = onClaimed;
   });
-  const [camera, setCamera] = useState<'starting' | 'running' | 'error'>('starting');
-  const [attempt, setAttempt] = useState(0);
+  const [camera, setCamera] = useState<'idle' | 'starting' | 'running' | 'error'>('idle');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [code, setCode] = useState('');
+  const [mode, setMode] = useState<'qr' | 'id'>('qr');
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let raf = 0;
-    let stopped = false;
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef(0);
+  const stoppedRef = useRef(true);
+  const scanLockRef = useRef(false);
 
-    async function start() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-        if (stopped) {
-          stream.getTracks().forEach((t) => t.stop());
+  function stopCamera() {
+    stoppedRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  function tick() {
+    if (stoppedRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const decoded = jsQR(image.data, image.width, image.height);
+        if (decoded?.data && !scanLockRef.current) {
+          scanLockRef.current = true;
+          setBusy(true);
+          startPickupByToken(decoded.data).then((res) => {
+            setBusy(false);
+            scanLockRef.current = false;
+            if (res.success) {
+              setError('');
+              onClaimedRef.current();
+            } else {
+              setError(res.error ?? 'Invalid QR');
+              window.setTimeout(tick, 2000);
+            }
+          });
           return;
         }
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-        setCamera('running');
-        tick();
-      } catch {
-        if (!stopped) setCamera('error');
       }
     }
+    rafRef.current = requestAnimationFrame(tick);
+  }
 
-    function tick() {
-      if (stopped) return;
+  async function startCamera() {
+    setCamera('starting');
+    setError('');
+    stoppedRef.current = false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      if (stoppedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0);
-          const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const decoded = jsQR(image.data, image.width, image.height);
-          if (decoded?.data) {
-            setBusy(true);
-            startPickupByToken(decoded.data).then((res) => {
-              setBusy(false);
-              if (res.success) onClaimedRef.current();
-              else { setError(res.error ?? 'Invalid QR'); tick(); }
-            });
-            return;
-          }
-        }
+      if (video) {
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.muted = true;
+        try { await video.play(); } catch { /* frame renders as soon as the stream is ready */ }
       }
-      raf = requestAnimationFrame(tick);
+      setCamera('running');
+      tick();
+    } catch {
+      if (!stoppedRef.current) setCamera('error');
     }
+  }
 
-    start();
-    return () => {
-      stopped = true;
-      cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [attempt]);
+  function retryCamera() {
+    stopCamera();
+    setCamera('starting');
+    startCamera();
+  }
+
+  useEffect(() => () => stopCamera(), []);
 
   async function claimByCode() {
     if (code.trim().length === 0) return;
     setBusy(true);
+    setError('');
     const res = await startPickupByTrackingCode(code);
     setBusy(false);
-    if (res.success) { setCode(''); onClaimed(); }
+    if (res.success) { setCode(''); setError(''); onClaimed(); }
     else setError(res.error ?? 'Could not start pickup');
   }
 
@@ -335,64 +358,108 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
 
   return (
     <div className="mt-6">
-      <div className="relative rounded-2xl overflow-hidden bg-black aspect-square flex items-center justify-center">
-        <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
-        <canvas ref={canvasRef} className="hidden" />
-        {busy && (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="text-white w-6 h-6 animate-spin" />
-            <p className="text-white text-xs">Processing…</p>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button
+          onClick={() => { stopCamera(); setMode('qr'); setCamera('idle'); setError(''); }}
+          className={`flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border transition-colors ${
+            mode === 'qr'
+              ? 'bg-ztext text-zbg border-ztext'
+              : 'bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext'
+          }`}
+        >
+          <Upload size={16} /> Upload QR
+        </button>
+        <button
+          onClick={() => { stopCamera(); setMode('id'); setError(''); }}
+          className={`flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border transition-colors ${
+            mode === 'id'
+              ? 'bg-ztext text-zbg border-ztext'
+              : 'bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext'
+          }`}
+        >
+          <KeyRound size={16} /> Enter Order ID
+        </button>
+      </div>
+
+      {mode === 'qr' ? (
+        <>
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-square flex items-center justify-center">
+            <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            {busy && (
+              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="text-white w-6 h-6 animate-spin" />
+                <p className="text-white text-xs">Processing…</p>
+              </div>
+            )}
+            {camera === 'idle' && (
+              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <Camera size={32} className="text-white/80" />
+                <p className="text-white text-sm font-semibold">Enable camera</p>
+                <p className="text-white/60 text-xs">Tap below so the browser can ask for camera permission. You can also upload a photo of the QR.</p>
+                <button onClick={startCamera} className="button-z button-z-primary h-11 px-5 text-sm">
+                  Allow camera access
+                </button>
+              </div>
+            )}
+            {camera === 'starting' && (
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="text-white w-6 h-6 animate-spin" />
+                <p className="text-white text-xs">Starting camera…</p>
+              </div>
+            )}
+            {camera === 'error' && (
+              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <CameraOff size={28} className="text-white/70" />
+                <p className="text-white text-sm font-medium">Camera unavailable</p>
+                <p className="text-white/60 text-xs">Allow camera access for this site. If you previously denied it, tap the camera icon in the browser&apos;s address bar to re-enable it, then retry. Or upload a photo of the QR below.</p>
+                <button onClick={retryCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+                  Retry camera
+                </button>
+              </div>
+            )}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="w-48 h-48 rounded-2xl border-2 border-white/70" />
+            </div>
           </div>
-        )}
-        {camera === 'starting' && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="text-white w-6 h-6 animate-spin" />
-            <p className="text-white text-xs">Starting camera…</p>
+          <p className="text-xs text-ztext-light mt-2 text-center">Point the camera at the store&apos;s pickup QR, or upload a photo of it, to claim an order.</p>
+          {error && <p className="text-sm text-zred mt-2 text-center">{error}</p>}
+
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={busy || uploadBusy}
+              className="button-z button-z-outline flex-1 h-11 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {uploadBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              Upload QR image
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
           </div>
-        )}
-        {camera === 'error' && (
-          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
-            <CameraOff size={28} className="text-white/70" />
-            <p className="text-white text-sm font-medium">Camera unavailable</p>
-            <p className="text-white/60 text-xs">Allow camera access for this site, or use the upload / manual options below.</p>
-            <button onClick={() => { setError(''); setAttempt((a) => a + 1); }} className="button-z button-z-primary h-10 px-4 text-sm">
-              Retry camera
+        </>
+      ) : (
+        <div>
+          <label className="text-xs font-semibold text-ztext-lighter block">Order ID or tracking code</label>
+          <div className="mt-1.5 flex gap-2">
+            <input
+              value={code}
+              onChange={(e) => { setCode(e.target.value); setError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') claimByCode(); }}
+              placeholder="e.g. DD-XXXXXX or order ID"
+              className="input-z flex-1 font-mono text-sm"
+              disabled={busy}
+              autoFocus
+            />
+            <button onClick={claimByCode} disabled={busy || code.trim().length === 0} className="button-z button-z-outline h-11 px-4 text-sm disabled:opacity-50">
+              {busy ? <Loader2 size={16} className="animate-spin" /> : 'Claim'}
             </button>
           </div>
-        )}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="w-48 h-48 rounded-2xl border-2 border-white/70" />
+          {error && <p className="text-sm text-zred mt-2">{error}</p>}
+          <p className="text-[11px] text-ztext-lighter mt-2">
+            Enter the order ID or tracking code shown on the store receipt. Unpicked orders can be claimed directly here.
+          </p>
         </div>
-      </div>
-      <p className="text-xs text-ztext-light mt-2 text-center">Point the camera at the store&apos;s pickup QR to claim an order.</p>
-      {error && <p className="text-sm text-zred mt-2 text-center">{error}</p>}
-
-      <div className="mt-3 flex gap-2">
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={busy || uploadBusy}
-          className="button-z button-z-outline flex-1 h-11 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {uploadBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-          Upload QR image
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <input
-          value={code}
-          onChange={(e) => { setCode(e.target.value); setError(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') claimByCode(); }}
-          placeholder="Tracking code or order ID"
-          className="input-z flex-1 font-mono text-sm"
-          disabled={busy || uploadBusy}
-        />
-        <button onClick={claimByCode} disabled={busy || uploadBusy || code.trim().length === 0} className="button-z button-z-outline h-11 px-4 text-sm disabled:opacity-50">
-          {busy ? <Loader2 size={16} className="animate-spin" /> : 'Go'}
-        </button>
-      </div>
-      <p className="text-[11px] text-ztext-lighter mt-1.5">Typing a code or order ID only works for orders already assigned to you — use the QR to claim new ones.</p>
+      )}
     </div>
   );
 }
@@ -602,65 +669,109 @@ function ScanModal({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState<'idle' | 'starting' | 'running' | 'error'>('idle');
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let raf = 0;
-    let stopped = false;
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef(0);
+  const stoppedRef = useRef(true);
+  const scanLockRef = useRef(false);
 
-    async function start() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current && stream) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+  function stopCamera() {
+    stoppedRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  function tick() {
+    if (stoppedRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(image.data, image.width, image.height);
+        if (code?.data && !scanLockRef.current) {
+          scanLockRef.current = true;
+          setBusy(true);
+          startPickupByToken(code.data).then((res) => {
+            setBusy(false);
+            scanLockRef.current = false;
+            if (res.success) { showToast('Pickup confirmed'); onClose(); }
+            else { setError(res.error ?? 'Invalid QR'); window.setTimeout(tick, 2000); }
+          });
+          return;
         }
-        tick();
-      } catch {
-        setError('Camera unavailable — start pickup manually instead.');
       }
     }
+    rafRef.current = requestAnimationFrame(tick);
+  }
 
-    function tick() {
-      if (stopped) return;
+  async function startCamera() {
+    setCamera('starting');
+    setError('');
+    stoppedRef.current = false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (stoppedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0);
-          const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(image.data, image.width, image.height);
-          if (code?.data) {
-            setBusy(true);
-            startPickupByToken(code.data).then((res) => {
-              setBusy(false);
-              if (res.success) { showToast('Pickup confirmed'); onClose(); }
-              else { setError(res.error ?? 'Invalid QR'); tick(); }
-            });
-            return;
-          }
-        }
+      if (video) {
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.muted = true;
+        try { await video.play(); } catch { /* frame renders as soon as the stream is ready */ }
       }
-      raf = requestAnimationFrame(tick);
+      setCamera('running');
+      tick();
+    } catch {
+      if (!stoppedRef.current) setCamera('error');
     }
+  }
 
-    start();
-    return () => {
-      stopped = true;
-      cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [onClose]);
+  function retryCamera() {
+    stopCamera();
+    setCamera('starting');
+    startCamera();
+  }
+
+  useEffect(() => () => stopCamera(), []);
 
   return (
     <ModalShell title="Scan pickup QR" onClose={onClose}>
       <div className="relative rounded-xl overflow-hidden bg-black aspect-square flex items-center justify-center">
-        <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
+        <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
         <canvas ref={canvasRef} className="hidden" />
         {busy && <Loader2 className="absolute text-white w-6 h-6 animate-spin" />}
+        {camera === 'idle' && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <Camera size={28} className="text-white/80" />
+            <p className="text-white text-sm font-semibold">Enable camera</p>
+            <p className="text-white/60 text-xs">Tap below so the browser can ask for camera permission to scan the pickup QR.</p>
+            <button onClick={startCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+              Allow camera access
+            </button>
+          </div>
+        )}
+        {camera === 'starting' && <Loader2 className="absolute text-white w-6 h-6 animate-spin" />}
+        {camera === 'error' && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <CameraOff size={28} className="text-white/70" />
+            <p className="text-white text-sm font-medium">Camera unavailable</p>
+            <p className="text-white/60 text-xs">Allow camera access for this site. If you previously denied it, tap the camera icon in the browser&apos;s address bar to re-enable it, then retry.</p>
+            <button onClick={retryCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+              Retry camera
+            </button>
+          </div>
+        )}
       </div>
       {error && <p className="text-sm text-zred mt-3">{error}</p>}
       <p className="text-xs text-ztext-light mt-3">Point the camera at the order&apos;s pickup QR. You can also use the Start pickup button instead.</p>
