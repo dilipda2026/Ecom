@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Search, UtensilsCrossed, Edit3, Archive, Eye } from 'lucide-react';

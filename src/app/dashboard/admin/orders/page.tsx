@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, Eye, XCircle, Clock, Bike, Loader2, QrCode } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
+import DateFilter, { type DateFilterValue } from '@/components/ui/date-filter';
 import { getAdminOrders, forceUpdateOrderStatus, cancelOrderByAdmin, getAdminOrderById, getAvailableDeliveryPartners, assignDeliveryPartner, regenerateOrderQr } from '@/features/admin/actions';
 import type { AdminOrder } from '@/features/admin/types';
 import { orderTypeLabel } from '@/features/orders/types';
@@ -21,6 +22,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
+  const [dateRange, setDateRange] = useState<DateFilterValue>({});
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [confirmAction, setConfirmAction] = useState<{ type: string; id: string; newStatus?: string } | null>(null);
@@ -95,6 +97,7 @@ export default function AdminOrdersPage() {
     const res = await getAdminOrders({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
+      ...dateRange,
       page: p ?? page,
       pageSize: 20,
       sortBy,
@@ -107,13 +110,24 @@ export default function AdminOrdersPage() {
       setPage(res.data.page);
     }
     if (!silent) setLoading(false);
-  }, [search, status, sortBy, sortOrder, page]);
+  }, [search, status, dateRange, sortBy, sortOrder, page]);
 
   usePolling(() => { fetchOrders(undefined, true); }, POLL_INTERVAL_MS);
 
   useEffect(() => {
     fetchOrders(1);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filterKey = useMemo(
+    () => JSON.stringify([search, status, dateRange, sortBy, sortOrder]),
+    [search, status, dateRange, sortBy, sortOrder],
+  );
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (filterKey === lastFilterKey.current) return;
+    lastFilterKey.current = filterKey;
+    fetchOrders(1);
+  }, [filterKey, fetchOrders]);
 
   const handleCancel = async (id: string, reason: string) => {
     const res = await cancelOrderByAdmin(id, reason);
@@ -246,6 +260,10 @@ export default function AdminOrdersPage() {
         <button onClick={() => fetchOrders()} aria-label="Refresh orders" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
           <RefreshCw size={18} />
         </button>
+      </div>
+
+      <div className="mb-4">
+        <DateFilter onChange={(v) => { setDateRange(v); setPage(1); }} />
       </div>
 
       <div className="bg-zcard rounded-xl border border-zborder">

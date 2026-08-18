@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, Download, Search, Banknote, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast } from '@/components/ui/data-table';
+import DateFilter, { type DateFilterValue } from '@/components/ui/date-filter';
 import { getAdminPayments, processRefund } from '@/features/admin/actions';
 import type { PaymentAdmin } from '@/features/admin/types';
 
@@ -51,8 +52,9 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [sortBy] = useState('created_at');
-  const [sortOrder] = useState<'asc' | 'desc'>('desc');
+  const [dateRange, setDateRange] = useState<DateFilterValue>({});
+  const sortBy = 'created_at';
+  const sortOrder: 'asc' | 'desc' = 'desc';
   const [refundModal, setRefundModal] = useState<{ id: string; amount: number; currentRefunded: number } | null>(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
@@ -63,6 +65,7 @@ export default function AdminPaymentsPage() {
     const res = await getAdminPayments({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
+      ...dateRange,
       page: p ?? page,
       pageSize: 50,
       sortBy,
@@ -75,11 +78,22 @@ export default function AdminPaymentsPage() {
       setPage(res.data.page);
     }
     setLoading(false);
-  }, [search, status, sortBy, sortOrder, page]);
+  }, [search, status, dateRange, sortBy, sortOrder, page]);
 
   useEffect(() => {
     fetchPayments(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filterKey = useMemo(
+    () => JSON.stringify([search, status, dateRange, sortBy, sortOrder]),
+    [search, status, dateRange, sortBy, sortOrder],
+  );
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (filterKey === lastFilterKey.current) return;
+    lastFilterKey.current = filterKey;
+    fetchPayments(1);
+  }, [filterKey, fetchPayments]);
 
   const stats = useMemo(() => {
     const completed = payments.filter((p) => ['confirmed', 'collected'].includes(p.status));
@@ -110,8 +124,6 @@ export default function AdminPaymentsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const visible = status === 'all' ? payments : payments.filter((p) => p.status === status);
 
   return (
     <div>
@@ -175,12 +187,17 @@ export default function AdminPaymentsPage() {
         ))}
       </div>
 
+      {/* Date filter */}
+      <div className="mb-4">
+        <DateFilter onChange={(v) => { setDateRange(v); setPage(1); }} />
+      </div>
+
       {/* Transaction list */}
       {loading ? (
         <div className="flex items-center justify-center py-16 bg-zcard border border-zborder rounded-2xl">
           <Loader2 className="w-6 h-6 animate-spin text-ztext-muted" />
         </div>
-      ) : visible.length === 0 ? (
+      ) : payments.length === 0 ? (
         <div className="text-center py-16 bg-zcard border border-zborder rounded-2xl">
           <div className="w-12 h-12 rounded-xl bg-zgray flex items-center justify-center mx-auto mb-3">
             <AlertCircle size={24} className="text-ztext-muted" />
@@ -190,7 +207,7 @@ export default function AdminPaymentsPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {visible.map((p) => {
+          {payments.map((p) => {
             const m = p.payment_method;
             return (
               <div key={p.id} className="bg-zcard border border-zborder rounded-2xl px-4 py-3 flex items-center justify-between gap-3 hover:border-ztext/20 transition-colors">
