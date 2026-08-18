@@ -7,7 +7,7 @@ import { authService } from '../services/auth-service';
 import { sendSignupOtp, verifySignupOtp } from '@/features/cit-student/actions';
 import { setupDeliveryAccount, setupAdminAccount, confirmSignupEmail, isEmailRegistered, createUserAccount } from '@/features/auth/actions';
 import { getPublicSettings } from '@/features/settings/actions';
-import { isCitStudentEmail, isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
+import { isCitStudentEmail, isDeliveryEmail, isAdminEmail, isOwnerEmail } from '@/config/auth-access';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { showToast } from '@/components/shared/Toast';
 import { Loader2, Check, Clock, XCircle, ArrowLeft, Mail, Bike } from 'lucide-react';
@@ -71,9 +71,10 @@ export default function SignupForm() {
     const publicConfig = await getPublicSettings().catch(() => null);
     const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
     const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
+    const ownerEmail = publicConfig?.ownerEmail ?? publicSettings.ownerEmail;
     if (accountType === 'student' && !isCitStudentEmail(normalizedEmail)) { showToast('Only for CIT students'); return; }
     if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail, deliveryEmails)) { showToast('This email is not approved for delivery partners'); return; }
-    if (accountType === 'admin' && !isAdminEmail(normalizedEmail, adminEmails)) { showToast('This email is not approved for admin access'); return; }
+    if (accountType === 'admin' && !isAdminEmail(normalizedEmail, adminEmails) && !isOwnerEmail(normalizedEmail, ownerEmail)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
     setDevOtp(null);
     const existsCheck = await isEmailRegistered(normalizedEmail).catch(() => null);
@@ -113,12 +114,22 @@ export default function SignupForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { user: created, error: err } = await createUserAccount({
-      email,
-      password,
-      fullName,
-      phone: phone || undefined,
-    });
+    let created: { id: string } | null = null;
+    let err: string | null = null;
+    try {
+      const res = await createUserAccount({
+        email,
+        password,
+        fullName,
+        phone: phone || undefined,
+      });
+      created = res.user;
+      err = res.error;
+    } catch {
+      setError('Account creation failed. Please try again.');
+      setLoading(false);
+      return;
+    }
     setLoading(false);
     if (err) { setError(err); return; }
     if (!created) { setError('Check your email for a confirmation link.'); return; }
@@ -164,7 +175,13 @@ export default function SignupForm() {
     if (accountType === 'admin') {
       const formData = new FormData();
       formData.set('phone', phone || '');
-      const result = await setupAdminAccount(formData);
+      let result: { error: string | null; redirect: string | null };
+      try {
+        result = await setupAdminAccount(formData);
+      } catch {
+        setError('Could not finish setting up your account. Please try again.');
+        return;
+      }
       if (result.error) { setError(result.error); return; }
       window.location.href = result.redirect ?? '/admin';
       return;
@@ -216,7 +233,7 @@ export default function SignupForm() {
               <label className="block text-sm font-medium text-ztext mb-1.5">Password</label>
               <input type="password" className="input-z w-full" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             </div>
-            {error && <p className="text-sm text-zred">{error}</p>}
+            {typeof error === 'string' && error && <p className="text-sm text-zred">{error}</p>}
             <button type="submit" className="button-z button-z-primary w-full h-12 text-sm flex items-center justify-center gap-2" disabled={loading}>
               {loading ? <Loader2 size={16} className="animate-spin" /> : null}
               {loading ? 'Creating account...' : 'Create account'}

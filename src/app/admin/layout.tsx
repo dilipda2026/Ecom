@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, ShoppingBag, Users, TrendingUp, Settings, LogOut, Bell, UtensilsCrossed } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
+import { isOwnerSession } from '@/features/auth/actions';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +18,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       router.push('/auth/login');
     }
   }, [isLoading, isAuthenticated, user, router]);
+
+  // The store owner (Dilip Da) is view-only — never serve the legacy admin
+  // console to them.
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      isOwnerSession().then((isOwner) => {
+        if (isOwner) router.replace('/dashboard/owner');
+      });
+    }
+  }, [isAuthenticated, user?.role, router]);
 
   const tabs = [
     { label: 'Dashboard', href: '/admin', icon: Home },

@@ -60,7 +60,7 @@ export default function Footer() {
                 ))}
               </span>
             )}
-            <span>&copy; {new Date().getFullYear()}</span>s
+            <span>&copy; {new Date().getFullYear()}</span>
             <span>Developed & Managed by <span className="font-semibold text-ztext">ANE services</span></span>
           </div>
         </div>

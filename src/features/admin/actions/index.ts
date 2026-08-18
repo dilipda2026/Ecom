@@ -3,7 +3,8 @@
 import { adminRepository } from '../repositories';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
-import { clearSettingsCache } from '@/lib/settings';
+import { clearSettingsCache, getOwnerEmail } from '@/lib/settings';
+import { isOwnerEmail } from '@/config/auth-access';
 import type { AdminFilter } from '../types';
 
 async function authorizeAdmin() {
@@ -11,6 +12,9 @@ async function authorizeAdmin() {
   if (!user) throw new Error('Unauthorized');
   const { profile } = await getServerProfile();
   if (!profile || !['admin', 'super_admin'].includes(profile.role)) throw new Error('Forbidden');
+  // The store owner (Dilip Da) is view-only and must never act through admin
+  // actions, even if their email is also listed in admin_emails.
+  if (isOwnerEmail(user.email, await getOwnerEmail())) throw new Error('Forbidden');
   return { user, profile };
 }
 

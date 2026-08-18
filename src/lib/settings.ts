@@ -110,6 +110,12 @@ export async function getAdminEmails(): Promise<string[]> {
   return parseEmailList(await getSetting('admin_emails'));
 }
 
+/** Store owner email (Dilip Da) configured in General Settings for the read-only owner dashboard */
+export async function getOwnerEmail(): Promise<string | null> {
+  const raw = await getSetting('dilip_da_email');
+  return raw?.trim() || null;
+}
+
 export interface PaymentMethodAvailability {
   id: string;
   enabled: boolean;

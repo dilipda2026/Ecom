@@ -27,6 +27,15 @@ export function isDeliveryEmail(email: string, extraDeliveryEmails: string[] = [
   return DELIVERY_EMAILS.includes(target) || extraDeliveryEmails.some((e) => e.trim().toLowerCase() === target);
 }
 
-export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = [], extraAdminEmails: string[] = []) {
-  return isCitStudentEmail(email) || isAdminEmail(email, extraAdminEmails) || isDeliveryEmail(email, extraDeliveryEmails);
+/**
+ * The store owner (Dilip Da) is identified purely by the email configured in
+ * General Settings (`dilip_da_email`). The owner gets a read-only dashboard.
+ */
+export function isOwnerEmail(email: string, ownerEmail?: string | null) {
+  if (!ownerEmail) return false;
+  return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = [], extraAdminEmails: string[] = [], ownerEmail?: string | null) {
+  return isCitStudentEmail(email) || isAdminEmail(email, extraAdminEmails) || isDeliveryEmail(email, extraDeliveryEmails) || isOwnerEmail(email, ownerEmail);
 }

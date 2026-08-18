@@ -8,7 +8,7 @@ import {
   LogOut, Menu, X, Bell, FolderTree, UtensilsCrossed,
   ClipboardList, Settings,
 } from 'lucide-react';
-import { getServerSession } from '@/features/auth/actions';
+import { getServerSession, isOwnerSession } from '@/features/auth/actions';
 
 interface SidebarItem {
   label: string;
@@ -42,10 +42,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (user) {
           setAdminName(user.fullName);
           setAdminRole(user.role ?? '');
+          // The store owner (Dilip Da) is view-only — never serve the admin
+          // console to them, even if their role looks like admin.
+          const owner = await isOwnerSession();
+          if (owner) router.replace('/dashboard/owner');
         }
       } catch {}
     })();
-  }, []);
+  }, [router]);
 
   const isActive = useCallback((href: string) => {
     if (href === '/dashboard/admin') return pathname === '/dashboard/admin';

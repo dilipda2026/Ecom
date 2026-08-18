@@ -151,6 +151,21 @@ export interface PaymentAdmin {
   order?: { tracking_code: string; status: string } | null;
 }
 
+export interface DeliveryPartnerAdmin {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  vehicle_type: string;
+  license_plate: string | null;
+  is_available: boolean;
+  is_online: boolean;
+  rating: number | null;
+  total_deliveries: number;
+  deliveries_in_range: number;
+  created_at: string;
+}
+
 export interface AuditEntry {
   id: string;
   table_name: string;

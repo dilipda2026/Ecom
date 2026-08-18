@@ -26,7 +26,8 @@ export default function LoginForm() {
     const publicConfig = await getPublicSettings().catch(() => null);
     const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
     const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
-    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails, adminEmails)) {
+    const ownerEmail = publicConfig?.ownerEmail ?? publicSettings.ownerEmail;
+    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails, adminEmails, ownerEmail)) {
       setError('Only CIT students and authorized staff can sign in.');
       return;
     }
@@ -59,6 +60,7 @@ export default function LoginForm() {
     const roleTarget: Record<string, string> = {
       admin: '/dashboard/admin',
       super_admin: '/dashboard/admin',
+      owner: '/dashboard/owner',
       delivery: '/dashboard/delivery',
     };
 

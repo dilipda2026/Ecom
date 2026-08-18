@@ -17,12 +17,15 @@ const customerLinks = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuthStore();
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const navLinks = isAdmin
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const user = useAuthStore((s) => s.user);
+  const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'owner';
+  const staffDashboard = user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/admin';
+  const navLinks = isStaff
     ? [
         { label: 'Profile', href: '/profile', icon: UserRound },
-        { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+        { label: 'Dashboard', href: staffDashboard, icon: LayoutDashboard },
       ]
     : customerLinks;
 

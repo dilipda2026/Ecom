@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
-  RefreshCw, Loader2, Save, Pencil, ShieldCheck,
+  RefreshCw, Loader2, Save, Pencil, ShieldCheck, UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
   payment_method_cod_enabled: 'Cash on Delivery',
   maintenance_fee: 'Maintenance fee (₹)',
   telegram_show_qr: 'Send pickup QR in Telegram',
+  dilip_da_email: "Owner's email (Dilip Da)",
 };
 
 const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred';
@@ -316,6 +317,13 @@ export default function AdminSettingsPage() {
           title: 'Administrators',
           subtitle: 'Emails allowed to sign up as store administrators. Separate multiple emails with commas or new lines.',
           keys: ['admin_emails'],
+        })}
+
+        {renderCard({
+          icon: UserCog,
+          title: 'Store Owner',
+          subtitle: 'Email of the store owner (Dilip Da). This email gets a read-only view of the dashboard and cannot edit anything.',
+          keys: ['dilip_da_email'],
         })}
 
         {renderCard({

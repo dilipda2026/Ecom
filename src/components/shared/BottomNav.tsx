@@ -22,11 +22,12 @@ export default function BottomNav() {
   const lastViewedAt = useCartStore((s) => s.lastViewedAt);
   const markCartViewed = useCartStore((s) => s.markCartViewed);
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const tabs = isAdmin
+  const isStaff = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'owner';
+  const staffDashboard = user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/admin';
+  const tabs = isStaff
     ? [
         { label: 'Profile', href: '/profile', icon: User },
-        { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+        { label: 'Dashboard', href: staffDashboard, icon: LayoutDashboard },
       ]
     : customerTabs;
 

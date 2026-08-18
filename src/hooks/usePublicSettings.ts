@@ -34,6 +34,7 @@ const FALLBACK: PublicStoreSettings = {
   cancellationWindowMinutes: 2,
   deliveryEmails: [],
   adminEmails: [],
+  ownerEmail: '',
   walletEnabled: true,
   walletCreditLimit: 500,
   isOpen: true,

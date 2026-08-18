@@ -3,8 +3,8 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
-import { isDeliveryEmail, isAdminEmail } from '@/config/auth-access';
-import { getDeliveryEmails, getAdminEmails, getBooleanSetting } from '@/lib/settings';
+import { isDeliveryEmail, isAdminEmail, isOwnerEmail } from '@/config/auth-access';
+import { getDeliveryEmails, getAdminEmails, getOwnerEmail, getBooleanSetting } from '@/lib/settings';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -213,24 +213,40 @@ export async function setupAdminAccount(formData: FormData) {
   const { user } = await getServerSession();
   if (!user) return { error: 'Not authenticated', redirect: null };
 
-  if (!isAdminEmail(user.email, await getAdminEmails())) {
+  // The store owner (Dilip Da) signs up through the Administrator flow but is
+  // granted the read-only `owner` role instead of admin access.
+  const ownerEmail = await getOwnerEmail();
+  const isOwner = isOwnerEmail(user.email, ownerEmail);
+  if (!isAdminEmail(user.email, await getAdminEmails()) && !isOwner) {
     return { error: 'This email is not approved for admin access', redirect: null };
   }
 
+  const role = isOwner ? 'owner' : 'admin';
   const phone = (formData.get('phone') as string)?.trim() || null;
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role: 'admin', phone });
+    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role, phone });
 
   if (profileError) return { error: profileError.message, redirect: null };
 
   const authSupabase = await createServerSupabaseClient();
   if (authSupabase) {
-    await authSupabase.auth.updateUser({ data: { role: 'admin' } });
+    await authSupabase.auth.updateUser({ data: { role } });
   }
 
-  return { error: null, redirect: '/admin' };
+  return { error: null, redirect: isOwner ? '/dashboard/owner' : '/admin' };
+}
+
+/**
+ * Whether the signed-in user is the store owner (Dilip Da), identified by the
+ * email configured in General Settings. Used by layouts to steer the owner away
+ * from the admin console into the read-only owner dashboard.
+ */
+export async function isOwnerSession() {
+  const { user } = await getServerSession();
+  if (!user) return false;
+  return isOwnerEmail(user.email, await getOwnerEmail());
 }
 
 /**
@@ -258,6 +274,9 @@ export async function createUserAccount(input: {
 }) {
   const admin = createAdminClient();
   const { email, password, fullName, phone } = input;
+  // The store owner's account starts as the read-only `owner` role instead of
+  // the default customer role.
+  const role = isOwnerEmail(email, await getOwnerEmail()) ? 'owner' : 'student';
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
@@ -265,7 +284,7 @@ export async function createUserAccount(input: {
     user_metadata: {
       full_name: fullName,
       phone: phone ?? '',
-      role: 'student',
+      role,
     },
   });
   if (error) return { user: null, error: error.message };

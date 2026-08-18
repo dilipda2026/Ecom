@@ -2,7 +2,7 @@ import { createAdminClient } from '@/infrastructure/supabase/admin';
 import type {
   DashboardStats, AdminStudent, AdminMerchant, AdminOrder, AdminUser,
   CreditAccountAdmin, PaymentAdmin, AuditEntry, SystemSetting,
-  PaginatedResponse, AdminFilter, ActivityEntry,
+  PaginatedResponse, AdminFilter, ActivityEntry, DeliveryPartnerAdmin,
 } from '../types';
 
 export class AdminRepository {
@@ -787,6 +787,69 @@ export class AdminRepository {
       .order('created_at', { ascending: false })
       .limit(limit);
     return data ?? [];
+  }
+
+  /**
+   * Delivery partners with the number of completed deliveries inside the
+   * given date range (based on `delivery_assignments.delivered_at`).
+   */
+  async getDeliveryPartners(filter: AdminFilter = {}): Promise<DeliveryPartnerAdmin[]> {
+    const admin = createAdminClient();
+    const { fromDate, toDate } = filter;
+
+    let assignmentQuery = admin
+      .from('delivery_assignments')
+      .select('delivery_partner_id, delivered_at')
+      .eq('status', 'delivered');
+    if (fromDate) assignmentQuery = assignmentQuery.gte('delivered_at', fromDate);
+    if (toDate) assignmentQuery = assignmentQuery.lte('delivered_at', toDate);
+
+    const [{ data: partners }, { data: deliveries }, { data: profiles }] = await Promise.all([
+      admin
+        .from('delivery_partners')
+        .select('id, vehicle_type, license_plate, is_available, is_online, rating, total_deliveries, created_at')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true }),
+      assignmentQuery,
+      admin.from('profiles').select('id, full_name, email, phone').eq('role', 'delivery'),
+    ]);
+
+    const profileMap = new Map<string, { full_name?: string | null; email?: string | null; phone?: string | null }>(
+      ((profiles ?? []) as Array<Record<string, unknown>>).map((p) => [
+        String(p.id),
+        {
+          full_name: (p.full_name as string | null) ?? null,
+          email: (p.email as string | null) ?? null,
+          phone: (p.phone as string | null) ?? null,
+        },
+      ]),
+    );
+
+    const rangeCounts = new Map<string, number>();
+    for (const d of (deliveries ?? []) as Array<Record<string, unknown>>) {
+      const pid = String(d.delivery_partner_id ?? '');
+      rangeCounts.set(pid, (rangeCounts.get(pid) ?? 0) + 1);
+    }
+
+    return ((partners ?? []) as Array<Record<string, unknown>>)
+      .map((p) => {
+        const profile = profileMap.get(String(p.id));
+        return {
+          id: String(p.id),
+          name: profile?.full_name ?? null,
+          email: profile?.email ?? null,
+          phone: profile?.phone ?? null,
+          vehicle_type: String(p.vehicle_type ?? 'bike'),
+          license_plate: (p.license_plate as string | null) ?? null,
+          is_available: p.is_available === true,
+          is_online: p.is_online === true,
+          rating: p.rating == null ? null : Number(p.rating),
+          total_deliveries: Number(p.total_deliveries ?? 0),
+          deliveries_in_range: rangeCounts.get(String(p.id)) ?? 0,
+          created_at: String(p.created_at ?? ''),
+        } as DeliveryPartnerAdmin;
+      })
+      .sort((a, b) => b.deliveries_in_range - a.deliveries_in_range || b.total_deliveries - a.total_deliveries);
   }
 }
 
