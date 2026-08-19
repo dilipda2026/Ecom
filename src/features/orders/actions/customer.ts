@@ -7,7 +7,7 @@ import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
 import { getNumericSetting, getBooleanSetting, getSetting, getPaymentMethodAvailability } from '@/lib/settings';
-import { minutesOf, formatClock } from '@/features/menu/lib/store-hours';
+import { minutesOf, formatClock, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
 
 interface CreateOrderParams {
   items: CartItem[];
@@ -47,6 +47,17 @@ export async function createOrder(params: CreateOrderParams) {
   const openTime = (await getSetting('store_hours_open')) || '10:00';
   const closeTime = (await getSetting('store_hours_close')) || '21:30';
   const istMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+
+  // Temporary same-day closure set by the owner in General Settings. While the
+  // reopen time hasn't passed yet the store is closed TODAY (not tomorrow).
+  const tempReopensAt = (await getSetting('store_temp_close_until')) || '';
+  if (tempReopensAt && istMinutes < minutesOf(tempReopensAt)) {
+    return {
+      success: false,
+      error: `${temporaryCloseLabel(tempReopensAt)} — please try again later.`,
+    };
+  }
+
   if (istMinutes < minutesOf(openTime) || istMinutes >= minutesOf(closeTime)) {
     return {
       success: false,

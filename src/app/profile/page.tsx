@@ -14,7 +14,7 @@ import { getWalletDetails } from '@/features/wallet/actions';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
-import { isStoreOpen, nextOrderByCutoff, formatClock } from '@/features/menu/lib/store-hours';
+import { isStoreOpen, nextOrderByCutoff, formatClock, isTemporarilyClosed, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
 
 const allMenuItems = menuSections.flatMap((s) => s.items);
 
@@ -34,14 +34,15 @@ function StoreStatusPill() {
   }, []);
 
   const hours = { open: settings.hours.open, close: settings.hours.close };
-  const open = isStoreOpen(hours, now);
+  const tempClosed = isTemporarilyClosed(settings.tempReopensAt, now);
+  const open = !tempClosed && isStoreOpen(hours, now);
   const cutoff = open ? nextOrderByCutoff(settings.orderByCutoffs, now) : null;
 
   return (
     <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-zborder bg-zcard px-4 py-3">
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'bg-zgreen' : 'bg-amber-500'}`} />
       <p className="text-xs font-semibold text-ztext truncate">
-        {open ? `Open now · Kitchen closes ${formatClock(hours.close)}` : `Closed now · Opens tomorrow ${formatClock(hours.open)}`}
+        {tempClosed ? temporaryCloseLabel(settings.tempReopensAt) : open ? `Open now · Kitchen closes ${formatClock(hours.close)}` : `Closed now · Opens tomorrow ${formatClock(hours.open)}`}
       </p>
       {cutoff && (
         <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 border border-amber-500/25 rounded-full px-2.5 py-1">

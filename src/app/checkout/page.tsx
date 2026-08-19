@@ -16,7 +16,7 @@ import { canPayOnDelivery } from '@/features/orders/types';
 import type { OrderType } from '@/features/orders/types';
 import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
-import { isStoreOpen, formatClock } from '@/features/menu/lib/store-hours';
+import { isStoreOpen, formatClock, isTemporarilyClosed, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
 
 const basePaymentMethods = [
   { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
@@ -144,6 +144,10 @@ export default function CheckoutPage() {
     const now = new Date();
     if (publicSettings.isOpen === false) {
       setError('The store is currently closed. Please try again later.');
+      return false;
+    }
+    if (isTemporarilyClosed(publicSettings.tempReopensAt, now)) {
+      setError(`${temporaryCloseLabel(publicSettings.tempReopensAt)} — please try again later.`);
       return false;
     }
     if (!isStoreOpen(publicSettings.hours, now)) {

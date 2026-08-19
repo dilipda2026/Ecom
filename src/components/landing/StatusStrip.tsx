@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
-import { isStoreOpen, nextOrderByCutoff, formatClock } from '@/features/menu/lib/store-hours';
+import { isStoreOpen, nextOrderByCutoff, isTemporarilyClosed, temporaryCloseLabel, formatClock } from '@/features/menu/lib/store-hours';
 
 export default function StatusStrip() {
   const [now, setNow] = useState<Date | null>(null);
@@ -16,7 +16,8 @@ export default function StatusStrip() {
   }, []);
 
   const hours = { open: settings.hours.open, close: settings.hours.close };
-  const open = now ? isStoreOpen(hours, now) : false;
+  const tempClosed = now ? isTemporarilyClosed(settings.tempReopensAt, now) : false;
+  const open = now ? (!tempClosed && isStoreOpen(hours, now)) : false;
   const cutoff = now && open ? nextOrderByCutoff(settings.orderByCutoffs, now) : null;
 
   return (
@@ -26,7 +27,9 @@ export default function StatusStrip() {
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${now ? (open ? 'bg-zgreen' : 'bg-amber-500') : 'bg-zgray'}`} />
           <p className="text-xs font-semibold text-ztext truncate">
             {now
-              ? (open ? `Open now · Kitchen closes ${formatClock(hours.close)}` : `Closed now · Opens tomorrow ${formatClock(hours.open)}`)
+              ? (tempClosed
+                  ? temporaryCloseLabel(settings.tempReopensAt)
+                  : open ? `Open now · Kitchen closes ${formatClock(hours.close)}` : `Closed now · Opens tomorrow ${formatClock(hours.open)}`)
               : ''}
           </p>
           {cutoff && (

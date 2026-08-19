@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStoreOpen, nextOrderByCutoff, minutesOf, formatClock } from '@/features/menu/lib/store-hours';
+import { isStoreOpen, nextOrderByCutoff, minutesOf, formatClock, isTemporarilyClosed, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
 
 const HOURS = { open: '10:00', close: '21:30' };
 const SLOTS = [
@@ -59,5 +59,26 @@ describe('nextOrderByCutoff', () => {
 
   it('returns null after the last cutoff', () => {
     expect(nextOrderByCutoff(SLOTS, at(19, 0))).toBeNull();
+  });
+});
+
+describe('isTemporarilyClosed', () => {
+  it('is not closed when no reopen time is set', () => {
+    expect(isTemporarilyClosed('', at(13, 0))).toBe(false);
+  });
+
+  it('is closed before the reopen time', () => {
+    expect(isTemporarilyClosed('15:30', at(13, 0))).toBe(true);
+  });
+
+  it('reopens the same day at the reopen time', () => {
+    expect(isTemporarilyClosed('15:30', at(15, 30))).toBe(false);
+    expect(isTemporarilyClosed('15:30', at(16, 0))).toBe(false);
+  });
+});
+
+describe('temporaryCloseLabel', () => {
+  it('says reopens today at the given time', () => {
+    expect(temporaryCloseLabel('15:30')).toBe('Temporarily closed · Reopens today at 3:30 PM');
   });
 });

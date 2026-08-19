@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   maintenance_fee: 'Maintenance fee (₹)',
   telegram_show_qr: 'Send pickup QR in Telegram',
   dilip_da_email: "Owner's email (Dilip Da)",
+  store_temp_close_until: 'Temporarily close until (HH:MM)',
 };
 
 const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred';
@@ -168,6 +169,15 @@ export default function AdminSettingsPage() {
               disabled={disabled}
               onChange={(e) => setVal(setting.key, e.target.value)}
               className={`${inputClass} resize-none`}
+            />
+          ) : setting.key === 'store_temp_close_until' ? (
+            <input
+              type="time"
+              value={val}
+              disabled={disabled}
+              placeholder="Leave empty to disable"
+              onChange={(e) => setVal(setting.key, e.target.value)}
+              className={inputClass}
             />
           ) : (
             <input
@@ -357,6 +367,7 @@ export default function AdminSettingsPage() {
           toggleKey: 'other_enabled',
           keys: [
             'store_hours_open', 'store_hours_close',
+            'store_temp_close_until',
             'store_order_cutoff_lunch', 'store_order_cutoff_dinner',
             'store_delivery_locations',
             'cancellation_window_minutes', 'maintenance_mode',

@@ -16,6 +16,7 @@ export interface PublicStoreSettings {
   storeUpiId: string;
   storeUpiName: string;
   hours: { open: string; close: string };
+  tempReopensAt: string;
   orderByCutoffs: { label: string; time: string }[];
   deliveryLocations: string[];
   deliveryFee: number;
@@ -47,6 +48,7 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
       open: (await getSetting('store_hours_open')) || '10:00',
       close: (await getSetting('store_hours_close')) || '21:30',
     },
+    tempReopensAt: (await getSetting('store_temp_close_until')) || '',
     orderByCutoffs: [
       { label: 'lunch', time: (await getSetting('store_order_cutoff_lunch')) || '10:45' },
       { label: 'dinner', time: (await getSetting('store_order_cutoff_dinner')) || '18:45' },
