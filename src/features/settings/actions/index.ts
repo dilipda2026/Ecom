@@ -2,6 +2,13 @@
 
 import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails, getAdminEmails, getOwnerEmail, getStoreIsOpen } from '@/lib/settings';
 
+export interface BumperOfferItem {
+  type: 'image' | 'video';
+  url: string;
+  alt?: string;
+  order: number;
+}
+
 export interface PublicStoreSettings {
   razorpayKeyId: string;
   gpayUpiId: string;
@@ -28,6 +35,8 @@ export interface PublicStoreSettings {
   walletEnabled: boolean;
   walletCreditLimit: number;
   isOpen: boolean;
+  bumperOffersEnabled: boolean;
+  bumperOffers: BumperOfferItem[];
 }
 
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
@@ -70,5 +79,7 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     walletEnabled: (await getSetting('payment_method_wallet_enabled')) === 'true',
     walletCreditLimit: await getNumericSetting('wallet_credit_limit', 500),
     isOpen: (await getStoreIsOpen()) ?? true,
+    bumperOffersEnabled: (await getSetting('bumper_offers_enabled')) === 'true',
+    bumperOffers: await getJsonSetting<BumperOfferItem[]>('bumper_offers', []),
   };
 }

@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import BumperOffersSlider from '@/components/landing/BumperOffersSlider';
+import type { BumperOfferItem } from '@/features/settings/actions';
 
 const slides = [
   { img: '/images/Chicken Curry.jpg', top: 'Fresh thalis', bottom: 'from ₹60', note: 'Chicken, pork & veg thalis made fresh daily' },
@@ -16,15 +18,20 @@ interface HeroProps {
   onQueryChange: (q: string) => void;
   vegOn: boolean;
   onVegToggle: () => void;
+  bumperOffers?: BumperOfferItem[];
 }
 
-export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroProps) {
+export default function Hero({ query, onQueryChange, vegOn, onVegToggle, bumperOffers }: HeroProps) {
   const [index, setIndex] = useState(0);
 
+  const activeBumper = (bumperOffers ?? []).filter((o) => !!o.url);
+  const showBumper = activeBumper.length > 0;
+
   useEffect(() => {
+    if (showBumper) return; // bumper slider manages its own timing
     const id = setInterval(() => setIndex((i) => (i + 1) % slides.length), 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [showBumper]);
 
   return (
     <section className="bg-zbg">
@@ -57,40 +64,46 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle }: HeroP
 
         {/* Promo banner slider */}
         <div className="mt-3 sm:mt-4 animate-hero-in" style={{ animationDelay: '100ms' }}>
-          <div className="relative rounded-2xl overflow-hidden h-32 sm:h-44 lg:h-56 shadow-z">
-            <div key={index} className="relative w-full h-full">
-              <Image
-                src={slides[index].img}
-                alt="Dilip Da specials"
-                fill
-                loading="eager"
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, 1200px"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/30 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-7">
-                <p className="text-white text-[10px] font-bold tracking-[0.2em] uppercase">{slides[index].top}</p>
-                <p className="mt-1 text-2xl sm:text-3xl font-extrabold text-white leading-tight">{slides[index].bottom}</p>
-                <p className="mt-1 text-xs text-white/85">{slides[index].note}</p>
-                <Link
-                  href="/menu"
-                  className="mt-3 w-fit h-9 sm:h-10 px-5 inline-flex items-center justify-center gap-2 rounded-full bg-white text-zred text-xs sm:text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5"
-                >
-                  Order now <span className="text-sm">›</span>
-                </Link>
+          {showBumper ? (
+            <BumperOffersSlider items={activeBumper} />
+          ) : (
+            <>
+              <div className="relative rounded-2xl overflow-hidden h-32 sm:h-44 lg:h-56 shadow-z">
+                <div key={index} className="relative w-full h-full">
+                  <Image
+                    src={slides[index].img}
+                    alt="Dilip Da specials"
+                    fill
+                    loading="eager"
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, 1200px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-7">
+                    <p className="text-white text-[10px] font-bold tracking-[0.2em] uppercase">{slides[index].top}</p>
+                    <p className="mt-1 text-2xl sm:text-3xl font-extrabold text-white leading-tight">{slides[index].bottom}</p>
+                    <p className="mt-1 text-xs text-white/85">{slides[index].note}</p>
+                    <Link
+                      href="/menu"
+                      className="mt-3 w-fit h-9 sm:h-10 px-5 inline-flex items-center justify-center gap-2 rounded-full bg-white text-zred text-xs sm:text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5"
+                    >
+                      Order now <span className="text-sm">›</span>
+                    </Link>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="slider-dots">
-            {slides.map((s, i) => (
-              <button
-                key={s.top}
-                onClick={() => setIndex(i)}
-                className={`slider-dot ${i === index ? 'active' : ''}`}
-                aria-label={`Slide ${i + 1}`}
-              />
-            ))}
-          </div>
+              <div className="slider-dots">
+                {slides.map((s, i) => (
+                  <button
+                    key={s.top}
+                    onClick={() => setIndex(i)}
+                    className={`slider-dot ${i === index ? 'active' : ''}`}
+                    aria-label={`Slide ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </section>

@@ -13,6 +13,7 @@ import RecentOrders from '@/features/home/components/RecentOrders';
 import { useHomeOrders } from '@/features/home/lib/useHomeOrders';
 import { isActiveOrder, isCompletedOrder } from '@/features/orders/types';
 import { useAuthStore } from '@/features/auth/store';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { MenuProvider, useMenu } from '@/features/menu/components/MenuProvider';
 import type { MenuSection } from '@/features/menu/data';
 
@@ -34,6 +35,7 @@ function HomeContent() {
   const { sections } = useMenu();
   const { user, isAuthenticated } = useAuthStore();
   const { orders } = useHomeOrders();
+  const { bumperOffersEnabled, bumperOffers } = usePublicSettings();
   const visibleOrders = useMemo(() => (isAuthenticated ? (orders ?? []) : []), [isAuthenticated, orders]);
   const liveOrder = visibleOrders.find((o) => isActiveOrder(o.status)) ?? null;
   const recentDelivered = visibleOrders.filter((o) => isCompletedOrder(o.status)).slice(0, 5);
@@ -68,6 +70,7 @@ function HomeContent() {
         onQueryChange={setQuery}
         vegOn={vegOnly}
         onVegToggle={() => setVegOnly((v) => !v)}
+        bumperOffers={bumperOffersEnabled ? bumperOffers : undefined}
       />
       <StatusStrip />
       <Reveal>

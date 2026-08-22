@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard, Users, ShoppingBag, Banknote,
   LogOut, Menu, X, Bell, FolderTree, UtensilsCrossed,
-  ClipboardList, Settings,
+  ClipboardList, Settings, Megaphone,
 } from 'lucide-react';
 import { getServerSession, isOwnerSession } from '@/features/auth/actions';
 
@@ -26,6 +26,7 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Payments', href: '/dashboard/admin/payments', icon: Banknote },
   { label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ClipboardList },
   { label: 'General Settings', href: '/dashboard/admin/settings', icon: Settings },
+  { label: 'Bumper Offers', href: '/dashboard/admin/bumper-offers', icon: Megaphone },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -39,6 +39,8 @@ const FALLBACK: PublicStoreSettings = {
   walletEnabled: true,
   walletCreditLimit: 500,
   isOpen: true,
+  bumperOffersEnabled: true,
+  bumperOffers: [],
 };
 
 export function usePublicSettings(): PublicStoreSettings {
