@@ -22,6 +22,7 @@ import { usePolling } from '@/hooks/usePolling';
 import { showToast } from '@/components/shared/Toast';
 import { useAuthStore } from '@/features/auth/store';
 import { groupDeliveriesByDay } from '@/features/delivery/lib/history';
+import { useCamera } from '@/hooks/useCamera';
 import { Loader2, Bike, QrCode, ScanLine, KeyRound, Banknote, CheckCircle2, Check, Clock, Phone, ChevronDown, ChevronUp, User, LogOut, Upload, MapPin, CameraOff, Camera, TrendingUp, Wallet, Search, CalendarDays } from 'lucide-react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
@@ -236,24 +237,26 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   useEffect(() => {
     onClaimedRef.current = onClaimed;
   });
-  const [camera, setCamera] = useState<'idle' | 'starting' | 'running' | 'error'>('idle');
-  const [error, setError] = useState('');
+
+  const [scanError, setScanError] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'qr' | 'id'>('qr');
 
-  const streamRef = useRef<MediaStream | null>(null);
+  const { status: cameraStatus, error: cameraError, startCamera, stopCamera } = useCamera({
+    defaultFacingMode: 'environment',
+  });
+
   const rafRef = useRef(0);
   const stoppedRef = useRef(true);
   const scanLockRef = useRef(false);
 
-  function stopCamera() {
+  const handleStopCamera = useCallback(() => {
     stoppedRef.current = true;
     cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  }
+    stopCamera(videoRef.current);
+  }, [stopCamera]);
 
   function tick() {
     if (stoppedRef.current) return;
@@ -274,10 +277,10 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
             setBusy(false);
             scanLockRef.current = false;
             if (res.success) {
-              setError('');
+              setScanError('');
               onClaimedRef.current();
             } else {
-              setError(res.error ?? 'Invalid QR');
+              setScanError(res.error ?? 'Invalid QR');
               window.setTimeout(tick, 2000);
             }
           });
@@ -288,69 +291,48 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  async function startCamera() {
-    setCamera('starting');
-    setError('');
+  async function handleStartCamera() {
+    setScanError('');
     stoppedRef.current = false;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      if (stoppedRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.setAttribute('playsinline', 'true');
-        video.setAttribute('autoplay', 'true');
-        video.muted = true;
-        try { await video.play(); } catch { /* frame renders as soon as the stream is ready */ }
-      }
-      setCamera('running');
+    const stream = await startCamera('environment', videoRef.current);
+    if (stream && !stoppedRef.current) {
       tick();
-    } catch {
-      if (!stoppedRef.current) setCamera('error');
     }
   }
 
-  function retryCamera() {
-    stopCamera();
-    setCamera('starting');
-    startCamera();
-  }
-
-  useEffect(() => () => stopCamera(), []);
+  useEffect(() => {
+    return () => {
+      handleStopCamera();
+    };
+  }, [handleStopCamera]);
 
   async function claimByCode() {
     if (code.trim().length === 0) return;
     setBusy(true);
-    setError('');
+    setScanError('');
     const res = await startPickupByTrackingCode(code);
     setBusy(false);
-    if (res.success) { setCode(''); setError(''); onClaimed(); }
-    else setError(res.error ?? 'Could not start pickup');
+    if (res.success) { setCode(''); setScanError(''); onClaimed(); }
+    else setScanError(res.error ?? 'Could not start pickup');
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadBusy(true);
-    setError('');
+    setScanError('');
     try {
       const token = await decodeQrFromFile(file);
       if (!token) {
-        setError('No QR code found in the image. Try a clearer photo.');
+        setScanError('No QR code found in the image. Try a clearer photo.');
         setUploadBusy(false);
         return;
       }
       const res = await startPickupByToken(token);
       if (res.success) onClaimed();
-      else setError(res.error ?? 'Invalid QR');
+      else setScanError(res.error ?? 'Invalid QR');
     } catch {
-      setError('Could not read the image');
+      setScanError('Could not read the image');
     }
     setUploadBusy(false);
     e.target.value = '';
@@ -360,7 +342,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
     <div className="mt-6">
       <div className="grid grid-cols-2 gap-2 mb-3">
         <button
-          onClick={() => { stopCamera(); setMode('qr'); setCamera('idle'); setError(''); }}
+          onClick={() => { handleStopCamera(); setMode('qr'); setScanError(''); }}
           className={`flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border transition-colors ${
             mode === 'qr'
               ? 'bg-ztext text-zbg border-ztext'
@@ -370,7 +352,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
           <Upload size={16} /> Upload QR
         </button>
         <button
-          onClick={() => { stopCamera(); setMode('id'); setError(''); }}
+          onClick={() => { handleStopCamera(); setMode('id'); setScanError(''); }}
           className={`flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border transition-colors ${
             mode === 'id'
               ? 'bg-ztext text-zbg border-ztext'
@@ -392,28 +374,28 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
                 <p className="text-white text-xs">Processing…</p>
               </div>
             )}
-            {camera === 'idle' && (
+            {cameraStatus === 'idle' && (
               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
                 <Camera size={32} className="text-white/80" />
                 <p className="text-white text-sm font-semibold">Enable camera</p>
                 <p className="text-white/60 text-xs">Tap below so the browser can ask for camera permission. You can also upload a photo of the QR.</p>
-                <button onClick={startCamera} className="button-z button-z-primary h-11 px-5 text-sm">
+                <button onClick={handleStartCamera} className="button-z button-z-primary h-11 px-5 text-sm">
                   Allow camera access
                 </button>
               </div>
             )}
-            {camera === 'starting' && (
+            {cameraStatus === 'starting' && (
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
                 <Loader2 className="text-white w-6 h-6 animate-spin" />
                 <p className="text-white text-xs">Starting camera…</p>
               </div>
             )}
-            {camera === 'error' && (
+            {cameraStatus === 'error' && (
               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
                 <CameraOff size={28} className="text-white/70" />
                 <p className="text-white text-sm font-medium">Camera unavailable</p>
-                <p className="text-white/60 text-xs">Allow camera access for this site. If you previously denied it, tap the camera icon in the browser&apos;s address bar to re-enable it, then retry. Or upload a photo of the QR below.</p>
-                <button onClick={retryCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+                <p className="text-white/60 text-xs">{cameraError || "Allow camera access for this site. If you previously denied it, tap the camera icon in the browser's address bar to re-enable it, then retry. Or upload a photo of the QR below."}</p>
+                <button onClick={handleStartCamera} className="button-z button-z-primary h-10 px-4 text-sm">
                   Retry camera
                 </button>
               </div>
@@ -423,7 +405,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
             </div>
           </div>
           <p className="text-xs text-ztext-light mt-2 text-center">Point the camera at the store&apos;s pickup QR, or upload a photo of it, to claim an order.</p>
-          {error && <p className="text-sm text-zred mt-2 text-center">{error}</p>}
+          {scanError && <p className="text-sm text-zred mt-2 text-center">{scanError}</p>}
 
           <div className="mt-3 flex gap-2">
             <button
@@ -443,7 +425,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
           <div className="mt-1.5 flex gap-2">
             <input
               value={code}
-              onChange={(e) => { setCode(e.target.value); setError(''); }}
+              onChange={(e) => { setCode(e.target.value); setScanError(''); }}
               onKeyDown={(e) => { if (e.key === 'Enter') claimByCode(); }}
               placeholder="e.g. DD-XXXXXX or order ID"
               className="input-z flex-1 font-mono text-sm"
@@ -454,7 +436,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
               {busy ? <Loader2 size={16} className="animate-spin" /> : 'Claim'}
             </button>
           </div>
-          {error && <p className="text-sm text-zred mt-2">{error}</p>}
+          {scanError && <p className="text-sm text-zred mt-2">{scanError}</p>}
           <p className="text-[11px] text-ztext-lighter mt-2">
             Enter the order ID or tracking code shown on the store receipt. Unpicked orders can be claimed directly here.
           </p>
@@ -667,21 +649,22 @@ function QrModal({ orderId, trackingCode, onClose }: { orderId: string; tracking
 function ScanModal({ onClose }: { onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState('');
+  const [scanError, setScanError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [camera, setCamera] = useState<'idle' | 'starting' | 'running' | 'error'>('idle');
 
-  const streamRef = useRef<MediaStream | null>(null);
+  const { status: cameraStatus, error: cameraError, startCamera, stopCamera } = useCamera({
+    defaultFacingMode: 'environment',
+  });
+
   const rafRef = useRef(0);
   const stoppedRef = useRef(true);
   const scanLockRef = useRef(false);
 
-  function stopCamera() {
+  const handleStopCamera = useCallback(() => {
     stoppedRef.current = true;
     cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  }
+    stopCamera(videoRef.current);
+  }, [stopCamera]);
 
   function tick() {
     if (stoppedRef.current) return;
@@ -701,8 +684,14 @@ function ScanModal({ onClose }: { onClose: () => void }) {
           startPickupByToken(code.data).then((res) => {
             setBusy(false);
             scanLockRef.current = false;
-            if (res.success) { showToast('Pickup confirmed'); onClose(); }
-            else { setError(res.error ?? 'Invalid QR'); window.setTimeout(tick, 2000); }
+            if (res.success) {
+              showToast('Pickup confirmed');
+              handleStopCamera();
+              onClose();
+            } else {
+              setScanError(res.error ?? 'Invalid QR');
+              window.setTimeout(tick, 2000);
+            }
           });
           return;
         }
@@ -711,69 +700,55 @@ function ScanModal({ onClose }: { onClose: () => void }) {
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  async function startCamera() {
-    setCamera('starting');
-    setError('');
+  async function handleStartCamera() {
+    setScanError('');
     stoppedRef.current = false;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (stoppedRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.setAttribute('playsinline', 'true');
-        video.setAttribute('autoplay', 'true');
-        video.muted = true;
-        try { await video.play(); } catch { /* frame renders as soon as the stream is ready */ }
-      }
-      setCamera('running');
+    const stream = await startCamera('environment', videoRef.current);
+    if (stream && !stoppedRef.current) {
       tick();
-    } catch {
-      if (!stoppedRef.current) setCamera('error');
     }
   }
 
-  function retryCamera() {
-    stopCamera();
-    setCamera('starting');
-    startCamera();
-  }
+  useEffect(() => {
+    return () => {
+      handleStopCamera();
+    };
+  }, [handleStopCamera]);
 
-  useEffect(() => () => stopCamera(), []);
+  const handleClose = () => {
+    handleStopCamera();
+    onClose();
+  };
 
   return (
-    <ModalShell title="Scan pickup QR" onClose={onClose}>
+    <ModalShell title="Scan pickup QR" onClose={handleClose}>
       <div className="relative rounded-xl overflow-hidden bg-black aspect-square flex items-center justify-center">
         <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
         <canvas ref={canvasRef} className="hidden" />
         {busy && <Loader2 className="absolute text-white w-6 h-6 animate-spin" />}
-        {camera === 'idle' && (
+        {cameraStatus === 'idle' && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
             <Camera size={28} className="text-white/80" />
             <p className="text-white text-sm font-semibold">Enable camera</p>
             <p className="text-white/60 text-xs">Tap below so the browser can ask for camera permission to scan the pickup QR.</p>
-            <button onClick={startCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+            <button onClick={handleStartCamera} className="button-z button-z-primary h-10 px-4 text-sm">
               Allow camera access
             </button>
           </div>
         )}
-        {camera === 'starting' && <Loader2 className="absolute text-white w-6 h-6 animate-spin" />}
-        {camera === 'error' && (
+        {cameraStatus === 'starting' && <Loader2 className="absolute text-white w-6 h-6 animate-spin" />}
+        {cameraStatus === 'error' && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 px-6 text-center">
             <CameraOff size={28} className="text-white/70" />
             <p className="text-white text-sm font-medium">Camera unavailable</p>
-            <p className="text-white/60 text-xs">Allow camera access for this site. If you previously denied it, tap the camera icon in the browser&apos;s address bar to re-enable it, then retry.</p>
-            <button onClick={retryCamera} className="button-z button-z-primary h-10 px-4 text-sm">
+            <p className="text-white/60 text-xs">{cameraError || "Allow camera access for this site. If you previously denied it, tap the camera icon in the browser's address bar to re-enable it, then retry."}</p>
+            <button onClick={handleStartCamera} className="button-z button-z-primary h-10 px-4 text-sm">
               Retry camera
             </button>
           </div>
         )}
       </div>
-      {error && <p className="text-sm text-zred mt-3">{error}</p>}
+      {scanError && <p className="text-sm text-zred mt-3">{scanError}</p>}
       <p className="text-xs text-ztext-light mt-3">Point the camera at the order&apos;s pickup QR. You can also use the Start pickup button instead.</p>
     </ModalShell>
   );

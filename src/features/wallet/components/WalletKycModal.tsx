@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, CheckCircle, RefreshCw, X, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle, RefreshCw, X, AlertCircle, Camera, Upload, RotateCcw, Check, CameraOff } from 'lucide-react';
 import { submitWalletKyc } from '../actions';
 import { showToast } from '@/components/shared/Toast';
+import { useCamera } from '@/hooks/useCamera';
 import type { Wallet } from '../types';
 
 interface WalletKycModalProps {
@@ -17,27 +18,101 @@ interface WalletKycModalProps {
   defaultEmail?: string;
 }
 
-export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, onSuccess, defaultName = '', defaultEmail = '' }: WalletKycModalProps) {
+export default function WalletKycModal({
+  isOpen,
+  onClose,
+  walletStatus,
+  wallet,
+  onSuccess,
+  defaultName = '',
+  defaultEmail = '',
+}: WalletKycModalProps) {
   const router = useRouter();
-  
+
   const [kycName, setKycName] = useState(defaultName);
   const [kycEmail, setKycEmail] = useState(defaultEmail);
   const [documentType, setDocumentType] = useState('Aadhar Card');
   const [kycPhotoFile, setKycPhotoFile] = useState<File | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
-  
+
+  const [kycPhotoMode, setKycPhotoMode] = useState<'upload' | 'camera'>('upload');
+  const [capturedPhotoFile, setCapturedPhotoFile] = useState<File | null>(null);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
+
   const [submittingKyc, setSubmittingKyc] = useState(false);
   const [kycError, setKycError] = useState('');
 
+  const { status, error: cameraError, startCamera, stopCamera, capturePhoto, videoRef } = useCamera({
+    defaultFacingMode: 'user',
+  });
+
+  const handleClose = () => {
+    stopCamera();
+    if (capturedPhotoUrl) {
+      URL.revokeObjectURL(capturedPhotoUrl);
+      setCapturedPhotoUrl(null);
+    }
+    setCapturedPhotoFile(null);
+    setKycPhotoMode('upload');
+    onClose();
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (capturedPhotoUrl) {
+        URL.revokeObjectURL(capturedPhotoUrl);
+      }
+    };
+  }, [stopCamera, capturedPhotoUrl]);
+
   if (!isOpen) return null;
+
+  const handleStartCamera = async () => {
+    setKycPhotoMode('camera');
+    if (capturedPhotoUrl) {
+      URL.revokeObjectURL(capturedPhotoUrl);
+      setCapturedPhotoUrl(null);
+    }
+    setCapturedPhotoFile(null);
+    await startCamera('user');
+  };
+
+  const handleCapture = async () => {
+    const file = await capturePhoto(null, 'kyc-selfie');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setCapturedPhotoFile(file);
+      setCapturedPhotoUrl(url);
+    }
+  };
+
+  const handleRetake = async () => {
+    if (capturedPhotoUrl) {
+      URL.revokeObjectURL(capturedPhotoUrl);
+      setCapturedPhotoUrl(null);
+    }
+    setCapturedPhotoFile(null);
+    await startCamera('user');
+  };
+
+  const handleUsePhoto = () => {
+    if (capturedPhotoFile) {
+      setKycPhotoFile(capturedPhotoFile);
+      stopCamera();
+      setKycPhotoMode('upload');
+    }
+  };
 
   const handleKycSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setKycError('');
+
     if (!kycName.trim() || !kycEmail.trim() || !kycPhotoFile || !documentFile) {
-      setKycError('Please fill all fields and upload both documents.');
+      setKycError('Please fill all fields, capture/upload your live selfie, and upload your ID document.');
       return;
     }
+
     setSubmittingKyc(true);
     try {
       const photoFormData = new FormData();
@@ -88,7 +163,10 @@ export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, 
               <p className="text-[11px] text-ztext-lighter">Required to unlock wallet features</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors">
+          <button
+            onClick={handleClose}
+            className="p-1 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
@@ -102,7 +180,10 @@ export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, 
             <p className="text-sm text-ztext-light">
               Your wallet activation request is currently pending. Our team is reviewing your documents. Please check back later.
             </p>
-            <button onClick={onClose} className="mt-6 px-6 py-2 bg-zgray border border-zborder rounded-xl text-sm font-semibold hover:bg-zcard transition-colors">
+            <button
+              onClick={handleClose}
+              className="mt-6 px-6 py-2 bg-zgray border border-zborder rounded-xl text-sm font-semibold hover:bg-zcard transition-colors"
+            >
               Got it
             </button>
           </div>
@@ -119,7 +200,9 @@ export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, 
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">Full Name (As per Document)</label>
+              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">
+                Full Name (As per Document)
+              </label>
               <input
                 type="text"
                 value={kycName}
@@ -143,15 +226,130 @@ export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, 
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">Live Photo / Selfie (Image)</label>
-              <input
-                type="file"
-                accept="image/*"
-                capture="user"
-                onChange={(e) => setKycPhotoFile(e.target.files?.[0] || null)}
-                className="block w-full text-xs text-ztext-light file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-zred/10 file:text-zred hover:file:bg-zred/20 cursor-pointer border border-zborder rounded-xl p-1.5 bg-zgray/50"
-                required
-              />
+              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">
+                Live Photo / Selfie (Image)
+              </label>
+
+              {/* Two Option Mode Switcher */}
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={handleStartCamera}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
+                    kycPhotoMode === 'camera'
+                      ? 'bg-zred text-white border-zred shadow-sm'
+                      : 'bg-zgray/70 text-ztext-light border-zborder hover:border-ztext-lighter hover:text-ztext'
+                  }`}
+                >
+                  <Camera size={14} /> Take Live Photo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    setKycPhotoMode('upload');
+                  }}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
+                    kycPhotoMode === 'upload'
+                      ? 'bg-ztext text-zbg border-ztext shadow-sm'
+                      : 'bg-zgray/70 text-ztext-light border-zborder hover:border-ztext-lighter hover:text-ztext'
+                  }`}
+                >
+                  <Upload size={14} /> Upload Document
+                </button>
+              </div>
+
+              {/* Camera mode stream & preview */}
+              {kycPhotoMode === 'camera' && (
+                <div className="rounded-xl border border-zborder overflow-hidden bg-black p-2 text-center">
+                  {capturedPhotoUrl ? (
+                    <div>
+                      <img
+                        src={capturedPhotoUrl}
+                        alt="Captured selfie preview"
+                        className="w-full max-h-56 object-contain rounded-lg border border-zborder mb-2"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleRetake}
+                          className="flex-1 button-z button-z-outline py-2 text-xs flex items-center justify-center gap-1.5"
+                        >
+                          <RotateCcw size={14} /> Retake
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleUsePhoto}
+                          className="flex-1 button-z button-z-primary py-2 text-xs flex items-center justify-center gap-1.5"
+                        >
+                          <Check size={14} /> Use Photo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-900 flex items-center justify-center mb-2">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover"
+                        />
+                        {status === 'starting' && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-2 text-white text-xs">
+                            <RefreshCw size={18} className="animate-spin" /> Starting camera...
+                          </div>
+                        )}
+                        {status === 'error' && (
+                          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-3 text-center text-white gap-2">
+                            <CameraOff size={24} className="text-red-400" />
+                            <p className="text-xs font-semibold text-red-300">Camera Unavailable</p>
+                            <p className="text-[11px] text-zinc-300 leading-tight max-w-xs">{cameraError}</p>
+                            <button
+                              type="button"
+                              onClick={handleStartCamera}
+                              className="mt-1 px-3 py-1 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-semibold text-white"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {status === 'running' && (
+                        <button
+                          type="button"
+                          onClick={handleCapture}
+                          className="w-full py-2.5 bg-zred hover:bg-zred-dark text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Camera size={15} /> Capture Photo
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Upload mode file input */}
+              {kycPhotoMode === 'upload' && (
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setKycPhotoFile(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-ztext-light file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-zred/10 file:text-zred hover:file:bg-zred/20 cursor-pointer border border-zborder rounded-xl p-1.5 bg-zgray/50"
+                  />
+                </div>
+              )}
+
+              {/* Selected Photo Status Indicator */}
+              {kycPhotoFile && (
+                <p className="text-[11px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                  <CheckCircle size={13} /> Selected Photo: {kycPhotoFile.name} ({(kycPhotoFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
             </div>
 
             <div>
@@ -168,7 +366,9 @@ export default function WalletKycModal({ isOpen, onClose, walletStatus, wallet, 
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">{documentType} Document (Image)</label>
+              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">
+                {documentType} Document (Image)
+              </label>
               <input
                 type="file"
                 accept="image/*"
