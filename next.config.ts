@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 768, 1024, 1280, 1536],
   },
-  allowedDevOrigins: ['172.16.0.2'],
+  allowedDevOrigins: ['172.16.0.2', '*.trycloudflare.com'],
   turbopack: {
     root: process.cwd(),
   },
