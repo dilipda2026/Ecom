@@ -12,8 +12,8 @@ interface InStoreOrderParams {
   discountAmount?: number;
   total: number;
   paymentMethod: 'cash' | 'razorpay';
-  customerPhone: string;
-  customerName: string;
+  customerPhone?: string;
+  customerName?: string;
   customerEmail?: string;
   notes?: string;
 }
@@ -97,12 +97,10 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     if (!items || items.length === 0) {
       return { success: false, error: 'Cannot place order with an empty cart' };
     }
-    if (!customerPhone || !customerPhone.trim()) {
-      return { success: false, error: 'Customer phone number is required' };
-    }
-    if (!customerName || !customerName.trim()) {
-      return { success: false, error: 'Customer name is required' };
-    }
+
+    const finalCustomerName = customerName?.trim() || 'Walk-in Customer';
+    const finalCustomerPhone = customerPhone?.trim() || null;
+    const finalCustomerEmail = customerEmail?.trim() || null;
 
     // Resolve active restaurant
     const { data: restaurant } = await supabase
@@ -116,10 +114,10 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       return { success: false, error: 'No active restaurant found' };
     }
 
-    // Lookup existing profile matching phone number to associate user_id
-    const cleanPhone = customerPhone.trim().replace(/[^\d+]/g, '');
+    // Lookup existing profile matching phone number to associate user_id if phone provided
+    const cleanPhone = finalCustomerPhone ? finalCustomerPhone.replace(/[^\d+]/g, '') : '';
     let matchedUserId: string | null = null;
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length >= 5) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('id')
@@ -143,9 +141,9 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       tax_amount: taxAmount,
       discount_amount: discountAmount,
       total,
-      customer_name: customerName.trim(),
-      customer_phone: customerPhone.trim(),
-      customer_email: customerEmail?.trim() || null,
+      customer_name: finalCustomerName,
+      customer_phone: finalCustomerPhone,
+      customer_email: finalCustomerEmail,
       delivery_address: { address: 'In Store Counter Checkout' },
       delivery_notes: notes?.trim() || 'In Store counter order',
       accepted_at: isCash ? new Date().toISOString() : null,
@@ -225,12 +223,17 @@ export async function getInStoreOrdersAndStats(filter: InStoreFilter = {}) {
     const today = new Date().toISOString().slice(0, 10);
     const { search, paymentMethod, fromDate, toDate, page = 1, pageSize = 20 } = filter;
 
-    // Fetch stats for all in_store orders
-    const { data: allInStore } = await supabase
+    // Fetch stats for in_store orders matching date filter if provided
+    let statsQuery = supabase
       .from('orders')
       .select('id, total, payment_method, payment_status, created_at')
       .eq('order_type', 'in_store')
       .is('deleted_at', null);
+
+    if (fromDate) statsQuery = statsQuery.gte('created_at', fromDate);
+    if (toDate) statsQuery = statsQuery.lte('created_at', toDate);
+
+    const { data: allInStore } = await statsQuery;
 
     const rows = allInStore ?? [];
 

@@ -6,7 +6,7 @@ import {
   Search, Plus, Minus, Trash2, User, Phone, Mail, Banknote,
   CreditCard, CheckCircle2, AlertCircle, ShoppingBag, Loader2,
   RefreshCw, Store, Sparkles, Check, DollarSign, Printer, History,
-  TrendingUp, Calendar, FileText, ChevronRight, Filter,
+  TrendingUp, Calendar, FileText, ChevronRight, Filter, UserPlus, X, Clock,
 } from 'lucide-react';
 import {
   getInStoreCatalog,
@@ -85,6 +85,7 @@ export default function InStorePage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [isExistingCustomer, setIsExistingCustomer] = useState(false);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -99,7 +100,7 @@ export default function InStorePage() {
   // Success receipt modal state
   const [successData, setSuccessData] = useState<OrderSuccessData | null>(null);
 
-  // Printable receipt state (for printing on demand from history or success modal)
+  // Printable receipt state
   const [printReceiptData, setPrintReceiptData] = useState<OrderSuccessData | null>(null);
 
   // History & Revenue state
@@ -117,6 +118,12 @@ export default function InStorePage() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
 
+  // History Date & Time Filters state
+  const [dateQuickFilter, setDateQuickFilter] = useState<'all' | 'today' | 'yesterday' | 'custom'>('all');
+  const [customDate, setCustomDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customFromTime, setCustomFromTime] = useState('01:00');
+  const [customToTime, setCustomToTime] = useState('20:00');
+
   // Order Details modal in history
   const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<InStoreOrderRecord | null>(null);
 
@@ -125,8 +132,6 @@ export default function InStorePage() {
   useEffect(() => {
     fetchCatalog();
   }, []);
-
-
 
   async function fetchCatalog() {
     setLoadingCatalog(true);
@@ -141,11 +146,46 @@ export default function InStorePage() {
     setLoadingCatalog(false);
   }
 
+  // Calculate ISO dates for date/time filters in local timezone
+  const getDateRangeParams = useCallback(() => {
+    if (dateQuickFilter === 'all') return { fromDate: undefined, toDate: undefined };
+
+    const now = new Date();
+    if (dateQuickFilter === 'today') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { fromDate: start.toISOString(), toDate: end.toISOString() };
+    }
+
+    if (dateQuickFilter === 'yesterday') {
+      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+      const end = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+      return { fromDate: start.toISOString(), toDate: end.toISOString() };
+    }
+
+    if (dateQuickFilter === 'custom') {
+      if (!customDate) return { fromDate: undefined, toDate: undefined };
+      const [year, month, day] = customDate.split('-').map(Number);
+      const [fromH, fromM] = (customFromTime || '00:00').split(':').map(Number);
+      const [toH, toM] = (customToTime || '23:59').split(':').map(Number);
+
+      const start = new Date(year, month - 1, day, fromH || 0, fromM || 0, 0, 0);
+      const end = new Date(year, month - 1, day, toH ?? 23, toM ?? 59, 59, 999);
+      return { fromDate: start.toISOString(), toDate: end.toISOString() };
+    }
+
+    return { fromDate: undefined, toDate: undefined };
+  }, [dateQuickFilter, customDate, customFromTime, customToTime]);
+
   const fetchHistory = useCallback(async (p = 1) => {
     setLoadingHistory(true);
+    const { fromDate, toDate } = getDateRangeParams();
     const res = await getInStoreOrdersAndStats({
       search: historySearch || undefined,
       paymentMethod: historyPaymentFilter !== 'all' ? historyPaymentFilter : undefined,
+      fromDate,
+      toDate,
       page: p,
       pageSize: 15,
     });
@@ -156,7 +196,7 @@ export default function InStorePage() {
       setHistoryTotalPages(res.data.totalPages);
     }
     setLoadingHistory(false);
-  }, [historySearch, historyPaymentFilter]);
+  }, [historySearch, historyPaymentFilter, getDateRangeParams]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -168,7 +208,7 @@ export default function InStorePage() {
   function handlePhoneChange(val: string) {
     setCustomerPhone(val);
     const clean = val.trim().replace(/[^\d+]/g, '');
-    if (clean.length >= 10) {
+    if (clean.length >= 5) {
       setSearchingCustomer(true);
       startTransition(async () => {
         const res = await searchCustomerByPhone(clean);
@@ -254,23 +294,18 @@ export default function InStorePage() {
   const tenderedAmount = Number(cashTendered) || 0;
   const changeDue = tenderedAmount >= total ? tenderedAmount - total : 0;
 
-  // Checkout submit handler
+  // Checkout submit handler - customer information is optional
   async function handleCheckout() {
     setError(null);
     if (cart.length === 0) {
       setError('Please add at least one product to the bill.');
       return;
     }
-    if (!customerPhone.trim()) {
-      setError('Customer phone number is required.');
-      return;
-    }
-    if (!customerName.trim()) {
-      setError('Customer name is required.');
-      return;
-    }
 
     setPlacing(true);
+
+    const displayName = customerName.trim() || 'Walk-in Customer';
+    const displayPhone = customerPhone.trim() || 'N/A';
 
     if (paymentMethod === 'cash') {
       const res = await createInStoreOrder({
@@ -279,9 +314,9 @@ export default function InStorePage() {
         taxAmount: maintenanceFee,
         total,
         paymentMethod: 'cash',
-        customerPhone,
-        customerName,
-        customerEmail: customerEmail || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        customerName: customerName.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
         notes: orderNotes,
       });
 
@@ -290,9 +325,9 @@ export default function InStorePage() {
         setSuccessData({
           orderId: res.data.orderId,
           trackingCode: res.data.trackingCode,
-          customerName,
-          customerPhone,
-          customerEmail,
+          customerName: displayName,
+          customerPhone: displayPhone,
+          customerEmail: customerEmail.trim() || undefined,
           total,
           subtotal,
           taxAmount: maintenanceFee,
@@ -326,9 +361,9 @@ export default function InStorePage() {
         key: razorpayKey,
         amount: rzpRes.data.amount,
         name: 'Dilip Da In-Store Counter',
-        description: `Counter Order for ${customerName}`,
+        description: `Counter Order for ${displayName}`,
         orderId: rzpRes.data.id,
-        prefill: { name: customerName, contact: customerPhone, email: customerEmail },
+        prefill: { name: displayName, contact: customerPhone.trim() || '', email: customerEmail.trim() || '' },
         onSuccess: async (res) => {
           const verifyRes = await verifyRazorpayPayment(
             res.razorpay_order_id,
@@ -348,9 +383,9 @@ export default function InStorePage() {
             taxAmount: maintenanceFee,
             total,
             paymentMethod: 'razorpay',
-            customerPhone,
-            customerName,
-            customerEmail: customerEmail || undefined,
+            customerPhone: customerPhone.trim() || undefined,
+            customerName: customerName.trim() || undefined,
+            customerEmail: customerEmail.trim() || undefined,
             notes: orderNotes,
           });
 
@@ -359,9 +394,9 @@ export default function InStorePage() {
             setSuccessData({
               orderId: createRes.data.orderId,
               trackingCode: createRes.data.trackingCode,
-              customerName,
-              customerPhone,
-              customerEmail,
+              customerName: displayName,
+              customerPhone: displayPhone,
+              customerEmail: customerEmail.trim() || undefined,
               total,
               subtotal,
               taxAmount: maintenanceFee,
@@ -438,21 +473,35 @@ export default function InStorePage() {
                   Active Counter
                 </span>
               </h1>
-              <p className="text-xs text-ztext-light">Fast counter billing, walk-in customer management, printable receipts & revenue history</p>
+              <p className="text-xs text-ztext-light">Fast counter billing, optional customer info, printable receipts & revenue history</p>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              if (activeTab === 'pos') fetchCatalog();
-              else fetchHistory(historyPage);
-            }}
-            disabled={loadingCatalog || loadingHistory}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder transition-colors text-xs font-medium self-start sm:self-auto"
-          >
-            <RefreshCw size={14} className={loadingCatalog || loadingHistory ? 'animate-spin' : ''} />
-            <span>Refresh</span>
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setShowCustomerModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zred/10 text-zred hover:bg-zred/20 border border-zred/20 transition-colors text-xs font-semibold"
+            >
+              <UserPlus size={14} />
+              <span>
+                {customerName || customerPhone
+                  ? `Customer: ${customerName || customerPhone}`
+                  : '+ Customer Info'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (activeTab === 'pos') fetchCatalog();
+                else fetchHistory(historyPage);
+              }}
+              disabled={loadingCatalog || loadingHistory}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder transition-colors text-xs font-medium"
+            >
+              <RefreshCw size={14} className={loadingCatalog || loadingHistory ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs: POS Counter vs Saved Orders & Revenue History */}
@@ -502,32 +551,32 @@ export default function InStorePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Product Selection Catalog */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="bg-zcard p-4 rounded-xl border border-zborder shadow-z space-y-3">
-              {/* Search input */}
-              <div className="relative">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ztext-muted" />
+            <div className="bg-zcard p-3 sm:p-4 rounded-xl border border-zborder shadow-z flex flex-col md:flex-row md:items-center gap-3">
+              {/* Product search box with optimized width */}
+              <div className="relative w-full md:w-64 lg:w-72 shrink-0">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products by name or tag (e.g. Biryani, Chicken, Thali)..."
-                  className="input-z pl-10 text-sm h-11 w-full"
+                  placeholder="Search products..."
+                  className="input-z pl-9 text-xs h-9 w-full"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ztext-lighter hover:text-ztext px-1.5 py-0.5 rounded bg-zgray"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-ztext-lighter hover:text-ztext px-1.5 py-0.5 rounded bg-zgray"
                   >
                     Clear
                   </button>
                 )}
               </div>
 
-              {/* Category tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {/* Horizontal Category Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none flex-1 min-w-0">
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                     selectedCategory === 'all'
                       ? 'bg-zred text-white shadow-z'
                       : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
@@ -539,7 +588,7 @@ export default function InStorePage() {
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                       selectedCategory === cat.id
                         ? 'bg-zred text-white shadow-z'
                         : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
@@ -641,76 +690,8 @@ export default function InStorePage() {
             )}
           </div>
 
-          {/* Right Column: Counter Customer Info & Bill Section */}
+          {/* Right Column: Counter Bill Section */}
           <div className="lg:col-span-5 space-y-4">
-            {/* Customer Information Panel */}
-            <div className="bg-zcard p-4 rounded-xl border border-zborder shadow-z space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-ztext-light flex items-center gap-1.5">
-                  <User size={14} className="text-zred" /> Customer Info
-                </h2>
-                {isExistingCustomer && (
-                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Check size={10} /> Existing Customer
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2.5">
-                <div>
-                  <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
-                    Phone Number <span className="text-zred">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => handlePhoneChange(e.target.value)}
-                      placeholder="Enter phone number"
-                      className="input-z pl-9 text-xs h-9 w-full"
-                      required
-                    />
-                    {searchingCustomer && (
-                      <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-zred" />
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
-                    Customer Name <span className="text-zred">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Walk-in Customer Name"
-                      className="input-z pl-9 text-xs h-9 w-full"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
-                    Email (Optional)
-                  </label>
-                  <div className="relative">
-                    <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="Optional customer email"
-                      className="input-z pl-9 text-xs h-9 w-full"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Cart & Billing Summary */}
             <div className="bg-zcard p-4 rounded-xl border border-zborder shadow-z space-y-4">
@@ -853,7 +834,7 @@ export default function InStorePage() {
               {/* Complete Order Action Button */}
               <button
                 onClick={handleCheckout}
-                disabled={placing || cart.length === 0 || !customerPhone.trim() || !customerName.trim()}
+                disabled={placing || cart.length === 0}
                 className="button-z button-z-primary w-full h-11 text-xs font-bold shadow-z transition-all disabled:opacity-50"
               >
                 {placing ? (
@@ -898,7 +879,7 @@ export default function InStorePage() {
                 <Calendar size={18} className="text-amber-400" />
               </div>
               <p className="text-2xl font-bold text-ztext">{fmt(historyStats.totalRevenue)}</p>
-              <p className="text-[11px] text-ztext-lighter mt-0.5">All time counter sales</p>
+              <p className="text-[11px] text-ztext-lighter mt-0.5">Filtered counter sales</p>
             </div>
 
             <div className="bg-zcard p-4 rounded-xl border border-zborder shadow-z">
@@ -915,32 +896,130 @@ export default function InStorePage() {
 
           {/* Filters & Orders List */}
           <div className="bg-zcard rounded-xl border border-zborder shadow-z">
-            <div className="p-4 border-b border-zborder flex flex-col sm:flex-row gap-3 items-center justify-between">
-              <div className="relative flex-1 w-full">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-                <input
-                  type="text"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Search in-store orders by tracking code, customer name or phone..."
-                  className="input-z pl-9 text-xs h-9 w-full"
-                />
-              </div>
+            <div className="p-4 border-b border-zborder space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div className="relative flex-1 w-full">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
+                  <input
+                    type="text"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Search in-store orders by tracking code, customer name or phone..."
+                    className="input-z pl-9 text-xs h-9 w-full"
+                  />
+                </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zborder bg-zgray text-xs">
-                  <Filter size={14} className="text-ztext-muted" />
-                  <select
-                    value={historyPaymentFilter}
-                    onChange={(e) => setHistoryPaymentFilter(e.target.value)}
-                    className="bg-transparent text-ztext font-medium outline-none cursor-pointer"
-                  >
-                    <option value="all">All Payment Methods</option>
-                    <option value="cash">Cash Only</option>
-                    <option value="razorpay">Razorpay / Online Only</option>
-                  </select>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zborder bg-zgray text-xs">
+                    <Filter size={14} className="text-ztext-muted" />
+                    <select
+                      value={historyPaymentFilter}
+                      onChange={(e) => setHistoryPaymentFilter(e.target.value)}
+                      className="bg-transparent text-ztext font-medium outline-none cursor-pointer"
+                    >
+                      <option value="all">All Payment Methods</option>
+                      <option value="cash">Cash Only</option>
+                      <option value="razorpay">Razorpay / Online Only</option>
+                    </select>
+                  </div>
                 </div>
               </div>
+
+              {/* Date & Time Quick Filters Bar */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zborder/60">
+                <span className="text-[11px] font-semibold text-ztext-light flex items-center gap-1 mr-1">
+                  <Calendar size={13} className="text-zred" /> Date Filter:
+                </span>
+
+                <button
+                  onClick={() => setDateQuickFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    dateQuickFilter === 'all'
+                      ? 'bg-zred text-white shadow-z'
+                      : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
+                  }`}
+                >
+                  All Time
+                </button>
+                <button
+                  onClick={() => setDateQuickFilter('today')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    dateQuickFilter === 'today'
+                      ? 'bg-zred text-white shadow-z'
+                      : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setDateQuickFilter('yesterday')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    dateQuickFilter === 'yesterday'
+                      ? 'bg-zred text-white shadow-z'
+                      : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
+                  }`}
+                >
+                  Yesterday
+                </button>
+                <button
+                  onClick={() => setDateQuickFilter('custom')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    dateQuickFilter === 'custom'
+                      ? 'bg-zred text-white shadow-z'
+                      : 'bg-zgray text-ztext-light hover:text-ztext hover:bg-zborder'
+                  }`}
+                >
+                  Custom
+                </button>
+
+                {dateQuickFilter !== 'all' && (
+                  <button
+                    onClick={() => setDateQuickFilter('all')}
+                    className="px-2 py-1 text-[11px] font-medium text-red-400 hover:underline ml-auto sm:ml-2"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Custom Date & Time Controls */}
+              {dateQuickFilter === 'custom' && (
+                <div className="p-3 bg-zgray rounded-xl border border-zborder flex flex-wrap items-center gap-3 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <label className="font-semibold text-ztext-light">Date:</label>
+                    <input
+                      type="date"
+                      value={customDate}
+                      onChange={(e) => setCustomDate(e.target.value)}
+                      className="input-z text-xs h-8 px-2"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <label className="font-semibold text-ztext-light flex items-center gap-1">
+                      <Clock size={12} className="text-ztext-muted" /> From:
+                    </label>
+                    <input
+                      type="time"
+                      value={customFromTime}
+                      onChange={(e) => setCustomFromTime(e.target.value)}
+                      className="input-z text-xs h-8 px-2"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <label className="font-semibold text-ztext-light flex items-center gap-1">
+                      <Clock size={12} className="text-ztext-muted" /> To:
+                    </label>
+                    <input
+                      type="time"
+                      value={customToTime}
+                      onChange={(e) => setCustomToTime(e.target.value)}
+                      className="input-z text-xs h-8 px-2"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* History Table */}
@@ -968,7 +1047,7 @@ export default function InStorePage() {
                   ) : historyOrders.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-ztext-lighter">
-                        No in-store orders found matching your search.
+                        No in-store orders found matching your search and date filters.
                       </td>
                     </tr>
                   ) : (
@@ -978,8 +1057,8 @@ export default function InStorePage() {
                           {order.tracking_code}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-ztext">{order.customer_name ?? 'Walk-in'}</p>
-                          <p className="text-[11px] text-ztext-light">{order.customer_phone}</p>
+                          <p className="font-semibold text-ztext">{order.customer_name ?? 'Walk-in Customer'}</p>
+                          <p className="text-[11px] text-ztext-light">{order.customer_phone ?? 'N/A'}</p>
                         </td>
                         <td className="px-4 py-3 text-ztext-light">
                           {order.order_items?.length ?? 0} item{(order.order_items?.length ?? 0) !== 1 ? 's' : ''}
@@ -1048,6 +1127,104 @@ export default function InStorePage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* OPTIONAL CUSTOMER DETAILS MODAL */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zcard border border-zborder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-zborder pb-3">
+              <h3 className="text-sm font-bold text-ztext flex items-center gap-2">
+                <UserPlus size={16} className="text-zred" /> Customer Details (Optional)
+              </h3>
+              <button onClick={() => setShowCustomerModal(false)} className="p-1 text-ztext-lighter hover:text-ztext">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder="Enter phone number (e.g. 9876543210)"
+                    className="input-z pl-9 text-xs h-9 w-full"
+                  />
+                  {searchingCustomer && (
+                    <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-zred" />
+                  )}
+                </div>
+                {isExistingCustomer && (
+                  <p className="text-[10px] text-emerald-400 mt-1 font-medium flex items-center gap-1">
+                    <Check size={11} /> Found matching customer profile!
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
+                  Customer Name
+                </label>
+                <div className="relative">
+                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Customer Name"
+                    className="input-z pl-9 text-xs h-9 w-full"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">
+                  Email Address (Optional)
+                </label>
+                <div className="relative">
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
+                  <input
+                    type="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="Optional customer email"
+                    className="input-z pl-9 text-xs h-9 w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-zborder gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomerPhone('');
+                  setCustomerName('');
+                  setCustomerEmail('');
+                  setIsExistingCustomer(false);
+                  setShowCustomerModal(false);
+                }}
+                className="px-3 py-2 text-xs font-semibold text-red-400 hover:underline"
+              >
+                Clear Details
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCustomerModal(false)}
+                className="button-z button-z-primary px-4 py-2 text-xs font-bold shadow-z"
+              >
+                Save Details
+              </button>
+            </div>
           </div>
         </div>
       )}
