@@ -4,9 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../store';
 import { authService } from '../services/auth-service';
-import { isAllowedSigninEmail } from '@/config/auth-access';
-import { getPublicSettings } from '@/features/settings/actions';
-import { usePublicSettings } from '@/hooks/usePublicSettings';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
 export default function LoginForm() {
@@ -16,22 +13,12 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const next = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('next') : null;
-  const publicSettings = usePublicSettings();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
     const normalizedEmail = email.toLowerCase().trim();
-    const publicConfig = await getPublicSettings().catch(() => null);
-    const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
-    const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
-    const ownerEmail = publicConfig?.ownerEmail ?? publicSettings.ownerEmail;
-    if (!isAllowedSigninEmail(normalizedEmail, deliveryEmails, adminEmails, ownerEmail)) {
-      setError('Only CIT students and authorized staff can sign in.');
-      return;
-    }
-
     setLoading(true);
 
     const { user, error: err } = await authService.signIn(normalizedEmail, password);
@@ -87,7 +74,7 @@ export default function LoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-                <input id="email" type="email" className="input-z" placeholder="youremail@cit.ac.in" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input id="email" type="email" className="input-z" placeholder="youremail@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-ztext mb-1.5">Password</label>

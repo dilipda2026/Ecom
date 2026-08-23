@@ -35,7 +35,3 @@ export function isOwnerEmail(email: string, ownerEmail?: string | null) {
   if (!ownerEmail) return false;
   return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
 }
-
-export function isAllowedSigninEmail(email: string, extraDeliveryEmails: string[] = [], extraAdminEmails: string[] = [], ownerEmail?: string | null) {
-  return isCitStudentEmail(email) || isAdminEmail(email, extraAdminEmails) || isDeliveryEmail(email, extraDeliveryEmails) || isOwnerEmail(email, ownerEmail);
-}

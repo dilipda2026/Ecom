@@ -3,7 +3,6 @@ import {
   isCitStudentEmail,
   isDeliveryEmail,
   isAdminEmail,
-  isAllowedSigninEmail,
 } from '@/config/auth-access';
 
 describe('auth-access', () => {
@@ -25,11 +24,5 @@ describe('auth-access', () => {
   it('allows only allowlisted delivery emails', () => {
     expect(isDeliveryEmail('anyone@gmail.com')).toBe(false);
     expect(isDeliveryEmail('youremail@cit.ac.in')).toBe(false);
-  });
-
-  it('sign-in gate accepts CIT, admin, and delivery emails only', () => {
-    expect(isAllowedSigninEmail('youremail@cit.ac.in')).toBe(true);
-    expect(isAllowedSigninEmail('lastw5232@gmail.com', [], ['lastw5232@gmail.com'])).toBe(true);
-    expect(isAllowedSigninEmail('outsider@yahoo.com')).toBe(false);
   });
 });

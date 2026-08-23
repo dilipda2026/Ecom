@@ -17,7 +17,7 @@ const COUNTDOWN_SECONDS = 300;
 type AccountType = 'student' | 'delivery' | 'admin';
 
 const accountTypes: { value: AccountType; label: string; desc: string; emoji: string }[] = [
-  { value: 'student', label: 'Student', desc: 'CIT student, order food for delivery', emoji: '🎓' },
+  { value: 'student', label: 'Student', desc: 'Create an account to order food', emoji: '🎓' },
   { value: 'delivery', label: 'Delivery Partner', desc: 'Deliver food and earn money', emoji: '🛵' },
   { value: 'admin', label: 'Administrator', desc: 'Manage the store dashboard', emoji: '⚙️' },
 ];
@@ -72,7 +72,6 @@ export default function SignupForm() {
     const deliveryEmails = publicConfig?.deliveryEmails ?? publicSettings.deliveryEmails;
     const adminEmails = publicConfig?.adminEmails ?? publicSettings.adminEmails;
     const ownerEmail = publicConfig?.ownerEmail ?? publicSettings.ownerEmail;
-    if (accountType === 'student' && !isCitStudentEmail(normalizedEmail)) { showToast('Only for CIT students'); return; }
     if (accountType === 'delivery' && !isDeliveryEmail(normalizedEmail, deliveryEmails)) { showToast('This email is not approved for delivery partners'); return; }
     if (accountType === 'admin' && !isAdminEmail(normalizedEmail, adminEmails) && !isOwnerEmail(normalizedEmail, ownerEmail)) { showToast('This email is not approved for admin access'); return; }
     setSending(true);
@@ -323,7 +322,7 @@ export default function SignupForm() {
           </div>
           <div>
             <label className="block text-sm font-medium text-ztext mb-1.5">Email</label>
-            <input type="email" className="input-z w-full" placeholder={accountType === 'student' ? 'youremail@cit.ac.in' : 'youremail@example.com'} value={email} onChange={(e) => setEmail(e.target.value)} required
+            <input type="email" className="input-z w-full" placeholder="youremail@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
               onKeyDown={(e) => { if (e.key === 'Enter') handleSendOtp(); }} />
           </div>
           <button onClick={handleSendOtp} disabled={sending || !email.trim()}

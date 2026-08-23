@@ -519,7 +519,8 @@ export class AdminRepository {
     const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate } = filter;
     let query = admin
       .from('payments')
-      .select('*, order:orders!order_id(tracking_code, status)', { count: 'exact' });
+      .select('*, order:orders!order_id!inner(tracking_code, status)', { count: 'exact' })
+      .neq('order.status', 'cancelled');
     if (status && status !== 'all') query = query.eq('status', status);
     if (search) {
       query = query.or(

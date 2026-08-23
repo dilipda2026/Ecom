@@ -96,7 +96,9 @@ export default function AdminPaymentsPage() {
   }, [filterKey, fetchPayments]);
 
   const stats = useMemo(() => {
-    const completed = payments.filter((p) => ['confirmed', 'collected'].includes(p.status));
+    const completed = payments.filter(
+      (p) => ['confirmed', 'collected'].includes(p.status) && !['cancelled', 'declined'].includes(p.order?.status ?? '')
+    );
     const totalAmount = completed.reduce((sum, p) => sum + Number(p.amount), 0);
     const avg = completed.length > 0 ? totalAmount / completed.length : 0;
     return { count: completed.length, totalAmount, avg };
