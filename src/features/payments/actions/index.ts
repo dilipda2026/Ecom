@@ -10,14 +10,13 @@ export async function getAvailablePaymentMethods(): Promise<PaymentMethodAvailab
 }
 
 export async function createRazorpayOrder(amount: number, currency = 'INR'): Promise<
-  { success: true; data: { id: string; amount: number; currency: string } } | { success: false; error: string }
+  { success: true; data: { id: string; amount: number; currency: string; keyId: string } } | { success: false; error: string }
 > {
-  const keyId = (await getSetting('razorpay_key_id')) || env.razorpay.keyId || '';
-  const storedSecret = await getSetting('razorpay_key_secret');
-  const keySecret = storedSecret || env.razorpay.keySecret || '';
+  const keyId = await getSetting('razorpay_key_id');
+  const keySecret = await getSetting('razorpay_key_secret');
 
   if (!keyId || !keySecret) {
-    return { success: false, error: 'Razorpay not configured' };
+    return { success: false, error: 'Razorpay is not configured in the database settings.' };
   }
 
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
@@ -45,7 +44,7 @@ export async function createRazorpayOrder(amount: number, currency = 'INR'): Pro
     }
 
     const order = await res.json();
-    return { success: true, data: { id: order.id, amount: order.amount, currency: order.currency } };
+    return { success: true, data: { id: order.id, amount: order.amount, currency: order.currency, keyId } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to create Razorpay order' };
   }
@@ -60,10 +59,9 @@ export async function verifyRazorpayPayment(
     return { success: false, error: 'Missing Razorpay payment ID' };
   }
 
-  const secret = env.razorpay.keySecret || process.env.RAZORPAY_KEY_SECRET;
+  const secret = await getSetting('razorpay_key_secret');
   if (!secret) {
-    // Development fallback if key secret not provided
-    return { success: true };
+    return { success: false, error: 'Razorpay secret is not configured in the database settings.' };
   }
 
   try {
@@ -81,7 +79,7 @@ export async function verifyRazorpayPayment(
     }
 
     // Secondary verification via Razorpay API GET /v1/payments/{id}
-    const keyId = env.razorpay.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keyId = await getSetting('razorpay_key_id');
     if (keyId && secret) {
       const auth = Buffer.from(`${keyId}:${secret}`).toString('base64');
       const res = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {

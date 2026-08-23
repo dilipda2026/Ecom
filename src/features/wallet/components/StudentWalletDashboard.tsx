@@ -120,10 +120,8 @@ export default function StudentWalletDashboard() {
           return;
         }
 
-        const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TLHU8jOHX9oZta';
-
         openRazorpayCheckout({
-          key: razorpayKey,
+          key: rzpOrder.data.keyId,
           amount: amt * 100,
           currency: 'INR',
           name: 'Dilip Da Wallet',

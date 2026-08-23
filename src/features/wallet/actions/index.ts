@@ -52,13 +52,13 @@ export async function getWalletDetails(): Promise<{
     }
 
     // 3. Fetch transaction history
-    type RawTransaction = Omit<WalletTransaction, 'amount'> & { amount?: number | string | null };
+    type RawTransaction = Omit<WalletTransaction, 'amount'> & { amount?: number | string | null; reference_id?: string | null };
     let rawTransactions: RawTransaction[] = [];
     try {
       const { data: txData } = await supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('wallet_id', walletRecord?.id || '00000000-0000-0000-0000-000000000000')
         .order('created_at', { ascending: false });
 
       if (txData) rawTransactions = txData;
@@ -73,16 +73,16 @@ export async function getWalletDetails(): Promise<{
         id: tx.id,
         restaurant_id: tx.restaurant_id ?? null,
         wallet_id: tx.wallet_id ?? walletRecord?.id ?? null,
-        user_id: tx.user_id,
+        user_id: user.id, // User id is derived
         type: isCreditType ? 'credit' : 'debit',
         amount: Math.abs(Number(tx.amount) || 0),
-        balance_before: Number(tx.balance_before) || 0,
+        balance_before: 0, // No longer stored
         balance_after: Number(tx.balance_after) || 0,
-        order_id: tx.order_id ?? (tx.reference?.startsWith('ORD') ? tx.reference : null),
-        payment_reference: tx.payment_reference ?? tx.reference ?? null,
-        description: tx.description ?? tx.note ?? (isCreditType ? 'Wallet Top Up' : 'Order Payment'),
-        reference: tx.reference ?? null,
-        note: tx.note ?? null,
+        order_id: tx.reference_id?.startsWith('ORD') ? tx.reference_id : null,
+        payment_reference: tx.reference_id ?? null,
+        description: tx.description ?? (isCreditType ? 'Wallet Top Up' : 'Order Payment'),
+        reference: tx.reference_id ?? null,
+        note: null,
         created_at: tx.created_at,
       };
     });
@@ -187,32 +187,21 @@ export async function topupWallet(
 
     // 3. Insert transaction record into `wallet_transactions`
     const txnRef = `TOPUP-${Date.now()}`;
-    const noteText = `Added ₹${amount} to wallet (${paymentReference})`;
     const descText = `Wallet Top Up (${paymentReference})`;
 
-    // Try full insert first
-    const { error: fullInsertErr } = await supabase.from('wallet_transactions').insert({
-      user_id: user.id,
-      wallet_id: walletId || null,
-      type: 'credit',
-      amount: amount,
-      balance_before: balanceBefore,
-      balance_after: balanceAfter,
-      payment_reference: txnRef,
-      description: descText,
-      note: noteText,
-      reference: txnRef,
-    });
-
-    // If full insert failed due to extra columns missing, fallback to standard schema
-    if (fullInsertErr) {
-      await supabase.from('wallet_transactions').insert({
-        user_id: user.id,
+    if (walletId) {
+      const { error: insertErr } = await supabase.from('wallet_transactions').insert({
+        wallet_id: walletId,
         type: 'credit',
         amount: amount,
-        reference: txnRef,
-        note: noteText,
+        balance_after: balanceAfter,
+        description: descText,
+        reference_id: txnRef,
       });
+
+      if (insertErr) {
+        console.error('Wallet transaction insert failed:', insertErr);
+      }
     }
 
     return { success: true, newBalance: balanceAfter };
@@ -326,29 +315,20 @@ export async function deductWalletBalance(
 
     // 3. Insert transaction record
     const descText = description || `Payment for order ${orderId}`;
-    const noteText = `Deducted ₹${amount} for order ${orderId}`;
 
-    const { error: fullInsertErr } = await supabase.from('wallet_transactions').insert({
-      user_id: user.id,
-      wallet_id: walletId || null,
-      type: 'debit',
-      amount: -amount,
-      balance_before: balanceBefore,
-      balance_after: balanceAfter,
-      order_id: orderId,
-      description: descText,
-      note: noteText,
-      reference: orderId,
-    });
-
-    if (fullInsertErr) {
-      await supabase.from('wallet_transactions').insert({
-        user_id: user.id,
-        type: 'payment',
-        amount: -amount,
-        reference: orderId,
-        note: noteText,
+    if (walletId) {
+      const { error: insertErr } = await supabase.from('wallet_transactions').insert({
+        wallet_id: walletId,
+        type: 'debit',
+        amount: amount,
+        balance_after: balanceAfter,
+        description: descText,
+        reference_id: orderId,
       });
+
+      if (insertErr) {
+        console.error('Wallet transaction insert failed:', insertErr);
+      }
     }
 
     return { success: true, newBalance: balanceAfter };
