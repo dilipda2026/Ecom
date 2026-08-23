@@ -185,7 +185,11 @@ export default function AdminOrdersPage() {
       <span className="font-medium text-ztext">₹{Number(o.total).toLocaleString('en-IN')}</span>
     )},
     { key: 'orderType', header: 'Order Type', render: (o: AdminOrder) => (
-      <span className="text-xs text-ztext-light">{o.order_type ? orderTypeLabel(o.order_type) : '-'}</span>
+      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+        o.order_type === 'in_store' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-ztext-light'
+      }`}>
+        {o.order_type ? orderTypeLabel(o.order_type) : '-'}
+      </span>
     ), hideOnMobile: true},
     { key: 'payment', header: 'Payment', render: (o: AdminOrder) => (
       <div className="flex flex-col gap-0.5">

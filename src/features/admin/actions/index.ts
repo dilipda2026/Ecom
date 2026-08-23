@@ -7,15 +7,50 @@ import { clearSettingsCache, getOwnerEmail } from '@/lib/settings';
 import { isOwnerEmail } from '@/config/auth-access';
 import type { AdminFilter } from '../types';
 
-async function authorizeAdmin() {
+import { getAdminEmails } from '@/lib/settings';
+import { isAdminEmail } from '@/config/auth-access';
+import { createServiceClient } from '@/infrastructure/supabase/service';
+
+export async function authorizeAdmin() {
   const { user } = await getServerSession();
   if (!user) throw new Error('Unauthorized');
+
+  const ownerEmail = await getOwnerEmail();
+  if (isOwnerEmail(user.email, ownerEmail)) throw new Error('Forbidden');
+
   const { profile } = await getServerProfile();
-  if (!profile || !['admin', 'super_admin'].includes(profile.role)) throw new Error('Forbidden');
-  // The store owner (Dilip Da) is view-only and must never act through admin
-  // actions, even if their email is also listed in admin_emails.
-  if (isOwnerEmail(user.email, await getOwnerEmail())) throw new Error('Forbidden');
-  return { user, profile };
+
+  const adminEmails = await getAdminEmails();
+  const isAdminByEmail = isAdminEmail(user.email, adminEmails);
+  const isAdminBySession = user.role === 'admin' || user.role === 'super_admin';
+
+  if (!profile && (isAdminByEmail || isAdminBySession)) {
+    const supabase = createServiceClient();
+    if (supabase) {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        email: user.email,
+        full_name: user.fullName,
+        role: user.role || 'admin',
+        is_active: true,
+      });
+    }
+  }
+
+  const effectiveRole = profile?.role || user.role;
+  const isAuthorized = ['admin', 'super_admin'].includes(effectiveRole ?? '') || isAdminByEmail;
+
+  if (!isAuthorized) throw new Error('Forbidden');
+  return {
+    user,
+    profile: profile ?? {
+      id: user.id,
+      email: user.email,
+      full_name: user.fullName,
+      role: (effectiveRole as 'admin' | 'super_admin') || 'admin',
+      is_active: true,
+    },
+  };
 }
 
 export async function getAdminDashboard() {

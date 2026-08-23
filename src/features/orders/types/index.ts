@@ -12,13 +12,14 @@ export function isCompletedOrder(status: OrderStatus): boolean {
 
 export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'refunded';
 
-export type PaymentMethod = 'razorpay' | 'bnpl' | 'cod';
+export type PaymentMethod = 'razorpay' | 'bnpl' | 'cod' | 'cash' | 'upi' | 'wallet';
 
-export type OrderType = 'room_delivery' | 'takeaway';
+export type OrderType = 'room_delivery' | 'takeaway' | 'in_store' | 'dine_in';
 
 export const ORDER_TYPES = [
   { id: 'room_delivery' as const, label: 'Hostel Delivery', icon: '🚚', description: 'Delivered to your hostel' },
   { id: 'takeaway' as const, label: 'Take Away', icon: '🥡', description: 'Pick up your order' },
+  { id: 'in_store' as const, label: 'In Store', icon: '🏪', description: 'Counter POS order' },
 ] as const;
 
 export function orderTypeLabel(type: OrderType | string | null | undefined): string {
@@ -27,7 +28,7 @@ export function orderTypeLabel(type: OrderType | string | null | undefined): str
   return found ? `${found.icon} ${found.label}` : type;
 }
 
-export function canPayOnDelivery(orderType: OrderType | null | undefined): boolean {
+export function canPayOnDelivery(orderType: OrderType | string | null | undefined): boolean {
   return orderType === 'room_delivery' || !orderType;
 }
 

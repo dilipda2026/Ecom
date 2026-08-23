@@ -10,6 +10,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -17,13 +18,23 @@ export default function AdminDashboardPage() {
 
   async function fetchData() {
     setLoading(true);
-    const [statsRes, ordersRes] = await Promise.all([
-      getAdminDashboard(),
-      getAdminOrders({ page: 1, pageSize: 10, sortBy: 'created_at', sortOrder: 'desc' }),
-    ]);
-    if (statsRes.success && statsRes.data) setStats(statsRes.data);
-    if (ordersRes.success && ordersRes.data) setRecentOrders(ordersRes.data.data as AdminOrder[]);
-    setLoading(false);
+    setError(null);
+    try {
+      const [statsRes, ordersRes] = await Promise.all([
+        getAdminDashboard(),
+        getAdminOrders({ page: 1, pageSize: 10, sortBy: 'created_at', sortOrder: 'desc' }),
+      ]);
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+      } else if (statsRes.error) {
+        setError(statsRes.error);
+      }
+      if (ordersRes.success && ordersRes.data) setRecentOrders(ordersRes.data.data as AdminOrder[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
   }
 
   const fmt = (n: number) => '₹' + Number(n).toLocaleString('en-IN');
@@ -63,6 +74,18 @@ export default function AdminDashboardPage() {
           <RefreshCw size={18} />
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-zred flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={fetchData} className="px-3 py-1 bg-zred text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors shrink-0">
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         {primaryCards.map((card) => (

@@ -17,6 +17,21 @@ export class AdminRepository {
 
       const nonTerminal = ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'];
 
+      const safeQuery = async <T>(promise: PromiseLike<T>, fallback: T): Promise<T> => {
+        try {
+          const res = await promise;
+          if (res && typeof res === 'object' && 'error' in (res as Record<string, unknown>) && (res as Record<string, unknown>).error) {
+            return fallback;
+          }
+          return res ?? fallback;
+        } catch {
+          return fallback;
+        }
+      };
+
+      type CountResult = { count: number | null };
+      type DataResult<R> = { data: R[] | null };
+
       const [
         { count: totalUsers },
         { count: totalStudents },
@@ -37,24 +52,24 @@ export class AdminRepository {
         { count: pendingApprovals },
         { data: activityRows },
       ] = await Promise.all([
-        admin.from('profiles').select('*', { count: 'exact', head: true }).is('deleted_at', null),
-        admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').is('deleted_at', null),
-        admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'merchant').is('deleted_at', null),
-        admin.from('restaurants').select('*', { count: 'exact', head: true }).is('deleted_at', null),
-        admin.from('orders').select('*', { count: 'exact', head: true }).is('deleted_at', null),
-        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null),
-        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', today),
-        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', weekStartStr),
-        admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', monthStartStr),
-        admin.from('orders').select('id').in('status', nonTerminal).is('deleted_at', null),
-        admin.from('orders').select('id').in('status', ['completed', 'delivered']).is('deleted_at', null),
-        admin.from('orders').select('id').eq('status', 'cancelled').is('deleted_at', null),
-        admin.from('credit_accounts').select('outstanding, credit_limit').is('deleted_at', null),
-        admin.from('credit_transactions').select('amount').eq('type', 'repayment'),
-        admin.from('credit_repayments').select('credit_account_id').eq('status', 'pending').lt('due_date', today),
-        admin.from('restaurants').select('owner_id').eq('status', 'active').is('deleted_at', null),
-        admin.from('restaurants').select('*', { count: 'exact', head: true }).eq('status', 'pending').is('deleted_at', null),
-        admin.from('audit_logs').select('id, action, table_name, record_id, created_at, profiles!changed_by(full_name)').order('created_at', { ascending: false }).limit(10),
+        safeQuery<CountResult>(admin.from('profiles').select('*', { count: 'exact', head: true }).is('deleted_at', null), { count: 0 }),
+        safeQuery<CountResult>(admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student').is('deleted_at', null), { count: 0 }),
+        safeQuery<CountResult>(admin.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'merchant').is('deleted_at', null), { count: 0 }),
+        safeQuery<CountResult>(admin.from('restaurants').select('*', { count: 'exact', head: true }).is('deleted_at', null), { count: 0 }),
+        safeQuery<CountResult>(admin.from('orders').select('*', { count: 'exact', head: true }).is('deleted_at', null), { count: 0 }),
+        safeQuery<DataResult<{ total: number }>>(admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null), { data: [] }),
+        safeQuery<DataResult<{ total: number }>>(admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', today), { data: [] }),
+        safeQuery<DataResult<{ total: number }>>(admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', weekStartStr), { data: [] }),
+        safeQuery<DataResult<{ total: number }>>(admin.from('orders').select('total').in('status', ['completed', 'delivered']).is('deleted_at', null).gte('created_at', monthStartStr), { data: [] }),
+        safeQuery<DataResult<{ id: string }>>(admin.from('orders').select('id').in('status', nonTerminal).is('deleted_at', null), { data: [] }),
+        safeQuery<DataResult<{ id: string }>>(admin.from('orders').select('id').in('status', ['completed', 'delivered']).is('deleted_at', null), { data: [] }),
+        safeQuery<DataResult<{ id: string }>>(admin.from('orders').select('id').eq('status', 'cancelled').is('deleted_at', null), { data: [] }),
+        safeQuery<DataResult<{ outstanding: number; credit_limit: number }>>(admin.from('credit_accounts').select('outstanding, credit_limit').is('deleted_at', null), { data: [] }),
+        safeQuery<DataResult<{ amount: number }>>(admin.from('credit_transactions').select('amount').eq('type', 'repayment'), { data: [] }),
+        safeQuery<DataResult<{ credit_account_id: string }>>(admin.from('credit_repayments').select('credit_account_id').eq('status', 'pending').lt('due_date', today), { data: [] }),
+        safeQuery<DataResult<{ owner_id: string }>>(admin.from('restaurants').select('owner_id').eq('status', 'active').is('deleted_at', null), { data: [] }),
+        safeQuery<CountResult>(admin.from('restaurants').select('*', { count: 'exact', head: true }).eq('status', 'pending').is('deleted_at', null), { count: 0 }),
+        safeQuery<DataResult<{ id: string; action: string; table_name: string; record_id: string | null; created_at: string; changed_by: string | null }>>(admin.from('audit_logs').select('id, action, table_name, record_id, created_at, changed_by').order('created_at', { ascending: false }).limit(10), { data: [] }),
       ]);
 
       const totalRevenue = (revenueRows ?? []).reduce((s, r) => s + Number(r.total || 0), 0);
@@ -64,19 +79,30 @@ export class AdminRepository {
       const bnplOutstanding = (bnplData ?? []).reduce((s, r) => s + Number(r.outstanding || 0), 0);
       const totalCreditIssued = (bnplData ?? []).reduce((s, r) => s + Number(r.credit_limit || 0), 0);
       const totalRepaid = (repaidData ?? []).reduce((s, r) => s + Number(r.amount || 0), 0);
-      const activeMerchantIds = new Set((activeMerchantRows ?? []).map((r: { owner_id: string }) => r.owner_id));
-      const overdueAccountIds = new Set((overdueRows ?? []).map((r: { credit_account_id: string }) => r.credit_account_id));
+      const activeMerchantIds = new Set((activeMerchantRows ?? []).map((r) => r.owner_id));
+      const overdueAccountIds = new Set((overdueRows ?? []).map((r) => r.credit_account_id));
       const overdueCount = overdueAccountIds.size;
 
-      const recentActivity: ActivityEntry[] = (activityRows ?? []).map((r: Record<string, unknown>) => {
-        const profileArr = r.profiles as { full_name: string }[] | null;
+      // Populate user names for audit logs safely
+      const changedByUsers = Array.from(new Set((activityRows ?? []).map((r) => r.changed_by).filter(Boolean))) as string[];
+      let userNameMap = new Map<string, string>();
+      if (changedByUsers.length > 0) {
+        const { data: userProfiles } = await safeQuery<DataResult<{ id: string; full_name: string }>>(
+          admin.from('profiles').select('id, full_name').in('id', changedByUsers),
+          { data: [] }
+        );
+        userNameMap = new Map((userProfiles ?? []).map((u) => [u.id, u.full_name]));
+      }
+
+      const recentActivity: ActivityEntry[] = (activityRows ?? []).map((r) => {
+        const userId = r.changed_by ?? undefined;
         return {
-          id: r.id as string,
-          action: r.action as string,
-          entity_type: r.table_name as string,
-          entity_id: (r.record_id as string) ?? '',
-          user_name: profileArr?.[0]?.full_name ?? 'System',
-          created_at: r.created_at as string,
+          id: r.id,
+          action: r.action,
+          entity_type: r.table_name,
+          entity_id: r.record_id ?? '',
+          user_name: (userId && userNameMap.get(userId)) || 'System',
+          created_at: r.created_at,
         };
       });
 

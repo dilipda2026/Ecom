@@ -5,23 +5,25 @@ import { ORDER_TYPES } from '@/features/orders/types';
 
 interface OrderTypeSelectorProps {
   value: OrderType | null;
-  onChange: (value: OrderType) => void;
+  onChange: (value: 'room_delivery' | 'takeaway') => void;
 }
 
 export function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
+  const customerOrderTypes = ORDER_TYPES.filter((ot) => ot.id === 'room_delivery' || ot.id === 'takeaway');
+
   return (
     <div className="bg-zcard rounded-xl border border-zborder p-4">
       <h2 className="font-semibold text-ztext mb-3 text-sm">
         How would you like to receive your order?
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {ORDER_TYPES.map((opt) => {
+        {customerOrderTypes.map((opt) => {
           const selected = value === opt.id;
           return (
             <button
               key={opt.id}
               type="button"
-              onClick={() => onChange(opt.id)}
+              onClick={() => onChange(opt.id as 'room_delivery' | 'takeaway')}
               className={`w-full text-left px-3.5 py-3 rounded-xl border transition-all flex items-start gap-2.5 ${
                 selected
                   ? 'border-zred bg-red-500/10 shadow-z'
