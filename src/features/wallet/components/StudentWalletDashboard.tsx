@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   ArrowLeft
 } from 'lucide-react';
-import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay } from '../actions';
+import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay, submitWalletKyc } from '../actions';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { createRazorpayOrder, getAvailablePaymentMethods } from '@/features/payments/actions';
 import type { PaymentMethodAvailability } from '@/lib/settings';
@@ -220,11 +220,52 @@ export default function StudentWalletDashboard() {
     return text;
   };
 
+  const walletStatus = summary?.wallet?.status || 'unverified';
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="bg-zcard rounded-2xl border border-zborder p-6 h-48" />
         <div className="bg-zcard rounded-2xl border border-zborder p-6 h-64" />
+      </div>
+    );
+  }
+
+  if (walletStatus === 'pending') {
+    return (
+      <div className="bg-zcard rounded-2xl border border-zborder p-8 sm:p-12 text-center shadow-z flex flex-col items-center">
+        <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
+          <RefreshCw size={32} className="animate-spin" />
+        </div>
+        <h2 className="text-xl sm:text-2xl font-black text-ztext mb-2">KYC Under Review</h2>
+        <p className="text-sm text-ztext-light max-w-md mx-auto">
+          Your wallet activation request is currently pending. Our admin team is reviewing your documents. Please check back later.
+        </p>
+      </div>
+    );
+  }
+
+  if (walletStatus === 'unverified' || walletStatus === 'rejected') {
+    return (
+      <div className="bg-zcard rounded-2xl border border-zborder p-5 sm:p-8 shadow-z">
+        <div className="flex items-center gap-3 mb-6 border-b border-zborder pb-4">
+          <div className="w-10 h-10 rounded-xl bg-zred/10 flex items-center justify-center text-zred">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-ztext">Activate Your Wallet</h2>
+            <p className="text-xs sm:text-sm text-ztext-light">Please complete your KYC to unlock wallet features.</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center">
+          <button
+            onClick={() => router.push('/profile')}
+            className="w-full py-3 bg-zred text-white rounded-xl text-sm font-bold hover:bg-zred-dark transition-all inline-flex items-center justify-center gap-2"
+          >
+            Go to Profile to Complete KYC
+          </button>
+        </div>
       </div>
     );
   }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, CreditCard, HelpCircle, Instagram, Facebook, Globe, MessageSquare } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, CreditCard, HelpCircle, Instagram, Facebook, Globe, MessageSquare, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -11,6 +12,7 @@ import { getUserOrders } from '@/features/orders/actions/customer';
 import type { Order } from '@/features/orders/types';
 import { getCreditAccount } from '@/features/bnpl/actions';
 import { getWalletDetails } from '@/features/wallet/actions';
+import WalletKycModal from '@/features/wallet/components/WalletKycModal';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
@@ -57,6 +59,7 @@ function StoreStatusPill() {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { user, isAuthenticated, signOut, refresh } = useAuthStore();
   const settings = usePublicSettings();
 
@@ -69,13 +72,20 @@ export default function ProfilePage() {
   const [myRecentOrders, setMyRecentOrders] = useState<Order[]>([]);
   const [orderCount, setOrderCount] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  
   const [walletCash, setWalletCash] = useState<number | null>(null);
+  const [walletStatus, setWalletStatus] = useState<string>('unverified');
+  const [fullWalletData, setFullWalletData] = useState<any>(null);
+  const [showKycModal, setShowKycModal] = useState(false);
+
   const favoritesCount = useFavoritesStore((s) => s.items.length);
 
   async function loadWallet() {
     const res = await getWalletDetails();
     if (res.success && res.data) {
       setWalletCash(res.data.balance);
+      setWalletStatus(res.data.wallet?.status || 'unverified');
+      setFullWalletData(res.data.wallet);
     } else {
       const creditRes = await getCreditAccount();
       if (creditRes.success && creditRes.data) setWalletCash(creditRes.data.available_credit);
@@ -234,12 +244,38 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
               {settings.walletEnabled ? (
-                <Link href="/dashboard/student/wallet" className="bg-zcard rounded-xl border border-zborder p-3 text-center hover:border-zred/40 transition-colors">
-                  <p className="text-lg font-extrabold text-ztext">
-                    {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
-                  </p>
-                  <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
-                </Link>
+                <button onClick={() => {
+                  if (walletStatus === 'active') {
+                    router.push('/dashboard/student/wallet');
+                  } else {
+                    setShowKycModal(true);
+                  }
+                }} className="bg-zcard rounded-xl border border-zborder p-3 flex flex-col items-center justify-center hover:border-zred/40 transition-colors w-full h-full">
+                  {walletStatus === 'active' ? (
+                    <>
+                      <p className="text-lg font-extrabold text-ztext">
+                        {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
+                      </p>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
+                    </>
+                  ) : walletStatus === 'pending' ? (
+                    <>
+                      <div className="flex items-center justify-center gap-1.5 text-amber-500">
+                        <Clock size={16} />
+                        <span className="text-sm font-extrabold">Reviewing</span>
+                      </div>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Wallet KYC</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-center gap-1.5 text-zred">
+                        <ShieldCheck size={16} />
+                        <span className="text-sm font-extrabold">Activate</span>
+                      </div>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Setup Wallet</p>
+                    </>
+                  )}
+                </button>
               ) : (
                 <div className="bg-zgray/50 rounded-xl border border-zborder p-3 text-center opacity-60 cursor-not-allowed select-none">
                   <p className="text-lg font-extrabold text-ztext-lighter">—</p>
@@ -499,6 +535,20 @@ export default function ProfilePage() {
               <span className="font-semibold text-zred text-sm">Sign out</span>
             </button>
       </div>
+
+      <WalletKycModal
+        isOpen={showKycModal}
+        onClose={() => setShowKycModal(false)}
+        walletStatus={walletStatus}
+        wallet={fullWalletData}
+        defaultName={user?.fullName || ''}
+        defaultEmail={user?.email || ''}
+        onSuccess={() => {
+          setWalletStatus('pending');
+          setShowKycModal(false);
+          loadWallet();
+        }}
+      />
     </div>
   );
 }

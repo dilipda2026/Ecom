@@ -7,7 +7,15 @@ export interface Wallet {
   total_debit: number;
   credit_limit: number;
   credit_used: number;
-  status: 'active' | 'frozen' | 'suspended';
+  status: 'unverified' | 'pending' | 'active' | 'frozen' | 'suspended' | 'rejected';
+  kyc_name?: string | null;
+  kyc_email?: string | null;
+  document_type?: string | null;
+  kyc_photo_url?: string | null;
+  pan_card_url?: string | null;
+  kyc_submitted_at?: string | null;
+  kyc_approved_at?: string | null;
+  kyc_rejection_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
