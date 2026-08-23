@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import {
   Plus, UtensilsCrossed, Edit3, Trash2, Eye, EyeOff, Save, X, Search, CheckCircle, AlertCircle, Leaf, ChevronLeft, ChevronRight, RotateCcw, Archive
 } from 'lucide-react';
@@ -439,11 +440,13 @@ export default function AdminProductsPage() {
               </div>
               {(imageFile || image) && (
                 <div className="mt-2.5 flex items-center gap-2 text-xs text-ztext-light bg-zgray/50 p-2 rounded-xl border border-zborder">
-                  <div className="w-9 h-9 rounded-lg bg-zcard border border-zborder overflow-hidden shrink-0 flex items-center justify-center">
-                    <img
+                  <div className="w-9 h-9 rounded-lg bg-zcard border border-zborder overflow-hidden shrink-0 relative">
+                    <Image
                       src={imageFile ? URL.createObjectURL(imageFile) : image}
                       alt="Preview"
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized={!!imageFile}
                     />
                   </div>
                   <span className="truncate text-xs font-medium">
@@ -588,13 +591,13 @@ export default function AdminProductsPage() {
                   <tr key={prod.id} className="hover:bg-zgray/40 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder overflow-hidden shrink-0 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder overflow-hidden shrink-0 relative flex items-center justify-center">
                           {prod.image ? (
-                            <img
+                            <Image
                               src={prod.image}
                               alt={prod.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/Chicken Curry.jpg'; }}
+                              fill
+                              className="object-cover"
                             />
                           ) : (
                             <UtensilsCrossed size={18} className="text-ztext-muted" />

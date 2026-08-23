@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Search, Plus, Minus, Trash2, User, Phone, Mail, Banknote,
@@ -126,11 +126,7 @@ export default function InStorePage() {
     fetchCatalog();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'history') {
-      fetchHistory(1);
-    }
-  }, [activeTab, historySearch, historyPaymentFilter]);
+
 
   async function fetchCatalog() {
     setLoadingCatalog(true);
@@ -145,7 +141,7 @@ export default function InStorePage() {
     setLoadingCatalog(false);
   }
 
-  async function fetchHistory(p = 1) {
+  const fetchHistory = useCallback(async (p = 1) => {
     setLoadingHistory(true);
     const res = await getInStoreOrdersAndStats({
       search: historySearch || undefined,
@@ -160,7 +156,13 @@ export default function InStorePage() {
       setHistoryTotalPages(res.data.totalPages);
     }
     setLoadingHistory(false);
-  }
+  }, [historySearch, historyPaymentFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory(1); // eslint-disable-line react-hooks/set-state-in-effect
+    }
+  }, [activeTab, fetchHistory]);
 
   // Handle phone number change & customer lookup
   function handlePhoneChange(val: string) {
