@@ -584,16 +584,33 @@ export async function updateSystemSetting(id: string, value: string) {
   try {
     const { user } = await authorizeAdmin();
     const all = await adminRepository.getSystemSettings();
-    const setting = all.find((s) => s.id === id);
+    let setting = all.find((s) => s.id === id || s.key === id);
+
+    if (!setting) {
+      const { createAdminClient } = await import('@/infrastructure/supabase/admin');
+      const admin = createAdminClient();
+      const settingType = id.endsWith('_slots') || id.includes('locations') ? 'json'
+        : id.includes('enabled') || id.includes('available') ? 'boolean'
+        : 'string';
+      const { data: created, error: createErr } = await admin
+        .from('system_settings')
+        .upsert({ key: id, value, type: settingType }, { onConflict: 'key' })
+        .select()
+        .single();
+      if (!createErr && created) {
+        setting = created as unknown as typeof all[0];
+      }
+    }
+
     if (!setting) return { success: false, error: 'Setting not found' };
 
     const validationError = validateSettingValue(setting, value);
     if (validationError) return { success: false, error: validationError };
 
-    await adminRepository.updateSystemSetting(id, value, user.id);
+    await adminRepository.updateSystemSetting(setting.id, value, user.id);
     await adminRepository.createAuditLog({
       table_name: 'system_settings',
-      record_id: id,
+      record_id: setting.id,
       action: 'update',
       new_data: { value },
       changed_by: user.id,

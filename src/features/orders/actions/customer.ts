@@ -24,6 +24,7 @@ interface CreateOrderParams {
   customerName?: string;
   customerEmail?: string;
   orderType?: string;
+  deliverySlotId?: string;
 }
 
 export async function createOrder(params: CreateOrderParams) {
@@ -137,6 +138,49 @@ export async function createOrder(params: CreateOrderParams) {
     : paymentMethod === 'phonepe' || paymentMethod === 'gpay' ? 'upi'
     : 'razorpay';
 
+  const isDeliveryOrder = !orderType || orderType === 'room_delivery';
+  let slotPayload: Record<string, string | null> = {
+    delivery_slot_id: null,
+    delivery_slot_label: null,
+    delivery_slot_time: null,
+    delivery_slot_date: null,
+    delivery_slot_cutoff: null,
+  };
+
+  if (isDeliveryOrder) {
+    const deliveryAvailable = (await getSetting('delivery_available')) !== 'false';
+    if (!deliveryAvailable) {
+      const msg =
+        (await getSetting('delivery_unavailable_message')) ||
+        'Delivery is temporarily unavailable because our delivery person is busy. Please try again later.';
+      return { success: false, error: msg };
+    }
+
+    const fixedSlotsEnabled = (await getSetting('delivery_fixed_slots_enabled')) === 'true';
+    if (fixedSlotsEnabled) {
+      const { getJsonSetting } = await import('@/lib/settings');
+      const { validateDeliverySlotServer, getCurrentISTDateString } = await import('@/features/delivery/lib/slots');
+      const slots = await getJsonSetting<any[]>('delivery_slots', []);
+      const slotValidation = validateDeliverySlotServer(slots, params.deliverySlotId || '');
+
+      if (!slotValidation.valid || !slotValidation.slot) {
+        return {
+          success: false,
+          error: slotValidation.error || 'Please select a valid, unexpired delivery slot',
+        };
+      }
+
+      const s = slotValidation.slot;
+      slotPayload = {
+        delivery_slot_id: s.id,
+        delivery_slot_label: s.label,
+        delivery_slot_time: s.delivery_time,
+        delivery_slot_date: getCurrentISTDateString(),
+        delivery_slot_cutoff: s.cutoff_time,
+      };
+    }
+  }
+
   const orderPayload = {
     user_id: user?.id ?? null,
     restaurant_id: restaurantId,
@@ -156,6 +200,7 @@ export async function createOrder(params: CreateOrderParams) {
       : { address: 'Take away from restaurant' },
     delivery_notes: notes ?? null,
     order_type: orderType ?? null,
+    ...slotPayload,
   };
 
   const { data: order, error: orderError } = await supabase

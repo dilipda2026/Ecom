@@ -299,6 +299,9 @@ export default function AdminOrdersPage() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-ztext-lighter">Tracking</span><span className="font-mono font-medium">{selectedOrder.tracking_code}</span></div>
               {selectedOrder.order_type && <div className="flex justify-between"><span className="text-ztext-lighter">Order Type</span><span>{orderTypeLabel(selectedOrder.order_type)}</span></div>}
+              {selectedOrder.delivery_slot_time && (
+                <div className="flex justify-between"><span className="text-ztext-lighter">Delivery Slot</span><span className="font-bold text-emerald-600">{selectedOrder.delivery_slot_time} {selectedOrder.delivery_slot_label ? `(${selectedOrder.delivery_slot_label})` : ''}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-ztext-lighter">Customer</span><span>{selectedOrder.user?.full_name ?? selectedOrder.customer_name ?? 'Guest'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Restaurant</span><span>{selectedOrder.restaurant?.name ?? 'Unknown'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Total</span><span className="font-bold">₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>

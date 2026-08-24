@@ -97,6 +97,11 @@ export interface AdminOrder {
   delivery_address: Record<string, unknown> | null;
   cancellation_reason: string | null;
   order_type: string | null;
+  delivery_slot_id?: string | null;
+  delivery_slot_label?: string | null;
+  delivery_slot_time?: string | null;
+  delivery_slot_date?: string | null;
+  delivery_slot_cutoff?: string | null;
   pickup_qr_token?: string | null;
   pickup_qr_expires_at?: string | null;
   created_at: string;

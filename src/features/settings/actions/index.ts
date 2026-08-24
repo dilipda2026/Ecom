@@ -1,6 +1,7 @@
 'use server';
 
 import { getSetting, getNumericSetting, getJsonSetting, getDeliveryEmails, getAdminEmails, getOwnerEmail, getStoreIsOpen } from '@/lib/settings';
+import type { DeliverySlot } from '@/features/delivery/types/slots';
 
 export interface BumperOfferItem {
   type: 'image' | 'video';
@@ -37,9 +38,29 @@ export interface PublicStoreSettings {
   isOpen: boolean;
   bumperOffersEnabled: boolean;
   bumperOffers: BumperOfferItem[];
+
+  // Delivery Settings & Fixed Delivery Slots
+  deliveryAvailable: boolean;
+  deliveryUnavailableMessage: string;
+  deliveryPersonName: string;
+  deliveryPersonPhone: string;
+  deliveryFixedSlotsEnabled: boolean;
+  deliverySlots: DeliverySlot[];
+  deliveryCustomMessage: string;
+  deliveryCustomMessageEnabled: boolean;
 }
 
+const DEFAULT_DELIVERY_SLOTS: DeliverySlot[] = [
+  { id: 'slot-1', label: 'Slot 1', delivery_time: '13:30', cutoff_time: '13:15', is_enabled: true },
+  { id: 'slot-2', label: 'Slot 2', delivery_time: '15:00', cutoff_time: '14:45', is_enabled: true },
+  { id: 'slot-3', label: 'Slot 3', delivery_time: '16:30', cutoff_time: '16:15', is_enabled: true },
+];
+
 export async function getPublicSettings(): Promise<PublicStoreSettings> {
+  const deliveryAvailableRaw = await getSetting('delivery_available');
+  const deliveryFixedSlotsRaw = await getSetting('delivery_fixed_slots_enabled');
+  const deliveryCustomMsgEnabledRaw = await getSetting('delivery_custom_message_enabled');
+
   return {
     razorpayKeyId: (await getSetting('razorpay_key_id')) || '',
     gpayUpiId: (await getSetting('gpay_upi_id')) || '',
@@ -81,5 +102,17 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     isOpen: (await getStoreIsOpen()) ?? true,
     bumperOffersEnabled: (await getSetting('bumper_offers_enabled')) === 'true',
     bumperOffers: await getJsonSetting<BumperOfferItem[]>('bumper_offers', []),
+
+    // Delivery settings & Fixed delivery slots
+    deliveryAvailable: deliveryAvailableRaw !== 'false',
+    deliveryUnavailableMessage:
+      (await getSetting('delivery_unavailable_message')) ||
+      'Delivery is temporarily unavailable because our delivery person is busy. Please try again later.',
+    deliveryPersonName: (await getSetting('delivery_person_name')) || 'Dilip Da Delivery',
+    deliveryPersonPhone: (await getSetting('delivery_person_phone')) || '6000212823',
+    deliveryFixedSlotsEnabled: deliveryFixedSlotsRaw === 'true',
+    deliverySlots: await getJsonSetting<DeliverySlot[]>('delivery_slots', DEFAULT_DELIVERY_SLOTS),
+    deliveryCustomMessage: (await getSetting('delivery_custom_message')) || '',
+    deliveryCustomMessageEnabled: deliveryCustomMsgEnabledRaw === 'true',
   };
 }

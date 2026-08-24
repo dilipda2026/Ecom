@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
-  RefreshCw, Loader2, Save, Pencil, ShieldCheck, UserCog,
+  RefreshCw, Loader2, Save, Pencil, ShieldCheck, UserCog, Clock,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
 import { getSystemSettings, updateSystemSetting } from '@/features/admin/actions';
 import { authService } from '@/features/auth/services/auth-service';
 import type { SystemSetting } from '@/features/admin/types';
+import DeliverySlotsManagerModal from '@/features/admin/components/DeliverySlotsManagerModal';
+import type { DeliverySlot } from '@/features/delivery/types/slots';
 
 const LABELS: Record<string, string> = {
   payment_method_wallet_enabled: 'Wallet',
@@ -21,6 +23,13 @@ const LABELS: Record<string, string> = {
   telegram_show_qr: 'Send pickup QR in Telegram',
   dilip_da_email: "Owner's email (Dilip Da)",
   store_temp_close_until: 'Temporarily close until (HH:MM)',
+  delivery_available: 'Delivery Available',
+  delivery_unavailable_message: 'Unavailable Custom Message',
+  delivery_person_name: 'Delivery Person Name',
+  delivery_person_phone: 'Delivery Person Phone',
+  delivery_fixed_slots_enabled: 'Enable Fixed Delivery Slots',
+  delivery_custom_message: 'Delivery Custom Announcement Message',
+  delivery_custom_message_enabled: 'Show Delivery Announcement Message',
 };
 
 const inputClass = 'w-full bg-zgray border border-zborder rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred';
@@ -32,6 +41,7 @@ export default function AdminSettingsPage() {
   const [editing, setEditing] = useState(false);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, string>>({});
+  const [isSlotsModalOpen, setIsSlotsModalOpen] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const fetchSettings = useCallback(async () => {
@@ -120,6 +130,21 @@ export default function AdminSettingsPage() {
     );
   }
 
+  const getParsedSlots = (): DeliverySlot[] => {
+    const raw = editingValues['delivery_slots'] ?? '';
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as DeliverySlot[];
+    } catch {
+      return [];
+    }
+  };
+
+  const handleSaveSlots = (updated: DeliverySlot[]) => {
+    const jsonStr = JSON.stringify(updated);
+    setVal('delivery_slots', jsonStr);
+  };
+
   const renderField = (settingKey: string) => {
     const setting = get(settingKey);
     if (!setting) return null;
@@ -128,67 +153,86 @@ export default function AdminSettingsPage() {
     const disabled = saving || !editing;
 
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-        <div className="min-w-0">
-          <label className="block text-sm font-semibold text-ztext">
-            {label}
-          </label>
-          {setting.description && <span className="text-xs text-ztext-lighter">{setting.description}</span>}
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+          <div className="min-w-0">
+            <label className="block text-sm font-semibold text-ztext">
+              {label}
+            </label>
+            {setting.description && <span className="text-xs text-ztext-lighter">{setting.description}</span>}
+          </div>
+
+          <div className="w-full sm:w-64 flex items-center justify-end shrink-0">
+            {setting.type === 'boolean' ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-ztext-lighter w-8">{val === 'true' ? 'On' : 'Off'}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={val === 'true'}
+                  disabled={disabled}
+                  onClick={() => {
+                    const newVal = val === 'true' ? 'false' : 'true';
+                    setVal(setting.key, newVal);
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${val === 'true' ? 'bg-zred' : 'bg-zsurface'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${val === 'true' ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            ) : setting.type === 'number' ? (
+              <input
+                type="number"
+                value={val}
+                disabled={disabled}
+                onChange={(e) => setVal(setting.key, e.target.value)}
+                className={`${inputClass} text-right`}
+              />
+            ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' || setting.key === 'admin_emails' || setting.key === 'delivery_unavailable_message' || setting.key === 'delivery_custom_message' ? (
+              <textarea
+                rows={2}
+                value={val}
+                disabled={disabled}
+                onChange={(e) => setVal(setting.key, e.target.value)}
+                className={`${inputClass} resize-none`}
+              />
+            ) : setting.key === 'store_temp_close_until' ? (
+              <input
+                type="time"
+                value={val}
+                disabled={disabled}
+                placeholder="Leave empty to disable"
+                onChange={(e) => setVal(setting.key, e.target.value)}
+                className={inputClass}
+              />
+            ) : (
+              <input
+                type="text"
+                value={val}
+                disabled={disabled}
+                onChange={(e) => setVal(setting.key, e.target.value)}
+                className={inputClass}
+              />
+            )}
+          </div>
         </div>
 
-        <div className="w-full sm:w-64 flex items-center justify-end shrink-0">
-          {setting.type === 'boolean' ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-ztext-lighter w-8">{val === 'true' ? 'On' : 'Off'}</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={val === 'true'}
-                disabled={disabled}
-                onClick={() => {
-                  const newVal = val === 'true' ? 'false' : 'true';
-                  setVal(setting.key, newVal);
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${val === 'true' ? 'bg-zred' : 'bg-zsurface'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${val === 'true' ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
+        {/* Extra configurator button for Delivery Slots */}
+        {settingKey === 'delivery_fixed_slots_enabled' && (
+          <div className="pt-1 flex items-center justify-between bg-zgray/50 border border-zborder p-3 rounded-xl">
+            <div className="text-xs">
+              <span className="font-bold text-ztext">Configured Slots:</span>{' '}
+              <span className="text-ztext-light font-medium">{getParsedSlots().length} slot(s)</span>
             </div>
-          ) : setting.type === 'number' ? (
-            <input
-              type="number"
-              value={val}
-              disabled={disabled}
-              onChange={(e) => setVal(setting.key, e.target.value)}
-              className={`${inputClass} text-right`}
-            />
-          ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' || setting.key === 'admin_emails' ? (
-            <textarea
-              rows={3}
-              value={val}
-              disabled={disabled}
-              onChange={(e) => setVal(setting.key, e.target.value)}
-              className={`${inputClass} resize-none`}
-            />
-          ) : setting.key === 'store_temp_close_until' ? (
-            <input
-              type="time"
-              value={val}
-              disabled={disabled}
-              placeholder="Leave empty to disable"
-              onChange={(e) => setVal(setting.key, e.target.value)}
-              className={inputClass}
-            />
-          ) : (
-            <input
-              type="text"
-              value={val}
-              disabled={disabled}
-              onChange={(e) => setVal(setting.key, e.target.value)}
-              className={inputClass}
-            />
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={() => setIsSlotsModalOpen(true)}
+              className="button-z button-z-ghost text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 border border-zborder"
+            >
+              <Clock size={14} className="text-zred" /> Configure Delivery Slots
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -317,7 +361,22 @@ export default function AdminSettingsPage() {
 
         {renderCard({
           icon: Bike,
-          title: 'Delivery Personnels',
+          title: 'Delivery Settings & Fixed Slots',
+          subtitle: 'Configure delivery availability, fixed delivery slot timings, delivery person details and customer announcements.',
+          keys: [
+            'delivery_available',
+            'delivery_unavailable_message',
+            'delivery_person_name',
+            'delivery_person_phone',
+            'delivery_fixed_slots_enabled',
+            'delivery_custom_message_enabled',
+            'delivery_custom_message',
+          ],
+        })}
+
+        {renderCard({
+          icon: Bike,
+          title: 'Delivery Personnel Emails',
           subtitle: 'Emails allowed to sign up as delivery partners. Separate multiple emails with commas or new lines.',
           keys: ['delivery_person_emails'],
         })}
@@ -374,6 +433,14 @@ export default function AdminSettingsPage() {
           ],
         })}
       </div>
+
+      <DeliverySlotsManagerModal
+        isOpen={isSlotsModalOpen}
+        onClose={() => setIsSlotsModalOpen(false)}
+        slots={getParsedSlots()}
+        onSaveSlots={handleSaveSlots}
+        disabled={saving || !editing}
+      />
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>

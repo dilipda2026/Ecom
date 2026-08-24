@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { getPublicSettings, type PublicStoreSettings } from '@/features/settings/actions';
+import type { DeliverySlot } from '@/features/delivery/types/slots';
+
+const DEFAULT_SLOTS: DeliverySlot[] = [
+  { id: 'slot-1', label: 'Slot 1', delivery_time: '13:30', cutoff_time: '13:15', is_enabled: true },
+  { id: 'slot-2', label: 'Slot 2', delivery_time: '15:00', cutoff_time: '14:45', is_enabled: true },
+  { id: 'slot-3', label: 'Slot 3', delivery_time: '16:30', cutoff_time: '16:15', is_enabled: true },
+];
 
 const FALLBACK: PublicStoreSettings = {
   razorpayKeyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? '',
@@ -41,6 +48,17 @@ const FALLBACK: PublicStoreSettings = {
   isOpen: true,
   bumperOffersEnabled: true,
   bumperOffers: [],
+
+  // Delivery settings
+  deliveryAvailable: true,
+  deliveryUnavailableMessage:
+    'Delivery is temporarily unavailable because our delivery person is busy. Please try again later.',
+  deliveryPersonName: 'Dilip Da Delivery',
+  deliveryPersonPhone: '6000212823',
+  deliveryFixedSlotsEnabled: false,
+  deliverySlots: DEFAULT_SLOTS,
+  deliveryCustomMessage: '',
+  deliveryCustomMessageEnabled: false,
 };
 
 export function usePublicSettings(): PublicStoreSettings {
@@ -48,10 +66,14 @@ export function usePublicSettings(): PublicStoreSettings {
 
   useEffect(() => {
     let cancelled = false;
-    getPublicSettings().then((s) => {
-      if (!cancelled) setSettings(s);
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    getPublicSettings()
+      .then((s) => {
+        if (!cancelled) setSettings(s);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return settings;

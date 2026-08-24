@@ -67,6 +67,11 @@ export interface Order {
   payment_method: PaymentMethod | null;
   payment_status: PaymentStatus;
   order_type: OrderType | null;
+  delivery_slot_id?: string | null;
+  delivery_slot_label?: string | null;
+  delivery_slot_time?: string | null;
+  delivery_slot_date?: string | null;
+  delivery_slot_cutoff?: string | null;
   scheduled_at: string | null;
   accepted_at: string | null;
   prepared_at: string | null;

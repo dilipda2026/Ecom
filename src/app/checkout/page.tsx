@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle, Clock, Truck, AlertTriangle } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -17,6 +17,7 @@ import type { OrderType } from '@/features/orders/types';
 import { OrderTypeSelector } from '@/components/shared/OrderTypeSelector';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { isStoreOpen, formatClock, isTemporarilyClosed, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
+import { getSlotAvailability, formatClock12h, minutesFromMidnight, getCurrentISTMinutes } from '@/features/delivery/lib/slots';
 
 const basePaymentMethods = [
   { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
@@ -46,6 +47,16 @@ export default function CheckoutPage() {
   const razorpayKey = publicSettings.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const [availableMethods, setAvailableMethods] = useState<PaymentMethodAvailability[]>([]);
   const [methodsLoaded, setMethodsLoaded] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+
+  // Fixed Delivery Slot availability calculation
+  const slotData = getSlotAvailability(publicSettings.deliverySlots, new Date());
+
+  useEffect(() => {
+    if (slotData.nextAvailableSlot && !selectedSlotId) {
+      setSelectedSlotId(slotData.nextAvailableSlot.id);
+    }
+  }, [publicSettings.deliverySlots, slotData.nextAvailableSlot, selectedSlotId]);
   const paymentMethods = basePaymentMethods.filter((pm) => {
     const avail = availableMethods.find((a) => a.id === pm.id);
     return avail ? avail.enabled && avail.configured : false;
@@ -136,6 +147,7 @@ export default function CheckoutPage() {
       customerPhone,
       customerName: customerName || undefined,
       orderType: orderType ?? undefined,
+      deliverySlotId: selectedSlotId || undefined,
     };
   }
 
@@ -153,6 +165,27 @@ export default function CheckoutPage() {
     if (!isStoreOpen(publicSettings.hours, now)) {
       setError(`The store is currently closed. We open at ${formatClock(publicSettings.hours.open)} — please try again later.`);
       return false;
+    }
+    if (isDelivery && !publicSettings.deliveryAvailable) {
+      setError(publicSettings.deliveryUnavailableMessage || 'Delivery is currently unavailable');
+      return false;
+    }
+    if (isDelivery && publicSettings.deliveryFixedSlotsEnabled) {
+      if (!selectedSlotId) {
+        setError('Please select a delivery time slot');
+        return false;
+      }
+      const chosenSlot = publicSettings.deliverySlots.find((s) => s.id === selectedSlotId && s.is_enabled);
+      if (!chosenSlot) {
+        setError('The selected delivery slot is not available');
+        return false;
+      }
+      const nowMin = getCurrentISTMinutes();
+      const cutoffMin = minutesFromMidnight(chosenSlot.cutoff_time);
+      if (nowMin >= cutoffMin) {
+        setError(`The cutoff time (${formatClock12h(chosenSlot.cutoff_time)}) for the ${formatClock12h(chosenSlot.delivery_time)} slot has passed. Please select another slot.`);
+        return false;
+      }
     }
     const isOnline = pm === 'razorpay' || pm === 'phonepe' || pm === 'gpay';
     if (isOnline && !razorpayKey) {
@@ -298,6 +331,23 @@ export default function CheckoutPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <div className="lg:col-span-3 space-y-3">
+              {/* Custom Delivery Announcement Banner */}
+              {publicSettings.deliveryCustomMessageEnabled && publicSettings.deliveryCustomMessage && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3.5 flex items-start gap-2 text-xs text-blue-500 font-semibold">
+                  <Shield size={15} className="shrink-0 mt-0.5" />
+                  <p>{publicSettings.deliveryCustomMessage}</p>
+                </div>
+              )}
+
+              {/* Delivery Unavailable Warning */}
+              {isDelivery && !publicSettings.deliveryAvailable && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-2.5 text-xs text-red-500 font-semibold">
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                  <p>{publicSettings.deliveryUnavailableMessage || 'Delivery is temporarily unavailable.'}</p>
+                </div>
+              )}
+
+              {/* Delivery Address Section */}
               {isDelivery ? (
                 <div className="bg-zcard rounded-xl border border-zborder p-4">
                   <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
@@ -348,6 +398,86 @@ export default function CheckoutPage() {
                   <p className="text-xs text-ztext-light">
                     Your order will be ready for pickup at the restaurant. We will notify you when it&apos;s ready.
                   </p>
+                </div>
+              )}
+
+              {/* Delivery Time Slot Section (ONLY when Fixed Delivery Slots = ON and Order Type = Home/Hostel Delivery) */}
+              {isDelivery && publicSettings.deliveryFixedSlotsEnabled && publicSettings.deliveryAvailable && (
+                <div className="bg-zcard rounded-xl border border-zborder p-4">
+                  <h2 className="font-semibold text-ztext mb-1 flex items-center gap-1.5 text-sm">
+                    <Clock size={15} className="text-zred shrink-0" /> Delivery Time Slot <span className="text-zred">*</span>
+                  </h2>
+                  <p className="text-xs text-ztext-light mb-3">
+                    Select your batch delivery time slot. Orders must be placed before the cutoff time.
+                  </p>
+
+                  {slotData.slots.length === 0 ? (
+                    <p className="text-xs text-ztext-muted bg-zgray p-3 rounded-xl">
+                      No delivery slots are currently configured.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {slotData.slots.map((slot) => {
+                        const nowMin = getCurrentISTMinutes();
+                        const cutoffMin = minutesFromMidnight(slot.cutoff_time);
+                        const isExpired = nowMin >= cutoffMin;
+                        const isSelected = selectedSlotId === slot.id;
+
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            disabled={isExpired}
+                            onClick={() => setSelectedSlotId(slot.id)}
+                            className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                              isExpired
+                                ? 'border-zborder/40 bg-zgray/30 opacity-50 cursor-not-allowed'
+                                : isSelected
+                                ? 'border-zred bg-red-500/10 shadow-z'
+                                : 'border-zborder hover:border-ztext-light hover:bg-zgray'
+                            }`}
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-ztext">
+                                  {formatClock12h(slot.delivery_time)}
+                                </span>
+                                {slot.label && (
+                                  <span className="text-[10px] font-semibold text-ztext-muted">
+                                    ({slot.label})
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-ztext-light">
+                                Order before <strong className="text-amber-500">{formatClock12h(slot.cutoff_time)}</strong>
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {isExpired ? (
+                                <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">
+                                  Cutoff Passed
+                                </span>
+                              ) : isSelected ? (
+                                <span className="w-4 h-4 rounded-full bg-zred flex items-center justify-center shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-zcard" />
+                                </span>
+                              ) : (
+                                <span className="w-4 h-4 rounded-full border border-zborder shrink-0" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {slotData.isExpiredForToday && (
+                        <p className="text-xs font-semibold text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl flex items-center gap-1.5 mt-2">
+                          <AlertCircle size={14} className="shrink-0" />
+                          All delivery slots for today have passed cutoff.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
