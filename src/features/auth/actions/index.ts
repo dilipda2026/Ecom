@@ -44,7 +44,7 @@ export async function getServerProfile() {
 export async function updateServerProfile(updates: { role?: string; phone?: string; full_name?: string }) {
   const validated = profileUpdateSchema.safeParse(updates);
   if (!validated.success) {
-    return { error: validated.error.errors[0]?.message || 'Invalid input' };
+    return { error: validated.error.issues[0]?.message || 'Invalid input' };
   }
 
   const supabase = createServiceClient();
