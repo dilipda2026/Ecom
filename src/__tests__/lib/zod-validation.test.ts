@@ -34,7 +34,7 @@ describe('profileUpdateSchema', () => {
   it('accepts valid profile update', () => {
     const result = profileUpdateSchema.safeParse({
       full_name: 'John Doe',
-      phone: '+919876543210',
+      phone: '9876543210',
       role: 'student',
     });
     expect(result.success).toBe(true);

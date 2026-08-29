@@ -9,6 +9,7 @@ import type { AdminOrder } from '@/features/admin/types';
 import { orderTypeLabel } from '@/features/orders/types';
 import { usePolling } from '@/hooks/usePolling';
 import QRCode from 'qrcode';
+import { createClient } from '@/infrastructure/supabase/client';
 
 const ORDER_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered', 'completed', 'cancelled'];
 
@@ -116,7 +117,17 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders(1);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const supabase = createClient();
+    const channel = supabase
+      .channel('admin-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchOrders(undefined, true);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchOrders]);
 
   const filterKey = useMemo(
     () => JSON.stringify([search, status, dateRange, sortBy, sortOrder]),

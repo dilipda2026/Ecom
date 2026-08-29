@@ -113,6 +113,10 @@ export async function createOrder(params: CreateOrderParams) {
 
   const { items, subtotal, deliveryFee, maintenanceFee, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
 
+  if (!customerPhone || !/^[0-9]{10}$/.test(customerPhone)) {
+    return { success: false, error: 'Phone number must be exactly 10 digits' };
+  }
+
   if (paymentMethod === 'cod' && orderType && orderType !== 'room_delivery') {
     return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }

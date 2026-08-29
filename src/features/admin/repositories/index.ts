@@ -15,7 +15,7 @@ export class AdminRepository {
       const weekStartStr = weekStart.toISOString();
       const monthStartStr = monthStart.toISOString();
 
-      const nonTerminal = ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'];
+      const nonTerminal = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery'];
 
       const safeQuery = async <T>(promise: PromiseLike<T>, fallback: T): Promise<T> => {
         try {
@@ -450,10 +450,36 @@ export class AdminRepository {
     if (reason && (status === 'cancelled' || status === 'declined')) {
       updateData.cancellation_reason = reason;
     }
+    if (status === 'accepted') updateData.accepted_at = new Date().toISOString();
+    if (status === 'preparing') updateData.prepared_at = new Date().toISOString();
+    if (status === 'ready') updateData.prepared_at = order.prepared_at ?? new Date().toISOString();
     if (status === 'cancelled') updateData.cancelled_at = new Date().toISOString();
     if (status === 'completed' || status === 'delivered') updateData.delivered_at = new Date().toISOString();
     const { error } = await admin.from('orders').update(updateData).eq('id', orderId);
     if (error) throw new Error(error.message);
+
+    // Also update delivery assignments if transitioning to a terminal status
+    if (status === 'completed' || status === 'delivered' || status === 'cancelled' || status === 'declined') {
+      const assignmentStatus = (status === 'delivered' || status === 'completed') ? 'delivered' : 'failed';
+      // Find the assignment if any
+      const { data: assignment } = await admin
+        .from('delivery_assignments')
+        .select('id, delivery_partner_id')
+        .eq('order_id', orderId)
+        .maybeSingle();
+
+      if (assignment) {
+        await admin
+          .from('delivery_assignments')
+          .update({ status: assignmentStatus, delivered_at: new Date().toISOString() })
+          .eq('id', assignment.id);
+        
+        await admin
+          .from('delivery_partners')
+          .update({ is_available: true })
+          .eq('id', assignment.delivery_partner_id);
+      }
+    }
   }
 
   async getCreditAccounts(filter: AdminFilter = {}): Promise<PaginatedResponse<CreditAccountAdmin>> {

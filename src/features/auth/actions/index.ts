@@ -5,6 +5,7 @@ import { createServiceClient } from '@/infrastructure/supabase/service';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
 import { isDeliveryEmail, isAdminEmail, isOwnerEmail } from '@/config/auth-access';
 import { getDeliveryEmails, getAdminEmails, getOwnerEmail, getBooleanSetting } from '@/lib/settings';
+import { profileUpdateSchema } from '@/schemas/api';
 
 export async function getServerSession() {
   const supabase = await createServerSupabaseClient();
@@ -41,6 +42,11 @@ export async function getServerProfile() {
 }
 
 export async function updateServerProfile(updates: { role?: string; phone?: string; full_name?: string }) {
+  const validated = profileUpdateSchema.safeParse(updates);
+  if (!validated.success) {
+    return { error: validated.error.errors[0]?.message || 'Invalid input' };
+  }
+
   const supabase = createServiceClient();
   if (!supabase) return { error: 'Supabase not configured' };
 
@@ -133,6 +139,10 @@ export async function completeOnboarding(formData: FormData) {
   const role = formData.get('role') as string;
   const phone = formData.get('phone') as string;
 
+  if (phone && !/^[0-9]{10}$/.test(phone)) {
+    return { error: 'Phone number must be exactly 10 digits', redirect: null };
+  }
+
   if (!['student', 'merchant', 'delivery'].includes(role)) {
     return { error: 'Invalid role', redirect: null };
   }
@@ -171,6 +181,10 @@ export async function setupDeliveryAccount(formData: FormData) {
   const vehicleType = (formData.get('vehicleType') as string) || 'bike';
   const licensePlate = (formData.get('licensePlate') as string)?.trim() || null;
   const phone = (formData.get('phone') as string)?.trim() || null;
+
+  if (phone && !/^[0-9]{10}$/.test(phone)) {
+    return { error: 'Phone number must be exactly 10 digits', redirect: null };
+  }
 
   if (!['bike', 'scooter', 'car'].includes(vehicleType)) {
     return { error: 'Invalid vehicle type', redirect: null };
@@ -224,6 +238,10 @@ export async function setupAdminAccount(formData: FormData) {
   const role = isOwner ? 'owner' : 'admin';
   const phone = (formData.get('phone') as string)?.trim() || null;
 
+  if (phone && !/^[0-9]{10}$/.test(phone)) {
+    return { error: 'Phone number must be exactly 10 digits', redirect: null };
+  }
+
   const { error: profileError } = await supabase
     .from('profiles')
     .upsert({ id: user.id, email: user.email, full_name: user.fullName, role, phone });
@@ -274,6 +292,11 @@ export async function createUserAccount(input: {
 }) {
   const admin = createAdminClient();
   const { email, password, fullName, phone } = input;
+
+  if (phone && !/^[0-9]{10}$/.test(phone)) {
+    return { user: null, error: 'Phone number must be exactly 10 digits' };
+  }
+
   // The store owner's account starts as the read-only `owner` role instead of
   // the default customer role.
   const role = isOwnerEmail(email, await getOwnerEmail()) ? 'owner' : 'student';

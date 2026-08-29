@@ -302,10 +302,16 @@ export default function InStorePage() {
       return;
     }
 
+    const cleanPhone = customerPhone.trim();
+    if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
+      setError('Customer phone number must be exactly 10 digits (0-9)');
+      return;
+    }
+
     setPlacing(true);
 
     const displayName = customerName.trim() || 'Walk-in Customer';
-    const displayPhone = customerPhone.trim() || 'N/A';
+    const displayPhone = cleanPhone || 'N/A';
 
     if (paymentMethod === 'cash') {
       const res = await createInStoreOrder({

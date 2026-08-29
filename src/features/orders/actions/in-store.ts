@@ -98,8 +98,12 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       return { success: false, error: 'Cannot place order with an empty cart' };
     }
 
-    const finalCustomerName = customerName?.trim() || 'Walk-in Customer';
     const finalCustomerPhone = customerPhone?.trim() || null;
+    if (finalCustomerPhone && !/^[0-9]{10}$/.test(finalCustomerPhone)) {
+      return { success: false, error: 'Phone number must be exactly 10 digits' };
+    }
+
+    const finalCustomerName = customerName?.trim() || 'Walk-in Customer';
     const finalCustomerEmail = customerEmail?.trim() || null;
 
     // Resolve active restaurant

@@ -141,7 +141,13 @@ export default function ProfilePage() {
         showToast('Name updated');
       }
     } else if (editingField === 'phone') {
-      const result = await updateServerProfile({ phone: editValue });
+      const cleanPhone = editValue.trim();
+      if (!/^[0-9]{10}$/.test(cleanPhone)) {
+        showToast('Phone number must be exactly 10 digits (0-9)');
+        setSaving(false);
+        return;
+      }
+      const result = await updateServerProfile({ phone: cleanPhone });
       if (result.error) {
         showToast(result.error);
       } else {

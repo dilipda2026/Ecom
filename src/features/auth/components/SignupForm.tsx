@@ -112,6 +112,11 @@ export default function SignupForm() {
   async function handleCreateAccount(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    const cleanPhone = phone.trim();
+    if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
+      setError('Phone number must be exactly 10 digits (0-9)');
+      return;
+    }
     setLoading(true);
     let created: { id: string } | null = null;
     let err: string | null = null;

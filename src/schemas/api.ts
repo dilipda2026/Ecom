@@ -10,7 +10,7 @@ export const roleSchema = z.enum(['student', 'merchant', 'delivery', 'admin', 's
 
 export const profileUpdateSchema = z.object({
   full_name: z.string().min(1).max(100).optional(),
-  phone: z.string().regex(/^\+?[\d\s-]{7,20}$/).optional(),
+  phone: z.string().regex(/^[0-9]{10}$/, 'Phone number must be exactly 10 digits').optional(),
   role: roleSchema.optional(),
 });
 

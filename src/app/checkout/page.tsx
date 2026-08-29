@@ -192,8 +192,12 @@ export default function CheckoutPage() {
       setError('Online payments are not configured. Please choose Wallet or Cash on Delivery.');
       return false;
     }
-    if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
-    if (!customerPhone.trim()) { setError('Please enter your phone number'); return false; }
+     if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
+    const cleanPhone = customerPhone.trim();
+    if (!/^[0-9]{10}$/.test(cleanPhone)) {
+      setError('Phone number must be exactly 10 digits (0-9)');
+      return false;
+    }
     setPlacing(true);
     return true;
   }
@@ -491,7 +495,7 @@ export default function CheckoutPage() {
                     <input
                       type="tel"
                       value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       placeholder="Enter your phone number"
                       className="input-z text-sm"
                       required

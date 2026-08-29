@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { adminRepository } from '@/features/admin/repositories';
 
 const STATUS_LABELS: Record<string, string> = {
   accepted: '✅ Accepted',
@@ -32,41 +33,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: `Invalid action. Valid: ${VALID_STATUSES.join(', ')}` }, { status: 400 });
   }
 
-  const supabase = createServiceClient();
-  if (!supabase) {
-    return NextResponse.json({ error: 'Service unavailable' }, { status: 500 });
-  }
-
-  const { data: order } = await supabase
-    .from('orders')
-    .select('status, status_history')
-    .eq('id', orderId)
-    .single();
-
-  if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-  }
-
-  const ts = new Date().toISOString();
-  const historyEntry = { status: action, timestamp: ts, note: 'Dev test' };
-  const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;
-  const timestamps: Record<string, string> = {};
-  if (action === 'accepted') timestamps.accepted_at = ts;
-  if (action === 'preparing') timestamps.prepared_at = ts;
-  if (action === 'delivered') timestamps.delivered_at = ts;
-  if (action === 'cancelled' || action === 'declined') timestamps.cancelled_at = ts;
-
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status: action,
-      status_history: [...existingHistory, historyEntry],
-      ...timestamps,
-    })
-    .eq('id', orderId);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await adminRepository.updateOrderStatus(orderId, action, 'Dev test');
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Database error' }, { status: 500 });
   }
 
   const label = STATUS_LABELS[action] ?? action;

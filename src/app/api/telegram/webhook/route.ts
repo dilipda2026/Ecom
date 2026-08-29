@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { editTelegramMessage, answerCallbackQuery, telegramChatId } from '@/lib/telegram';
 import { getStatusButtons } from '@/lib/notifications';
+import { adminRepository } from '@/features/admin/repositories';
+import { canTransition, type OrderStatus } from '@/features/orders/types';
 
 const STATUS_BADGE: Record<string, string> = {
   pending: '⏳ Pending',
@@ -22,39 +24,22 @@ const LEGACY_ACTION_ALIASES: Record<string, string> = {
 };
 
 async function updateOrderStatus(
-  supabase: NonNullable<ReturnType<typeof createServiceClient>>,
   orderId: string,
   newStatus: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { data: current } = await supabase
-    .from('orders')
-    .select('status, status_history, prepared_at')
-    .eq('id', orderId)
-    .single();
+  try {
+    const order = await adminRepository.getOrderById(orderId);
+    if (!order) return { success: false, error: 'Order not found' };
 
-  if (!current) return { success: false, error: 'Order not found' };
+    if (!canTransition(order.status as OrderStatus, newStatus as OrderStatus)) {
+      return { success: false, error: `Invalid transition from ${order.status} to ${newStatus}` };
+    }
 
-  const ts = new Date().toISOString();
-  const historyEntry = { status: newStatus, timestamp: ts, note: 'Telegram update' };
-  const existingHistory = (current.status_history ?? []) as Array<Record<string, unknown>>;
-  const timestamps: Record<string, string> = {};
-  if (newStatus === 'accepted') timestamps.accepted_at = ts;
-  if (newStatus === 'preparing') timestamps.prepared_at = ts;
-  if (newStatus === 'ready') timestamps.prepared_at = current.prepared_at ?? ts;
-  if (newStatus === 'delivered') timestamps.delivered_at = ts;
-  if (newStatus === 'cancelled' || newStatus === 'declined') timestamps.cancelled_at = ts;
-
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status: newStatus,
-      status_history: [...existingHistory, historyEntry],
-      ...timestamps,
-    })
-    .eq('id', orderId);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+    await adminRepository.updateOrderStatus(orderId, newStatus, 'Telegram update');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Database error' };
+  }
 }
 
 export async function POST(req: Request) {
@@ -68,7 +53,11 @@ export async function POST(req: Request) {
     const { id: callbackId, from, data, message } = body.callback_query;
 
     const authorizedChatId = await telegramChatId();
-    if (authorizedChatId === null || String(from.id) !== String(authorizedChatId)) {
+    const isUserAuthorized = authorizedChatId !== null && (
+      String(from.id) === String(authorizedChatId) ||
+      (message?.chat && String(message.chat.id) === String(authorizedChatId))
+    );
+    if (!isUserAuthorized) {
       await answerCallbackQuery(callbackId, 'Unauthorized');
       return NextResponse.json({ ok: false, error: 'Unauthorized' });
     }
@@ -107,7 +96,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Order not found' });
     }
 
-    const result = await updateOrderStatus(supabase, orderId, newStatus);
+    const result = await updateOrderStatus(orderId, newStatus);
     if (!result.success) {
       await answerCallbackQuery(callbackId, result.error || 'Failed to update order');
       return NextResponse.json({ ok: false });

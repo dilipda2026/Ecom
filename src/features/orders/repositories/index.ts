@@ -67,6 +67,32 @@ export class OrderRepository {
       .eq('id', orderId)
       .select('*, order_items(*)')
       .single();
+
+    if (data && (status === 'completed' || status === 'delivered' || status === 'cancelled' || status === 'declined')) {
+      const assignmentStatus = (status === 'delivered' || status === 'completed') ? 'delivered' : 'failed';
+      const { createServiceClient } = await import('@/infrastructure/supabase/service');
+      const serviceClient = createServiceClient();
+      if (serviceClient) {
+        const { data: assignment } = await serviceClient
+          .from('delivery_assignments')
+          .select('id, delivery_partner_id')
+          .eq('order_id', orderId)
+          .maybeSingle();
+
+        if (assignment) {
+          await serviceClient
+            .from('delivery_assignments')
+            .update({ status: assignmentStatus, delivered_at: new Date().toISOString() })
+            .eq('id', assignment.id);
+          
+          await serviceClient
+            .from('delivery_partners')
+            .update({ is_available: true })
+            .eq('id', assignment.delivery_partner_id);
+        }
+      }
+    }
+
     return data as unknown as Order | null;
   }
 

@@ -5,6 +5,7 @@ import { RefreshCw, Users, ShoppingBag, IndianRupee, TrendingUp, Clock, Store, A
 import { getAdminDashboard, getAdminOrders } from '@/features/admin/actions';
 import type { DashboardStats, AdminOrder } from '@/features/admin/types';
 import Link from 'next/link';
+import { createClient } from '@/infrastructure/supabase/client';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -14,6 +15,16 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchData();
+    const supabase = createClient();
+    const channel = supabase
+      .channel('admin-dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchData();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function fetchData() {

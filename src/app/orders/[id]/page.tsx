@@ -11,6 +11,7 @@ import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import type { Order, OrderItem, OrderStatus } from '@/features/orders/types';
+import { createClient } from '@/infrastructure/supabase/client';
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -57,6 +58,23 @@ export default function OrderDetailPage() {
   useEffect(() => {
     loadOrder(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadOrder]);
+
+  useEffect(() => {
+    if (!id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`order-details-${id}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
+        () => {
+          loadOrder(true);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, loadOrder]);
 
   usePolling(() => { loadOrder(true); }, POLL_INTERVAL_MS, !!id);
 
