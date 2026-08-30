@@ -104,6 +104,15 @@ export default function WalletKycModal({
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleKycSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setKycError('');
@@ -115,6 +124,8 @@ export default function WalletKycModal({
 
     setSubmittingKyc(true);
     try {
+      /* 
+      // OLD CODE (File Upload API) - Commented out because Vercel uses an ephemeral file system
       const photoFormData = new FormData();
       photoFormData.append('file', kycPhotoFile);
       photoFormData.append('category', 'kyc');
@@ -128,13 +139,17 @@ export default function WalletKycModal({
       const docRes = await fetch('/api/upload', { method: 'POST', body: docFormData });
       const docData = await docRes.json();
       if (!docData.success) throw new Error(docData.error || 'Failed to upload document');
+      */
+
+      const photoBase64 = await fileToBase64(kycPhotoFile);
+      const docBase64 = await fileToBase64(documentFile);
 
       const submitRes = await submitWalletKyc({
         kycName: kycName.trim(),
         kycEmail: kycEmail.trim(),
         documentType,
-        kycPhotoUrl: photoData.url,
-        panCardUrl: docData.url,
+        kycPhotoUrl: photoBase64,
+        panCardUrl: docBase64,
       });
 
       if (submitRes.success) {
