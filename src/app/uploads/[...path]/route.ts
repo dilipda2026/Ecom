@@ -14,7 +14,16 @@ const MIME_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.avif': 'image/avif',
+  '.jfif': 'image/jpeg',
+  '.bmp': 'image/bmp',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.m4v': 'video/mp4',
+  '.ogv': 'video/ogg',
+  '.ogg': 'video/ogg',
+  '.mkv': 'video/x-matroska',
 };
 
 export async function GET(
@@ -33,7 +42,7 @@ export async function GET(
     const ext = path.extname(fileName).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    // Direct single I/O read (bypasses redundant stat calls)
+    // Direct single I/O read
     let fileBuffer: Buffer;
     try {
       fileBuffer = await readFile(path.join(UPLOADS_DIR, fileName));
@@ -55,6 +64,7 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
+        'Accept-Ranges': 'bytes',
       },
     });
   } catch (error) {
