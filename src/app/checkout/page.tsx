@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle, Clock, Truck, AlertTriangle } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -53,12 +53,7 @@ export default function CheckoutPage() {
 
   // Fixed Delivery Slot availability calculation
   const slotData = getSlotAvailability(publicSettings.deliverySlots, new Date());
-
-  useEffect(() => {
-    if (slotData.nextAvailableSlot && !selectedSlotId) {
-      setSelectedSlotId(slotData.nextAvailableSlot.id);
-    }
-  }, [publicSettings.deliverySlots, slotData.nextAvailableSlot, selectedSlotId]);
+  const effectiveSlotId = selectedSlotId || slotData.nextAvailableSlot?.id || '';
   const paymentMethods = basePaymentMethods.filter((pm) => {
     const avail = availableMethods.find((a) => a.id === pm.id);
     if (!avail || !avail.enabled || !avail.configured) return false;
@@ -161,7 +156,7 @@ export default function CheckoutPage() {
       customerPhone,
       customerName: customerName || undefined,
       orderType: orderType ?? undefined,
-      deliverySlotId: selectedSlotId || undefined,
+      deliverySlotId: effectiveSlotId || undefined,
     };
   }
 
@@ -185,11 +180,11 @@ export default function CheckoutPage() {
       return false;
     }
     if (isDelivery && publicSettings.deliveryFixedSlotsEnabled) {
-      if (!selectedSlotId) {
+      if (!effectiveSlotId) {
         setError('Please select a delivery time slot');
         return false;
       }
-      const chosenSlot = publicSettings.deliverySlots.find((s) => s.id === selectedSlotId && s.is_enabled);
+      const chosenSlot = publicSettings.deliverySlots.find((s) => s.id === effectiveSlotId && s.is_enabled);
       if (!chosenSlot) {
         setError('The selected delivery slot is not available');
         return false;
@@ -489,7 +484,7 @@ export default function CheckoutPage() {
                         const nowMin = getCurrentISTMinutes();
                         const cutoffMin = minutesFromMidnight(slot.cutoff_time);
                         const isExpired = nowMin >= cutoffMin;
-                        const isSelected = selectedSlotId === slot.id;
+                        const isSelected = effectiveSlotId === slot.id;
 
                         return (
                           <button

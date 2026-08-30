@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, CheckCircle, RefreshCw, X, AlertCircle, Camera, Upload, RotateCcw, Check, CameraOff } from 'lucide-react';
 import { submitWalletKyc } from '../actions';
 import { showToast } from '@/components/shared/Toast';
@@ -27,8 +26,6 @@ export default function WalletKycModal({
   defaultName = '',
   defaultEmail = '',
 }: WalletKycModalProps) {
-  const router = useRouter();
-
   const [kycName, setKycName] = useState(defaultName);
   const [kycEmail, setKycEmail] = useState(defaultEmail);
   const [documentType, setDocumentType] = useState('Aadhar Card');
@@ -168,8 +165,8 @@ export default function WalletKycModal({
       } else {
         setKycError(submitRes.error || 'Failed to submit KYC.');
       }
-    } catch (err: any) {
-      setKycError(err.message || 'An unexpected error occurred during KYC upload.');
+    } catch (err: unknown) {
+      setKycError(err instanceof Error ? err.message : 'An unexpected error occurred during KYC upload.');
     } finally {
       setSubmittingKyc(false);
     }
@@ -291,6 +288,7 @@ export default function WalletKycModal({
                 <div className="rounded-xl border border-zborder overflow-hidden bg-black p-2 text-center">
                   {capturedPhotoUrl ? (
                     <div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={capturedPhotoUrl}
                         alt="Captured selfie preview"

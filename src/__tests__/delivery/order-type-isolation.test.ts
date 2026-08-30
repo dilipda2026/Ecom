@@ -27,7 +27,7 @@ vi.mock('@/features/auth/actions', () => ({
   getServerProfile: vi.fn(async () => ({ profile: { role: 'delivery' } })),
 }));
 
-const mockGetAssignmentByOrderId = vi.fn(async () => null as any);
+const mockGetAssignmentByOrderId = vi.fn(async () => null as unknown as import('@/features/delivery/types').DeliveryAssignment | null);
 
 vi.mock('@/features/delivery/repositories', () => ({
   deliveryRepository: {

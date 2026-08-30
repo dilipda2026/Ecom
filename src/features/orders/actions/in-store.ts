@@ -94,7 +94,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     const supabase = createServiceClient();
     if (!supabase) return { success: false, error: 'Service unavailable' };
 
-    const { items, subtotal, taxAmount, discountAmount = 0, total, paymentMethod, customerPhone, customerName, customerEmail, notes, orderType = 'in_store' } = params;
+    const { items, taxAmount, discountAmount = 0, paymentMethod, customerPhone, customerName, customerEmail, notes, orderType = 'in_store' } = params;
 
     if (!items || items.length === 0) {
       return { success: false, error: 'Cannot place order with an empty cart' };

@@ -63,7 +63,7 @@ function decodeQrFromFile(file: File): Promise<string | null> {
               resolve(code.data);
               return;
             }
-          } catch (e) {
+          } catch {
             // Ignore canvas errors
           }
 
@@ -275,7 +275,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'qr' | 'id'>('qr');
 
-  const { status: cameraStatus, error: cameraError, startCamera, stopCamera } = useCamera({
+  const { status: cameraStatus, startCamera, stopCamera } = useCamera({
     defaultFacingMode: 'environment',
   });
 
@@ -336,7 +336,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
     startCamera();
   }
 
-  useEffect(() => () => stopCamera(), []);
+  useEffect(() => () => handleStopCamera(), [handleStopCamera]);
 
   async function claimByCode() {
     if (code.trim().length === 0) return;
@@ -378,14 +378,14 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
       <div className="mb-3">
         {mode === 'qr' ? (
           <button
-            onClick={() => { stopCamera(); setMode('id'); setScanError(''); }}
+            onClick={() => { handleStopCamera(); setMode('id'); setScanError(''); }}
             className="w-full flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext transition-colors"
           >
             <KeyRound size={16} /> Enter Order ID Instead
           </button>
         ) : (
           <button
-            onClick={() => { stopCamera(); setMode('qr'); setScanError(''); }}
+            onClick={() => { handleStopCamera(); setMode('qr'); setScanError(''); }}
             className="w-full flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-xl border bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext transition-colors"
           >
             <Camera size={16} /> Scan QR Instead
@@ -398,6 +398,7 @@ function ScanPane({ onClaimed }: { onClaimed: () => void }) {
           <div className="relative rounded-2xl overflow-hidden bg-black aspect-square flex items-center justify-center">
             <video ref={videoRef} muted autoPlay playsInline className={`w-full h-full object-cover ${previewImage ? 'hidden' : ''}`} />
             {previewImage && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={previewImage} alt="QR Preview" className="w-full h-full object-contain" />
             )}
             <canvas ref={canvasRef} className="hidden" />
@@ -687,7 +688,7 @@ function ScanModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const { status: cameraStatus, error: cameraError, startCamera, stopCamera } = useCamera({
+  const { status: cameraStatus, startCamera, stopCamera } = useCamera({
     defaultFacingMode: 'environment',
   });
 
@@ -754,7 +755,7 @@ function ScanModal({ onClose }: { onClose: () => void }) {
     startCamera();
   }
 
-  useEffect(() => () => stopCamera(), []);
+  useEffect(() => () => handleStopCamera(), [handleStopCamera]);
 
   return (
     <ModalShell title="Scan pickup QR" onClose={handleClose}>

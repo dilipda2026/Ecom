@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient } from '@/infrastructure/supabase/service';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { adminRepository } from '@/features/admin/repositories';
 

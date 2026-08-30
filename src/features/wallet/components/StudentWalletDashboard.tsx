@@ -20,7 +20,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay, submitWalletKyc } from '../actions';
+import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay } from '../actions';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
 import { createRazorpayOrder, getAvailablePaymentMethods } from '@/features/payments/actions';
 import type { PaymentMethodAvailability } from '@/lib/settings';

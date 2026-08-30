@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw, Download, Search, Banknote, ShieldCheck, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, Search, Banknote, ShieldCheck, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast } from '@/components/ui/data-table';
 import DateFilter, { type DateFilterValue } from '@/components/ui/date-filter';
 import { getAdminPayments, processRefund } from '@/features/admin/actions';

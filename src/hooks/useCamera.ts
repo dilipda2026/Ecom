@@ -96,15 +96,15 @@ export function useCamera(options: UseCameraOptions = {}) {
           },
           audio: false,
         });
-      } catch (primaryError: any) {
+      } catch (primaryError: unknown) {
         // Fallback attempt: if overconstrained or specific mode unavailable, fallback to generic video: true
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false,
           });
-        } catch (fallbackError: any) {
-          const err = fallbackError || primaryError;
+        } catch (fallbackError: unknown) {
+          const err = (fallbackError || primaryError) as (Error & { name?: string }) | undefined;
           const name = err?.name || '';
           let errType: CameraErrorType = 'unknown';
           let msg = 'Failed to open camera. Please try again.';
@@ -134,6 +134,7 @@ export function useCamera(options: UseCameraOptions = {}) {
 
       const videoEl = targetVideoElement || videoRef.current;
       if (videoEl && stream) {
+        // eslint-disable-next-line react-hooks/immutability
         videoEl.srcObject = stream;
         videoEl.setAttribute('playsinline', 'true');
         videoEl.setAttribute('autoplay', 'true');

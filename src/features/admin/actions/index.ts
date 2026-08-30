@@ -6,7 +6,7 @@ import { createAdminClient } from '@/infrastructure/supabase/admin';
 import { clearSettingsCache, getOwnerEmail } from '@/lib/settings';
 import { revalidatePath } from 'next/cache';
 import { isOwnerEmail } from '@/config/auth-access';
-import type { AdminFilter } from '../types';
+import type { AdminFilter, SystemSetting } from '../types';
 
 import { getAdminEmails } from '@/lib/settings';
 import { isAdminEmail } from '@/config/auth-access';
@@ -593,7 +593,7 @@ export async function getSystemSettings() {
           updated_by: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        } as any);
+        } as SystemSetting);
       }
     }
     const data = merged.map((s) => ({ ...s, has_value: !!s.value }));

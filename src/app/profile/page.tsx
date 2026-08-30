@@ -13,6 +13,7 @@ import type { Order } from '@/features/orders/types';
 import { getCreditAccount } from '@/features/bnpl/actions';
 import { getWalletDetails } from '@/features/wallet/actions';
 import WalletKycModal from '@/features/wallet/components/WalletKycModal';
+import type { Wallet } from '@/features/wallet/types';
 import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
@@ -75,7 +76,7 @@ export default function ProfilePage() {
   
   const [walletCash, setWalletCash] = useState<number | null>(null);
   const [walletStatus, setWalletStatus] = useState<string>('unverified');
-  const [fullWalletData, setFullWalletData] = useState<any>(null);
+  const [fullWalletData, setFullWalletData] = useState<Wallet | null>(null);
   const [showKycModal, setShowKycModal] = useState(false);
 
   const favoritesCount = useFavoritesStore((s) => s.items.length);

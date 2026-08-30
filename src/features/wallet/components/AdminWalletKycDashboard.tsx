@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import { ShieldCheck, CheckCircle, XCircle, Search, Eye, AlertCircle, RefreshCw, X, Filter, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, CheckCircle, XCircle, Search, Eye, AlertCircle, RefreshCw, X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { getAllWallets, approveWalletKyc, rejectWalletKyc, updateWalletStatus, getAdminWalletTransactions, updateWalletCreditLimit, processBnplPenalties } from '../actions';
 import type { Wallet, WalletTransaction } from '../types';
 
@@ -40,6 +40,7 @@ export default function AdminWalletKycDashboard() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchKycs();
   }, []);
 
@@ -133,7 +134,7 @@ export default function AdminWalletKycDashboard() {
       } else {
         alert(res.error || 'Failed to process penalties');
       }
-    } catch (e) {
+    } catch {
       alert('Error running penalty check');
     } finally {
       setProcessingPenalties(false);
@@ -322,7 +323,7 @@ export default function AdminWalletKycDashboard() {
                                       <p className="text-xs text-ztext-light mt-1">
                                         {new Date(tx.created_at).toLocaleString('en-IN')}
                                       </p>
-                                      {(tx as any).reference_id && <p className="text-[10px] text-ztext-muted mt-1 font-mono">Ref: {(tx as any).reference_id}</p>}
+                                      {tx.reference_id && <p className="text-[10px] text-ztext-muted mt-1 font-mono">Ref: {tx.reference_id}</p>}
                                     </div>
                                     <div className="text-right">
                                       <p className={`font-black text-sm ${tx.type === 'credit' ? 'text-emerald-500' : 'text-ztext'}`}>
@@ -386,6 +387,7 @@ export default function AdminWalletKycDashboard() {
               <div>
                 <label className="block text-xs font-semibold text-ztext-lighter mb-2">Live Photo / Selfie</label>
                 {selectedKyc.kyc_photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={selectedKyc.kyc_photo_url} alt="Selfie" className="w-full h-48 object-cover rounded-xl border border-zborder bg-zgray" />
                 ) : (
                   <div className="w-full h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Image</div>
@@ -394,6 +396,7 @@ export default function AdminWalletKycDashboard() {
               <div>
                 <label className="block text-xs font-semibold text-ztext-lighter mb-2">Document Proof</label>
                 {selectedKyc.pan_card_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={selectedKyc.pan_card_url} alt="ID Document" className="w-full h-48 object-contain rounded-xl border border-zborder bg-zgray" />
                 ) : (
                   <div className="w-full h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Document</div>

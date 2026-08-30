@@ -2,7 +2,6 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
-import { getNumericSetting } from '@/lib/settings';
 import type { Wallet, WalletTransaction, WalletSummary } from '../types';
 
 /* 

@@ -36,6 +36,7 @@ export interface WalletTransaction {
   payment_reference?: string | null;
   description?: string | null;
   reference?: string | null;
+  reference_id?: string | null;
   note?: string | null;
   created_at: string;
 }

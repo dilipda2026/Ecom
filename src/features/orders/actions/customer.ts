@@ -383,7 +383,7 @@ export async function createOrder(params: CreateOrderParams) {
     if (fixedSlotsEnabled) {
       const { getJsonSetting } = await import('@/lib/settings');
       const { validateDeliverySlotServer, getCurrentISTDateString } = await import('@/features/delivery/lib/slots');
-      const slots = await getJsonSetting<any[]>('delivery_slots', []);
+      const slots = await getJsonSetting<import('@/features/delivery/types/slots').DeliverySlot[]>('delivery_slots', []);
       const slotValidation = validateDeliverySlotServer(slots, params.deliverySlotId || '');
 
       if (!slotValidation.valid || !slotValidation.slot) {

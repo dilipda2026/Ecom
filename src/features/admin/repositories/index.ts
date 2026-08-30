@@ -212,7 +212,7 @@ export class AdminRepository {
     const student = data as unknown as AdminStudent | null;
     if (student) {
       const { data: walletData } = await admin.from('wallets').select('*').eq('user_id', id).maybeSingle();
-      student.wallet = (walletData as any) || null;
+      student.wallet = (walletData as unknown as AdminStudent['wallet']) || null;
     }
 
     return student;

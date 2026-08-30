@@ -1,6 +1,5 @@
 'use server';
 
-import { env } from '@/config/env';
 import { getSetting, getPaymentMethodAvailability } from '@/lib/settings';
 import type { PaymentMethodAvailability } from '@/lib/settings';
 
