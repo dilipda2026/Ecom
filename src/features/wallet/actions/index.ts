@@ -68,7 +68,7 @@ export async function getWalletDetails(): Promise<{
 
     // Normalize transaction list
     const transactions: WalletTransaction[] = rawTransactions.map((tx) => {
-      const isCreditType = ['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0;
+      const isCreditType = tx.type === 'debit' ? false : (['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0);
       return {
         id: tx.id,
         restaurant_id: tx.restaurant_id ?? null,
@@ -660,7 +660,7 @@ export async function getAdminWalletTransactions(walletId: string): Promise<{ su
     
     // Normalize transactions similar to getWalletDetails
     const transactions = txData.map(tx => {
-      const isCreditType = ['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0;
+      const isCreditType = tx.type === 'debit' ? false : (['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0);
       return {
         ...tx,
         type: isCreditType ? 'credit' : 'debit',
