@@ -36,6 +36,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('wallet');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletStatus, setWalletStatus] = useState<string | null>(null);
+  const [walletCreditLimit, setWalletCreditLimit] = useState<number>(0);
   const [address, setAddress] = useState('');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
@@ -99,8 +100,10 @@ export default function CheckoutPage() {
         if (res.success && res.data) {
           setWalletBalance(res.data.balance);
           setWalletStatus(res.data.wallet?.status ?? 'unverified');
+          setWalletCreditLimit(res.data.wallet?.credit_limit ?? 0);
         } else {
           setWalletStatus('unverified');
+          setWalletCreditLimit(0);
         }
       });
     }
@@ -579,19 +582,19 @@ export default function CheckoutPage() {
                 {selectedMethod === 'wallet' && (
                   <div className="mt-4 pt-4 border-t border-zborder">
                     <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
-                      walletBalance !== null && (walletBalance - total()) >= -publicSettings.walletCreditLimit
+                      walletBalance !== null && (walletBalance - total()) >= -walletCreditLimit
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                         : 'bg-red-500/10 border-red-500/20 text-red-400'
                     }`}>
                       <div>
                         <p className="text-xs font-bold flex items-center gap-1.5">
-                          {walletBalance !== null && (walletBalance - total()) >= -publicSettings.walletCreditLimit ? (
+                          {walletBalance !== null && (walletBalance - total()) >= -walletCreditLimit ? (
                             <>
-                              <CheckCircle2 size={15} /> Ethics Pay (₹{publicSettings.walletCreditLimit} Overdraft Allowed)
+                              <CheckCircle2 size={15} /> Ethics Pay (₹{walletCreditLimit} Overdraft Allowed)
                             </>
                           ) : (
                             <>
-                              <AlertCircle size={15} /> Credit Limit Reached (Max Overdraft ₹{publicSettings.walletCreditLimit})
+                              <AlertCircle size={15} /> Credit Limit Reached (Max Overdraft ₹{walletCreditLimit})
                             </>
                           )}
                         </p>

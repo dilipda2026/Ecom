@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Fragment } from 'react';
 import { ShieldCheck, CheckCircle, XCircle, Search, Eye, AlertCircle, RefreshCw, X, Filter, History, ChevronDown, ChevronUp } from 'lucide-react';
-import { getAllWallets, approveWalletKyc, rejectWalletKyc, updateWalletStatus, getAdminWalletTransactions } from '../actions';
+import { getAllWallets, approveWalletKyc, rejectWalletKyc, updateWalletStatus, getAdminWalletTransactions, updateWalletCreditLimit, processBnplPenalties } from '../actions';
 import type { Wallet, WalletTransaction } from '../types';
 
 export default function AdminWalletKycDashboard() {
@@ -14,6 +14,7 @@ export default function AdminWalletKycDashboard() {
   // Modal State
   const [selectedKyc, setSelectedKyc] = useState<Wallet | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [creditLimit, setCreditLimit] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,6 +22,13 @@ export default function AdminWalletKycDashboard() {
   const [selectedHistoryWallet, setSelectedHistoryWallet] = useState<Wallet | null>(null);
   const [historyTransactions, setHistoryTransactions] = useState<WalletTransaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Update Limit Modal State
+  const [updateLimitModal, setUpdateLimitModal] = useState<{ id: string, name: string, currentLimit: number } | null>(null);
+  const [updateLimitValue, setUpdateLimitValue] = useState('');
+  const [updatingLimit, setUpdatingLimit] = useState(false);
+
+  const [processingPenalties, setProcessingPenalties] = useState(false);
 
   const fetchKycs = async () => {
     setLoading(true);
@@ -52,9 +60,10 @@ export default function AdminWalletKycDashboard() {
     setProcessing(true);
     setError('');
     
-    const res = await approveWalletKyc(selectedKyc.id);
+    const res = await approveWalletKyc(selectedKyc.id, Number(creditLimit) || 0);
     if (res.success) {
       setSelectedKyc(null);
+      setCreditLimit('');
       fetchKycs();
     } else {
       setError(res.error || 'Failed to approve KYC');
@@ -97,6 +106,40 @@ export default function AdminWalletKycDashboard() {
     setProcessing(false);
   };
 
+  const handleUpdateLimitSubmit = async () => {
+    if (!updateLimitModal) return;
+    setUpdatingLimit(true);
+    const newLimit = Number(updateLimitValue) || 0;
+    const res = await updateWalletCreditLimit(updateLimitModal.id, newLimit);
+    if (res.success) {
+      setUpdateLimitModal(null);
+      setUpdateLimitValue('');
+      fetchKycs();
+    } else {
+      // You can handle error here, e.g., with a toast or error state
+      alert(res.error || 'Failed to update credit limit');
+    }
+    setUpdatingLimit(false);
+  };
+
+  const handleRunPenaltyCheck = async () => {
+    if (processingPenalties) return;
+    setProcessingPenalties(true);
+    try {
+      const res = await processBnplPenalties();
+      if (res.success) {
+        alert(`Penalty check complete! Applied penalties to ${res.processedCount} wallets.`);
+        fetchKycs();
+      } else {
+        alert(res.error || 'Failed to process penalties');
+      }
+    } catch (e) {
+      alert('Error running penalty check');
+    } finally {
+      setProcessingPenalties(false);
+    }
+  };
+
   const filteredKycs = kycs.filter((k) => {
     const matchesSearch = k.kyc_name?.toLowerCase().includes(search.toLowerCase()) || k.kyc_email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = filterStatus === 'all' ? true : k.status === filterStatus;
@@ -126,6 +169,14 @@ export default function AdminWalletKycDashboard() {
               className="input-z pl-9 text-sm w-full sm:w-64"
             />
           </div>
+          <button 
+            onClick={handleRunPenaltyCheck}
+            disabled={processingPenalties}
+            className="px-4 py-2.5 bg-rose-500/10 text-rose-500 font-bold border border-rose-500/20 rounded-xl hover:bg-rose-500 hover:text-white transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
+          >
+            {processingPenalties ? <RefreshCw size={16} className="animate-spin" /> : <AlertCircle size={16} />}
+            Run Penalty Check
+          </button>
           <button 
             onClick={fetchKycs}
             className="p-2.5 bg-zgray text-ztext border border-zborder rounded-xl hover:bg-zcard transition-colors"
@@ -179,6 +230,8 @@ export default function AdminWalletKycDashboard() {
                 <tr className="bg-zgray text-ztext-lighter text-xs uppercase font-bold border-b border-zborder">
                   <th className="px-6 py-4">User Details</th>
                   <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Fine</th>
+                  <th className="px-6 py-4">Credit Used Date</th>
                   <th className="px-6 py-4">Submitted At</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -188,7 +241,9 @@ export default function AdminWalletKycDashboard() {
                   <Fragment key={kyc.id}>
                     <tr className="hover:bg-zgray/50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-ztext">{kyc.kyc_name || 'N/A'}</div>
+                        <div className="font-bold text-ztext flex items-center gap-2">
+                          {kyc.kyc_name || 'N/A'}
+                        </div>
                         <div className="text-xs text-ztext-light mt-0.5">{kyc.kyc_email || 'No email provided'}</div>
                       </td>
                       <td className="px-6 py-4">
@@ -200,6 +255,18 @@ export default function AdminWalletKycDashboard() {
                         }`}>
                           {kyc.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {Number(kyc.total_penalties) > 0 ? (
+                          <span className="text-xs text-rose-500 font-bold bg-rose-500/10 px-2 py-1 rounded-md">
+                            ₹{Number(kyc.total_penalties).toLocaleString('en-IN')}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ztext-muted">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-ztext-light">
+                        {kyc.credit_used_at ? new Date(kyc.credit_used_at).toLocaleDateString('en-IN') : <span className="text-ztext-muted">-</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-ztext-light">
                         {kyc.kyc_submitted_at ? new Date(kyc.kyc_submitted_at).toLocaleString('en-IN') : 'N/A'}
@@ -216,7 +283,16 @@ export default function AdminWalletKycDashboard() {
                           )}
                         </button>
                         <button
-                          onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setError(''); }}
+                          onClick={() => {
+                            setUpdateLimitModal({ id: kyc.id, name: kyc.kyc_name || 'User', currentLimit: Number(kyc.credit_limit) || 0 });
+                            setUpdateLimitValue((kyc.credit_limit || 0).toString());
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-colors"
+                        >
+                          Update Limit
+                        </button>
+                        <button
+                          onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setCreditLimit(''); setError(''); }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
                         >
                           <Eye size={14} /> View
@@ -350,15 +426,30 @@ export default function AdminWalletKycDashboard() {
               </div>
             ) : (
               <>
-                <div className="bg-zgray/50 border border-zborder rounded-xl p-4 mb-6">
-                  <label className="block text-xs font-semibold text-ztext-lighter mb-2">Rejection Reason (Optional for Approve)</label>
-                  <input
-                    type="text"
-                    placeholder="Required if rejecting (e.g., blurry photo, name mismatch)"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    className="input-z w-full text-sm"
-                  />
+                <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-zgray/50 border border-zborder rounded-xl p-4">
+                    <label className="block text-xs font-semibold text-ztext-lighter mb-2">Rejection Reason (Optional for Approve)</label>
+                    <input
+                      type="text"
+                      placeholder="Required if rejecting"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      className="input-z w-full text-sm"
+                    />
+                  </div>
+                  
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                    <label className="block text-xs font-semibold text-emerald-600 mb-2">Assign BNPL Credit Limit (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 1000"
+                      value={creditLimit}
+                      onChange={(e) => setCreditLimit(e.target.value)}
+                      className="input-z w-full text-sm !border-emerald-500/30 focus:!border-emerald-500"
+                    />
+                    <p className="text-[10px] text-ztext-muted mt-1">Leave 0 for no overdraft allowed.</p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -379,6 +470,53 @@ export default function AdminWalletKycDashboard() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Update Limit Modal */}
+      {updateLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-zcard border border-zborder rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-zborder mb-4">
+              <h2 className="text-lg font-bold text-ztext flex items-center gap-2">Update Limit: {updateLimitModal.name}</h2>
+              <button 
+                onClick={() => setUpdateLimitModal(null)}
+                className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-xs font-semibold text-emerald-500 mb-2">New BNPL Credit Limit (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={updateLimitValue}
+                onChange={(e) => setUpdateLimitValue(e.target.value)}
+                className="input-z w-full text-sm !border-emerald-500/30 focus:!border-emerald-500"
+                placeholder="e.g. 1000"
+              />
+              <p className="text-[10px] text-ztext-muted mt-2">Current Limit: ₹{updateLimitModal.currentLimit}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setUpdateLimitModal(null)}
+                disabled={updatingLimit}
+                className="flex-1 py-3 bg-zgray text-ztext font-bold rounded-xl hover:bg-zborder transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateLimitSubmit}
+                disabled={updatingLimit}
+                className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50"
+              >
+                {updatingLimit ? 'Updating...' : 'Update Limit'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -120,7 +120,7 @@ export async function unsuspendStudent(id: string, reason: string) {
   }
 }
 
-export async function verifyStudent(id: string) {
+export async function verifyStudent(id: string, creditLimit: number = 0) {
   try {
     const { user } = await authorizeAdmin();
     const student = await adminRepository.getStudentById(id);
@@ -130,14 +130,17 @@ export async function verifyStudent(id: string) {
     
     const { createAdminClient } = await import('@/infrastructure/supabase/admin');
     const admin = createAdminClient();
-    const { error } = await admin.from('wallets').update({ status: 'active' }).eq('id', w.id);
+    const { error } = await admin.from('wallets').update({ 
+      status: 'active',
+      credit_limit: creditLimit
+    }).eq('id', w.id);
     if (error) throw new Error(error.message);
 
     await adminRepository.createAuditLog({
       table_name: 'wallets',
       record_id: w.id,
       action: 'verify',
-      new_data: { status: 'active' },
+      new_data: { status: 'active', credit_limit: creditLimit },
       old_data: { status: w.status },
       changed_by: user.id,
     });

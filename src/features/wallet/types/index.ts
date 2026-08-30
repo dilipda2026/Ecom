@@ -7,6 +7,9 @@ export interface Wallet {
   total_debit: number;
   credit_limit: number;
   credit_used: number;
+  credit_used_at?: string | null;
+  late_fee_rate?: number;
+  total_penalties?: number;
   status: 'unverified' | 'pending' | 'active' | 'frozen' | 'suspended' | 'rejected';
   kyc_name?: string | null;
   kyc_email?: string | null;

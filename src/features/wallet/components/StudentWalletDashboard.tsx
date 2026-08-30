@@ -315,6 +315,11 @@ export default function StudentWalletDashboard() {
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zgray border border-zborder text-ztext-light text-xs font-semibold">
                 <span>Credit Limit: ₹{creditLimit.toLocaleString('en-IN')}</span>
               </div>
+              {summary?.wallet?.total_penalties ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold">
+                  <span>Total Fine: ₹{Number(summary.wallet.total_penalties).toLocaleString('en-IN')}</span>
+                </div>
+              ) : null}
             </div>
           </div>
 

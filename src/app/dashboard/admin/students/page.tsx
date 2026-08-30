@@ -39,6 +39,9 @@ export default function AdminStudentsPage() {
   const [walletAmount, setWalletAmount] = useState('');
   const [walletNote, setWalletNote] = useState('');
   const [walletCrediting, setWalletCrediting] = useState(false);
+  const [verifyModal, setVerifyModal] = useState<{ id: string; name: string } | null>(null);
+  const [verifyCreditLimit, setVerifyCreditLimit] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const [walletCurrentBalance, setWalletCurrentBalance] = useState<number | null>(null);
   const [walletStatus, setWalletStatus] = useState<string | null>(null);
   const [fetchingWalletBalance, setFetchingWalletBalance] = useState(false);
@@ -94,10 +97,20 @@ export default function AdminStudentsPage() {
     else addToast(res.error ?? 'Failed', 'error');
   };
 
-  const handleVerify = async (id: string) => {
-    const res = await verifyStudent(id);
-    if (res.success) { addToast('Student verified', 'success'); fetchStudents(); }
-    else addToast(res.error ?? 'Failed', 'error');
+  const submitVerify = async () => {
+    if (!verifyModal) return;
+    setVerifying(true);
+    const limit = parseInt(verifyCreditLimit, 10) || 0;
+    const res = await verifyStudent(verifyModal.id, limit);
+    if (res.success) { 
+      addToast('Student verified with credit limit', 'success'); 
+      setVerifyModal(null);
+      setVerifyCreditLimit('');
+      fetchStudents(); 
+    } else {
+      addToast(res.error ?? 'Failed', 'error');
+    }
+    setVerifying(false);
   };
 
   const handleResetVerification = async (id: string) => {
@@ -152,12 +165,24 @@ export default function AdminStudentsPage() {
         {s.is_active ? 'Active' : 'Suspended'}
       </span>
     )},
-    { key: 'credit', header: 'Credit', render: (s: AdminStudent) => {
+    { key: 'credit', header: 'Wallet / BNPL', render: (s: AdminStudent) => {
       const w = Array.isArray(s.wallet) ? s.wallet[0] : s.wallet;
       return (
-      <span className="text-xs text-ztext-light">
-        {w ? `₹${Number(w.balance).toLocaleString('en-IN')}` : 'No account'}
-      </span>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs text-ztext font-medium">
+          {w ? `Bal: ₹${Number(w.balance).toLocaleString('en-IN')}` : 'No account'}
+        </span>
+        {w && (
+          <span className="text-[10px] text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit mt-0.5">
+            Limit: ₹{Number(w.credit_limit || 0).toLocaleString('en-IN')}
+          </span>
+        )}
+        {w && Number(w.total_penalties) > 0 && (
+          <span className="text-[10px] text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded w-fit mt-0.5">
+            Fine: ₹{Number(w.total_penalties).toLocaleString('en-IN')}
+          </span>
+        )}
+      </div>
       );
     }, hideOnMobile: true },
     { key: 'verification', header: 'Verification', render: (s: AdminStudent) => {
@@ -173,7 +198,9 @@ export default function AdminStudentsPage() {
     { key: 'created', header: 'Joined', sortable: true, render: (s: AdminStudent) => (
       <span className="text-xs text-ztext-lighter">{new Date(s.created_at).toLocaleDateString()}</span>
     ), hideOnMobile: true },
-    { key: 'actions', header: 'Actions', render: (s: AdminStudent) => (
+    { key: 'actions', header: 'Actions', render: (s: AdminStudent) => {
+      const w = Array.isArray(s.wallet) ? s.wallet[0] : s.wallet;
+      return (
       <div className="flex items-center gap-1">
         <button onClick={() => setWalletModal({ id: s.id, name: s.full_name })} className="p-1.5 hover:bg-emerald-500/10 rounded-lg text-ztext-muted hover:text-emerald-600 transition-colors" title="Credit wallet">
           <Wallet size={14} />
@@ -187,18 +214,18 @@ export default function AdminStudentsPage() {
             <Shield size={14} />
           </button>
         )}
-        {(Array.isArray(s.wallet) ? s.wallet[0]?.status : s.wallet?.status) !== 'active' && (
-          <button onClick={() => handleVerify(s.id)} className="p-1.5 hover:bg-blue-500/10 rounded-lg text-ztext-muted hover:text-blue-600 transition-colors" title="Verify">
+        {w && w.status !== 'active' && (
+          <button onClick={() => setVerifyModal({ id: s.id, name: s.full_name })} className="p-1.5 hover:bg-blue-500/10 rounded-lg text-ztext-muted hover:text-blue-600 transition-colors" title="Verify">
             <CheckCircle size={14} />
           </button>
         )}
-        {(Array.isArray(s.wallet) ? s.wallet[0]?.status : s.wallet?.status) === 'active' && (
+        {w && w.status === 'active' && (
           <button onClick={() => setConfirmAction({ type: 'reset_verification', id: s.id })} className="p-1.5 hover:bg-amber-500/10 rounded-lg text-ztext-muted hover:text-amber-400 transition-colors" title="Reset verification">
             <Clock size={14} />
           </button>
         )}
       </div>
-    )},
+    )}},
   ];
 
   const exportRows = useMemo(() => {
@@ -316,6 +343,46 @@ export default function AdminStudentsPage() {
                 <button onClick={() => setWalletModal(null)} className="w-full px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Close</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Verify Modal */}
+      {verifyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-zcard border border-zborder rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-ztext mb-2">Verify {verifyModal.name}</h3>
+            <p className="text-sm text-ztext-light mb-6">Assign a BNPL credit limit for this student.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-emerald-500 mb-1.5">Credit Limit (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={verifyCreditLimit}
+                  onChange={(e) => setVerifyCreditLimit(e.target.value)}
+                  placeholder="e.g. 1000"
+                  className="input-z w-full"
+                />
+                <p className="text-[10px] text-ztext-muted mt-1">Leave 0 to disable overdraft.</p>
+              </div>
+              <div className="flex items-center gap-3 pt-4 border-t border-zborder">
+                <button
+                  onClick={() => { setVerifyModal(null); setVerifyCreditLimit(''); }}
+                  className="flex-1 py-2 bg-zgray text-ztext font-bold rounded-xl hover:bg-zborder transition-colors"
+                  disabled={verifying}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitVerify}
+                  disabled={verifying}
+                  className="flex-1 py-2 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  {verifying ? 'Verifying...' : 'Verify Now'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

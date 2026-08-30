@@ -5,11 +5,15 @@ import { getServerSession } from '@/features/auth/actions';
 import { getNumericSetting } from '@/lib/settings';
 import type { Wallet, WalletTransaction, WalletSummary } from '../types';
 
+/* 
+// Legacy Global Limit Logic - Kept for reference
 const DEFAULT_CREDIT_LIMIT = 500;
-
 async function getCreditLimit(): Promise<number> {
   return getNumericSetting('wallet_credit_limit', DEFAULT_CREDIT_LIMIT);
 }
+*/
+
+
 
 /**
  * Fetch full wallet details for current authenticated user
@@ -107,7 +111,7 @@ export async function getWalletDetails(): Promise<{
         balance: currentBalance,
         totalCredit,
         totalDebit,
-        creditLimit: await getCreditLimit(),
+        creditLimit: walletRecord ? Number(walletRecord.credit_limit) : 0,
         transactions,
       },
     };
@@ -170,11 +174,18 @@ export async function topupWallet(
         }
         walletId = existingWallet.id;
         const updatedTotalCredit = (Number(existingWallet.total_credit) || 0) + amount;
+        
+        let creditUsedAt = existingWallet.credit_used_at;
+        if (balanceAfter >= 0) {
+          creditUsedAt = null; // Clear penalty timer since debt is repaid
+        }
+
         await supabase
           .from('wallets')
           .update({
             balance: balanceAfter,
             total_credit: updatedTotalCredit,
+            credit_used_at: creditUsedAt,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingWallet.id);
@@ -265,28 +276,10 @@ export async function deductWalletBalance(
   if (!amount || amount <= 0) return { success: false, error: 'Invalid amount' };
 
   try {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_balance')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const CREDIT_LIMIT = await getCreditLimit();
-    const balanceBefore = Number(profile?.wallet_balance) || 0;
-    if (balanceBefore - amount < -CREDIT_LIMIT) {
-      return { success: false, error: `Credit limit reached (-₹${CREDIT_LIMIT}). Available balance: ₹${balanceBefore.toLocaleString('en-IN')}` };
-    }
-
-    const balanceAfter = balanceBefore - amount;
-
-    // 1. Update profiles table
-    await supabase
-      .from('profiles')
-      .update({ wallet_balance: balanceAfter })
-      .eq('id', user.id);
-
-    // 2. Update wallets table if exists
     let walletId: string | null = null;
+    let userCreditLimit = 0;
+    let finalBalance = 0;
+    
     try {
       const { data: existingWallet } = await supabase
         .from('wallets')
@@ -299,18 +292,44 @@ export async function deductWalletBalance(
           return { success: false, error: 'Your wallet is not active.' };
         }
         walletId = existingWallet.id;
+        userCreditLimit = Number(existingWallet.credit_limit) || 0;
+        
+        const balanceBeforeWallet = Number(existingWallet.balance) || 0;
+        if (balanceBeforeWallet - amount < -userCreditLimit) {
+          return { success: false, error: `Credit limit reached (Max Overdraft: -₹${userCreditLimit}). Available balance: ₹${balanceBeforeWallet.toLocaleString('en-IN')}` };
+        }
+
+        const balanceAfterWallet = balanceBeforeWallet - amount;
+        finalBalance = balanceAfterWallet;
+        
+        // Track credit_used_at when balance goes negative for the first time
+        let creditUsedAt = existingWallet.credit_used_at;
+        if (balanceAfterWallet < 0 && !creditUsedAt) {
+           creditUsedAt = new Date().toISOString();
+        }
+
         const updatedTotalDebit = (Number(existingWallet.total_debit) || 0) + amount;
         await supabase
           .from('wallets')
           .update({
-            balance: balanceAfter,
+            balance: balanceAfterWallet,
             total_debit: updatedTotalDebit,
+            credit_used_at: creditUsedAt,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingWallet.id);
+          
+        // 1. Sync profiles table
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: balanceAfterWallet })
+          .eq('id', user.id);
+      } else {
+        return { success: false, error: 'Wallet not found. Please activate your wallet.' };
       }
-    } catch {
-      // Ignored
+    } catch (e) {
+      console.error('Error in wallet deduction:', e);
+      return { success: false, error: 'Failed to deduct wallet balance.' };
     }
 
     // 3. Insert transaction record
@@ -321,7 +340,7 @@ export async function deductWalletBalance(
         wallet_id: walletId,
         type: 'debit',
         amount: amount,
-        balance_after: balanceAfter,
+        balance_after: finalBalance,
         description: descText,
         reference_id: orderId,
       });
@@ -331,7 +350,7 @@ export async function deductWalletBalance(
       }
     }
 
-    return { success: true, newBalance: balanceAfter };
+    return { success: true, newBalance: finalBalance };
   } catch (err: unknown) {
     console.error('deductWalletBalance error:', err);
     return { success: false, error: err instanceof Error ? err.message : 'Failed to deduct wallet balance' };
@@ -552,7 +571,7 @@ export async function getPendingWalletKycs(): Promise<{ success: boolean; data?:
   }
 }
 
-export async function approveWalletKyc(walletId: string): Promise<{ success: boolean; error?: string }> {
+export async function approveWalletKyc(walletId: string, creditLimit: number = 0): Promise<{ success: boolean; error?: string }> {
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service unavailable' };
 
@@ -569,6 +588,7 @@ export async function approveWalletKyc(walletId: string): Promise<{ success: boo
       .from('wallets')
       .update({
         status: 'active',
+        credit_limit: creditLimit,
         kyc_approved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -578,6 +598,34 @@ export async function approveWalletKyc(walletId: string): Promise<{ success: boo
   } catch (err: unknown) {
     console.error('approveWalletKyc error:', err);
     return { success: false, error: 'Failed to approve KYC' };
+  }
+}
+
+export async function updateWalletCreditLimit(walletId: string, creditLimit: number): Promise<{ success: boolean; error?: string }> {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  const { user: admin } = await getServerSession();
+  if (!admin) return { success: false, error: 'Not authenticated' };
+
+  try {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    await supabase
+      .from('wallets')
+      .update({
+        credit_limit: creditLimit,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', walletId);
+
+    return { success: true };
+  } catch (err: unknown) {
+    console.error('updateWalletCreditLimit error:', err);
+    return { success: false, error: 'Failed to update credit limit' };
   }
 }
 
@@ -607,6 +655,103 @@ export async function rejectWalletKyc(walletId: string, reason: string): Promise
   } catch (err: unknown) {
     console.error('rejectWalletKyc error:', err);
     return { success: false, error: 'Failed to reject KYC' };
+  }
+}
+
+export async function processBnplPenalties(): Promise<{ success: boolean; processedCount?: number; error?: string }> {
+  // This function should be called by a secure Cron endpoint.
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  try {
+    // 1. Fetch all wallets that have a negative balance and a credit_used_at timestamp.
+    // We only care about wallets that are currently in overdraft.
+    const { data: overdueWallets, error: fetchErr } = await supabase
+      .from('wallets')
+      .select('id, balance, credit_used_at, total_debit, total_penalties')
+      .lt('balance', 0)
+      .not('credit_used_at', 'is', null);
+
+    if (fetchErr) {
+      console.error('Error fetching overdue wallets:', fetchErr);
+      return { success: false, error: fetchErr.message };
+    }
+
+    if (!overdueWallets || overdueWallets.length === 0) {
+      return { success: true, processedCount: 0 };
+    }
+
+    let processedCount = 0;
+    const PENALTY_AMOUNT = 20;
+    const PENALTY_PERIOD_DAYS = 30;
+    const now = new Date();
+
+    for (const wallet of overdueWallets) {
+      if (!wallet.credit_used_at) continue;
+
+      const creditUsedDate = new Date(wallet.credit_used_at);
+      const diffTime = Math.abs(now.getTime() - creditUsedDate.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // How many 30-day periods have passed?
+      const expectedPenaltyCount = Math.floor(diffDays / PENALTY_PERIOD_DAYS);
+
+      if (expectedPenaltyCount > 0) {
+        // Count how many penalties have ALREADY been applied in this specific debt cycle.
+        const { count: appliedPenaltiesCount, error: txErr } = await supabase
+          .from('wallet_transactions')
+          .select('*', { count: 'exact', head: true })
+          .eq('wallet_id', wallet.id)
+          .eq('type', 'debit')
+          .ilike('description', 'Late Repayment Penalty%')
+          .gte('created_at', wallet.credit_used_at);
+
+        if (txErr) {
+          console.error(`Error checking transactions for wallet ${wallet.id}:`, txErr);
+          continue;
+        }
+
+        const penaltiesToApply = expectedPenaltyCount - (appliedPenaltiesCount || 0);
+
+        if (penaltiesToApply > 0) {
+          // Calculate the total fine for this run (usually just 1 * 20 = 20, unless the cron didn't run for a long time)
+          const totalFine = penaltiesToApply * PENALTY_AMOUNT;
+
+          // Update Wallet Balance
+          const newBalance = Number(wallet.balance) - totalFine;
+          const newTotalDebit = (Number(wallet.total_debit) || 0) + totalFine;
+          const newTotalPenalties = (Number(wallet.total_penalties) || 0) + totalFine;
+
+          const { error: updateErr } = await supabase
+            .from('wallets')
+            .update({
+              balance: newBalance,
+              total_debit: newTotalDebit,
+              total_penalties: newTotalPenalties,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', wallet.id);
+
+          if (!updateErr) {
+            // Insert Wallet Transactions (one for each penalty, or combined. We'll do combined for simplicity but note the periods)
+            await supabase.from('wallet_transactions').insert({
+              wallet_id: wallet.id,
+              type: 'debit',
+              amount: totalFine,
+              balance_after: newBalance,
+              description: `Late Repayment Penalty (${penaltiesToApply}x period)`,
+            });
+            
+            processedCount++;
+          }
+        }
+      }
+    }
+
+    return { success: true, processedCount };
+  } catch (err: unknown) {
+    console.error('processBnplPenalties error:', err);
+    return { success: false, error: 'Failed to process penalties' };
   }
 }
 
