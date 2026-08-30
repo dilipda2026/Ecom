@@ -298,6 +298,12 @@ export async function getAvailableDeliveryPartners() {
 export async function assignDeliveryPartner(orderId: string, partnerId: string) {
   try {
     const { user } = await authorizeAdmin();
+    const order = await adminRepository.getOrderById(orderId);
+    if (!order) return { success: false, error: 'Order not found' };
+    if (order.order_type === 'takeaway' || order.order_type === 'dine_in' || order.order_type === 'in_store') {
+      return { success: false, error: 'Cannot assign delivery partner to takeaway or in-store orders' };
+    }
+
     await adminRepository.assignDeliveryPartner(orderId, partnerId);
     await adminRepository.createAuditLog({
       table_name: 'orders',
@@ -317,6 +323,9 @@ export async function regenerateOrderQr(orderId: string) {
     const { user } = await authorizeAdmin();
     const order = await adminRepository.getOrderById(orderId);
     if (!order) return { success: false, error: 'Order not found' };
+    if (order.order_type === 'takeaway' || order.order_type === 'dine_in' || order.order_type === 'in_store') {
+      return { success: false, error: 'Pickup QR is not applicable for takeaway or in-store orders' };
+    }
     if (['delivered', 'completed', 'cancelled', 'declined'].includes(order.status)) {
       return { success: false, error: 'Order is already finished' };
     }

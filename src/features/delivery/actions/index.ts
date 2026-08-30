@@ -97,11 +97,14 @@ export async function generateDeliveryQr(orderId: string) {
 
   const order = await supabase
     .from('orders')
-    .select('tracking_code, status')
+    .select('tracking_code, status, order_type')
     .eq('id', orderId)
     .maybeSingle();
   if (!order.data || order.data.status !== 'assigned') {
     return { success: false, error: 'Order is not ready for pickup' };
+  }
+  if (order.data.order_type === 'takeaway' || order.data.order_type === 'dine_in' || order.data.order_type === 'in_store') {
+    return { success: false, error: 'Delivery QR is not available for takeaway or in-store orders' };
   }
 
   const token = signQrToken(order.data.tracking_code);
@@ -118,9 +121,13 @@ export async function generateDeliveryQr(orderId: string) {
 async function claimOrderForPickup(
   supabase: NonNullable<ReturnType<typeof createServiceClient>>,
   user: { id: string },
-  order: Pick<Order, 'id' | 'status' | 'delivery_partner_id'>,
+  order: Pick<Order, 'id' | 'status' | 'delivery_partner_id'> & { order_type?: string | null },
   qrTokenHash?: string,
 ): Promise<{ success: boolean; error?: string; data?: { orderId: string } }> {
+  if (order.order_type === 'takeaway' || order.order_type === 'dine_in' || order.order_type === 'in_store') {
+    return { success: false, error: 'Takeaway and in-store orders cannot be claimed by delivery partners' };
+  }
+
   const claimable = ['pending', 'accepted', 'preparing', 'ready', 'assigned'];
   if (!claimable.includes(order.status)) {
     if (order.status === 'out_for_delivery') {
@@ -252,8 +259,8 @@ export async function startPickupByTrackingCode(code: string) {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
 
   const { data: order } = isUuid
-    ? await supabase.from('orders').select('id, status, delivery_partner_id').eq('id', trimmed).maybeSingle()
-    : await supabase.from('orders').select('id, status, delivery_partner_id').eq('tracking_code', trimmed.toUpperCase()).maybeSingle();
+    ? await supabase.from('orders').select('id, status, delivery_partner_id, order_type').eq('id', trimmed).maybeSingle()
+    : await supabase.from('orders').select('id, status, delivery_partner_id, order_type').eq('tracking_code', trimmed.toUpperCase()).maybeSingle();
   if (!order) return { success: false, error: 'Order not found' };
 
   return claimOrderForPickup(supabase, user, order);
@@ -276,10 +283,13 @@ export async function generateOtpForOrder(orderId: string) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('status, payment_method, payment_status, customer_email, user_id, tracking_code')
+    .select('status, payment_method, payment_status, customer_email, user_id, tracking_code, order_type')
     .eq('id', orderId)
     .maybeSingle();
   if (!order) return { success: false, error: 'Order not found' };
+  if (order.order_type === 'takeaway' || order.order_type === 'dine_in' || order.order_type === 'in_store') {
+    return { success: false, error: 'OTP generation is not applicable for takeaway or in-store orders' };
+  }
   if (order.status !== 'out_for_delivery') {
     return { success: false, error: 'Generate the OTP after picking up the order' };
   }
@@ -300,7 +310,7 @@ export async function generateOtpForOrder(orderId: string) {
     })
     .eq('id', assignment.id);
 
-  if (error) return { success: false, error: 'Failed to generate OTP' };
+  if (error) return { success: false, error: 'Failed to generate delivery OTP' };
 
   let emailSent = false;
   try {
@@ -318,8 +328,7 @@ export async function generateOtpForOrder(orderId: string) {
     }
   } catch {}
 
-  // The OTP is only shown to the customer (email + their order page), never to the delivery partner
-  return { success: true, data: { expiresAt, emailSent } };
+  return { success: true, data: { otp, expiresAt, emailSent } };
 }
 
 export async function verifyOtpForDelivery(orderId: string, otp: string) {
@@ -337,22 +346,24 @@ export async function verifyOtpForDelivery(orderId: string, otp: string) {
   if (!assignment || assignment.delivery_partner_id !== user.id) {
     return { success: false, error: 'This order is not assigned to you' };
   }
-
   if (assignment.otp_verified_at) {
-    return { success: false, error: 'OTP already verified' };
+    return { success: false, error: 'OTP has already been verified' };
   }
   if (!assignment.otp_hash || !assignment.otp_value) {
     return { success: false, error: 'No OTP has been generated for this order yet' };
   }
-  if (!assignment.otp_expires_at || new Date(assignment.otp_expires_at) < new Date()) {
-    return { success: false, error: 'OTP has expired. Generate a new one.' };
-  }
-  if (assignment.otp_attempts >= DELIVERY_OTP_MAX_ATTEMPTS) {
-    return { success: false, error: 'Too many failed attempts. Generate a new OTP.' };
+
+  if (assignment.otp_expires_at && new Date(assignment.otp_expires_at) < new Date()) {
+    return { success: false, error: 'OTP has expired. Please generate a new one.' };
   }
 
-  if (hashDeliveryOtp(otp) !== assignment.otp_hash) {
-    const attempts = assignment.otp_attempts + 1;
+  if (assignment.otp_attempts >= DELIVERY_OTP_MAX_ATTEMPTS) {
+    return { success: false, error: 'Too many incorrect attempts. Please generate a new OTP.' };
+  }
+
+  const trimmed = (otp || '').trim();
+  if (hashDeliveryOtp(trimmed) !== assignment.otp_hash) {
+    const attempts = (assignment.otp_attempts ?? 0) + 1;
     await supabase
       .from('delivery_assignments')
       .update({ otp_attempts: attempts })
@@ -493,10 +504,25 @@ export async function getCustomerDeliveryInfo(orderId: string) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('user_id, status, payment_method, payment_status, delivery_partner_id, total')
+    .select('user_id, status, payment_method, payment_status, delivery_partner_id, total, order_type')
     .eq('id', orderId)
     .maybeSingle();
   if (!order || order.user_id !== user.id) return { success: false, error: 'Unauthorized' };
+
+  const isTakeaway = order.order_type === 'takeaway' || order.order_type === 'dine_in' || order.order_type === 'in_store';
+  if (isTakeaway) {
+    return {
+      success: true,
+      data: {
+        hasDelivery: false,
+        orderStatus: order.status,
+        assignment: null,
+        partner: null,
+        payment: { method: order.payment_method, status: order.payment_status },
+        total: order.total,
+      },
+    };
+  }
 
   const assignment = await deliveryRepository.getAssignmentByOrderId(orderId);
   const partner = order.delivery_partner_id

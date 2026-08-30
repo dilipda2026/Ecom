@@ -11,7 +11,8 @@ import { usePolling } from '@/hooks/usePolling';
 
 const POLL_INTERVAL_MS = 15_000;
 
-const STEPS = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered'];
+const DELIVERY_STEPS = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery', 'delivered'];
+const TAKEAWAY_STEPS = ['pending', 'accepted', 'preparing', 'ready', 'completed'];
 
 const STEP_LABELS: Record<string, string> = {
   pending: 'Order placed',
@@ -21,7 +22,7 @@ const STEP_LABELS: Record<string, string> = {
   assigned: 'Partner assigned',
   out_for_delivery: 'On the way',
   delivered: 'Delivered',
-  completed: 'Delivered',
+  completed: 'Collected',
   cancelled: 'Cancelled',
   declined: 'Declined',
 };
@@ -86,7 +87,10 @@ function TrackContent() {
     router.replace(`/order/track?code=${encodeURIComponent(trimmed)}`);
   }
 
-  const stepIndex = data ? STEPS.indexOf(data.order.status) : -1;
+  const isTakeaway = data?.order.order_type === 'takeaway' || data?.order.order_type === 'dine_in' || data?.order.order_type === 'in_store';
+  const steps = isTakeaway ? TAKEAWAY_STEPS : DELIVERY_STEPS;
+  const currentOrderStatus = data?.order.status === 'delivered' && isTakeaway ? 'completed' : (data?.order.status ?? '');
+  const stepIndex = data ? steps.indexOf(currentOrderStatus) : -1;
   const isCancelled = data?.order.status === 'cancelled' || data?.order.status === 'declined';
   const isDelivered = data?.order.status === 'delivered' || data?.order.status === 'completed';
   const address = data?.order.delivery_address as Record<string, string> | null;
@@ -154,12 +158,12 @@ function TrackContent() {
             ) : (
               <div className="mt-4 bg-zcard rounded-xl border border-zborder p-5">
                 <p className="text-sm font-semibold text-ztext mb-4">Order status</p>
-                <div className="grid grid-cols-7 items-center">
-                  {STEPS.map((step, i) => {
-                    const done = i < stepIndex || (isDelivered && i === STEPS.length - 1);
+                <div className={`grid ${isTakeaway ? 'grid-cols-5' : 'grid-cols-7'} items-center`}>
+                  {steps.map((step, i) => {
+                    const done = i < stepIndex || (isDelivered && i === steps.length - 1);
                     const current = i === stepIndex && !isDelivered;
                     const leftDone = i > 0 && i <= stepIndex;
-                    const rightDone = i < STEPS.length - 1 && i < stepIndex;
+                    const rightDone = i < steps.length - 1 && i < stepIndex;
                     return (
                       <div key={step} className="flex items-center">
                         <div className={`h-0.5 flex-1 rounded ${leftDone ? 'bg-emerald-500/50' : 'bg-transparent'}`} />
@@ -175,9 +179,9 @@ function TrackContent() {
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-7 mt-2">
-                  {STEPS.map((step, i) => {
-                    const done = i < stepIndex || (isDelivered && i === STEPS.length - 1);
+                <div className={`grid ${isTakeaway ? 'grid-cols-5' : 'grid-cols-7'} mt-2`}>
+                  {steps.map((step, i) => {
+                    const done = i < stepIndex || (isDelivered && i === steps.length - 1);
                     const current = i === stepIndex && !isDelivered;
                     return (
                       <span key={step} className={`text-[10px] font-medium text-center leading-tight px-0.5 ${done ? 'text-emerald-500' : current ? 'text-zred' : 'text-ztext-muted'}`}>
@@ -207,7 +211,28 @@ function TrackContent() {
               </div>
             )}
 
-            {!isCancelled && (
+            {/* Takeaway Store Pickup Card */}
+            {isTakeaway && !isCancelled && (
+              <div className="bg-zcard rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 mt-4">
+                <div className="flex items-center gap-2.5 text-sm">
+                  <MapPin size={16} className="text-amber-500 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-ztext">Store Pickup (Take Away)</p>
+                    <p className="text-xs text-ztext-light mt-0.5">
+                      {data.order.status === 'ready'
+                        ? '🎉 Your order is ready for pickup! Please collect it from the store counter.'
+                        : 'Your order is being freshly prepared. Please collect it from the store counter once ready.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-amber-500/15 text-xs text-ztext-lighter">
+                  📍 Dilip Da Canteen, Near CIT Kokrajhar 2nd Gate
+                </div>
+              </div>
+            )}
+
+            {/* Delivery Card (Strictly for Delivery Orders) */}
+            {!isTakeaway && !isCancelled && (
               <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
                 <div className="flex items-center gap-2 text-sm mb-3">
                   <Bike size={16} className="text-zred" />
@@ -274,7 +299,7 @@ function TrackContent() {
               </div>
             )}
 
-            {address?.address && data.order.order_type !== 'takeaway' && (
+            {address?.address && !isTakeaway && (
               <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
                 <div className="flex items-center gap-2.5 text-sm">
                   <MapPin size={16} className="text-zred shrink-0" />
@@ -291,7 +316,7 @@ function TrackContent() {
             {isDelivered && (
               <div className="mt-4 flex items-center justify-center gap-2 text-sm text-ztext-light">
                 <CheckCircle2 size={16} className="text-zgreen" />
-                Delivered{data.order.delivered_at ? ` on ${new Date(data.order.delivered_at).toLocaleString()}` : ''}
+                {isTakeaway ? 'Order completed / collected' : `Delivered${data.order.delivered_at ? ` on ${new Date(data.order.delivered_at).toLocaleString()}` : ''}`}
               </div>
             )}
           </>

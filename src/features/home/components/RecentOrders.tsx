@@ -8,8 +8,11 @@ import { useCartStore } from '@/features/cart/store';
 import { matchMenuItem } from '@/features/home/lib/useHomeOrders';
 import { showToast } from '@/components/shared/Toast';
 
+import { useMenu } from '@/features/menu/components/MenuProvider';
+
 export default function RecentOrders({ orders }: { orders: Order[] }) {
   const { addItem, setLastAddedRect } = useCartStore();
+  const { allItems } = useMenu();
 
   if (orders.length === 0) return null;
 
@@ -22,14 +25,14 @@ export default function RecentOrders({ orders }: { orders: Order[] }) {
     const rect = e.currentTarget.getBoundingClientRect();
     setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     for (const oi of items) {
-      const menu = matchMenuItem(oi.product_name);
+      const matched = allItems.find((m) => m.id === oi.product_id || m.name.toLowerCase() === oi.product_name.toLowerCase()) || matchMenuItem(oi.product_name);
       addItem({
-        id: menu?.id ?? oi.product_id,
-        name: oi.product_name,
-        price: Number(oi.product_price ?? oi.unit_price),
-        veg: menu?.veg ?? false,
-        image: menu?.img ?? '/images/Chicken Curry.jpg',
-      });
+        id: matched?.id ?? oi.product_id,
+        name: matched?.name ?? oi.product_name,
+        price: matched ? Number(matched.price) : Number(oi.product_price ?? oi.unit_price),
+        veg: matched?.veg ?? false,
+        image: matched?.img ?? '/images/Chicken Curry.jpg',
+      }, oi.quantity || 1);
     }
     showToast(`Added ${items.length} item${items.length > 1 ? 's' : ''} to cart`);
   }

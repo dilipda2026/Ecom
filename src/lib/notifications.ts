@@ -19,6 +19,8 @@ function orderTypeBadge(type: string | null | undefined): string {
   switch (type) {
     case 'room_delivery': return '🚚 Hostel Delivery';
     case 'takeaway': return '🥡 Take Away';
+    case 'dine_in': return '🍽️ Dine In';
+    case 'in_store': return '🏪 In Store (Counter)';
     default: return '';
   }
 }
@@ -85,14 +87,19 @@ const STATUS_ACTIONS: Record<string, ButtonDef[]> = {
   ],
 };
 
-export function getStatusButtons(orderId: string, currentStatus: string): Array<Array<{ text: string; callback_data: string }>> {
+export function getStatusButtons(orderId: string, currentStatus: string, orderType?: string | null): Array<Array<{ text: string; callback_data: string }>> {
+  const isTakeaway = orderType === 'takeaway' || orderType === 'dine_in' || orderType === 'in_store';
+  if (isTakeaway && currentStatus === 'ready') {
+    return [[{ text: '✅ Collected / Complete', callback_data: `delivered:${orderId}` }]];
+  }
+
   const actions = STATUS_ACTIONS[currentStatus];
   if (!actions || actions.length === 0) return [];
   return [actions.map((a) => ({ text: a.text, callback_data: `${a.status}:${orderId}` }))];
 }
 
 export async function notifyNewOrder(order: OrderInfo, currentStatus = 'pending', qrToken: string | null = null) {
-  const buttons = getStatusButtons(order.id, currentStatus);
+  const buttons = getStatusButtons(order.id, currentStatus, order.orderType);
   const badge = STATUS_BADGE[currentStatus] ?? currentStatus;
 
   await sendTelegramMessageWithButtons(`${formatTelegram(order)}\n\n${badge}`, buttons);

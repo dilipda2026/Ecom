@@ -8,7 +8,7 @@ import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, Shopping
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
-import { createOrder, confirmPayment, sendOrderNotification } from '@/features/orders/actions/customer';
+import { createOrder, confirmPayment, sendOrderNotification, validateAndQuoteOrder } from '@/features/orders/actions/customer';
 import { createRazorpayOrder, getAvailablePaymentMethods } from '@/features/payments/actions';
 import type { PaymentMethodAvailability } from '@/lib/settings';
 import { getWalletDetails, deductWalletBalance } from '@/features/wallet/actions';
@@ -210,7 +210,15 @@ export default function CheckoutPage() {
       return;
     }
 
-    const rzpResult = await createRazorpayOrder(total() * 100);
+    const quoteRes = await validateAndQuoteOrder({ items, orderType: orderType ?? undefined });
+    if (!quoteRes.success || !quoteRes.data) {
+      setError(quoteRes.error || 'Failed to validate bag prices. Please refresh your cart.');
+      setPlacing(false);
+      return;
+    }
+
+    const authoritativeTotal = quoteRes.data.total;
+    const rzpResult = await createRazorpayOrder(authoritativeTotal * 100);
     if (!rzpResult.success) {
       setError(rzpResult.error || 'Failed to initiate payment');
       setPlacing(false);
@@ -250,7 +258,14 @@ export default function CheckoutPage() {
     if (!valid) return;
 
     if (pm === 'wallet') {
-      const orderTotal = total();
+      const quoteRes = await validateAndQuoteOrder({ items, orderType: orderType ?? undefined });
+      if (!quoteRes.success || !quoteRes.data) {
+        setError(quoteRes.error || 'Failed to validate bag prices.');
+        setPlacing(false);
+        return;
+      }
+
+      const orderTotal = quoteRes.data.total;
       const currentBalance = walletBalance ?? 0;
       const CREDIT_LIMIT = publicSettings.walletCreditLimit;
 
@@ -268,7 +283,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      const deductRes = await deductWalletBalance(orderTotal, orderResult.data!.orderId, `Order #${orderResult.data!.trackingCode}`);
+      const finalAmountToDeduct = orderResult.data!.calculatedTotal ?? orderTotal;
+      const deductRes = await deductWalletBalance(finalAmountToDeduct, orderResult.data!.orderId, `Order #${orderResult.data!.trackingCode}`);
       if (!deductRes.success) {
         setError(deductRes.error || 'Failed to deduct wallet balance');
         setPlacing(false);

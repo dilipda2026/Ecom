@@ -240,13 +240,17 @@ export default function AdminOrdersPage() {
         </button>
         {o.status !== 'cancelled' && o.status !== 'completed' && o.status !== 'delivered' && (
           <>
-            <button onClick={() => openQr(o)} className="p-1.5 hover:bg-purple-500/10 rounded-lg text-ztext-muted hover:text-purple-600 transition-colors" title="Show pickup QR">
-              <QrCode size={14} />
-            </button>
-            {o.status === 'ready' && (
-              <button onClick={() => openAssign(o)} className="p-1.5 hover:bg-green-500/10 rounded-lg text-ztext-muted hover:text-green-600 transition-colors" title="Assign delivery partner">
-                <Bike size={14} />
-              </button>
+            {(!o.order_type || o.order_type === 'room_delivery') && (
+              <>
+                <button onClick={() => openQr(o)} className="p-1.5 hover:bg-purple-500/10 rounded-lg text-ztext-muted hover:text-purple-600 transition-colors" title="Show pickup QR">
+                  <QrCode size={14} />
+                </button>
+                {o.status === 'ready' && (
+                  <button onClick={() => openAssign(o)} className="p-1.5 hover:bg-green-500/10 rounded-lg text-ztext-muted hover:text-green-600 transition-colors" title="Assign delivery partner">
+                    <Bike size={14} />
+                  </button>
+                )}
+              </>
             )}
             <button onClick={() => setConfirmAction({ type: 'force', id: o.id })} className="p-1.5 hover:bg-blue-500/10 rounded-lg text-ztext-muted hover:text-blue-600 transition-colors" title="Force update">
               <Clock size={14} />

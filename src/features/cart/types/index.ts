@@ -25,6 +25,7 @@ export interface CartStore extends CartState {
   markCartViewed: () => void;
   setPricing: (pricing: { deliveryFee: number; maintenanceFee: number }) => void;
   setOrderType: (orderType: 'room_delivery' | 'takeaway') => void;
+  syncPrices: (menuItems: Array<{ id: string; name: string; price: number; img?: string; veg?: boolean }>) => void;
   totalItems: () => number;
   subtotal: () => number;
   deliveryFee: () => number;

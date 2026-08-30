@@ -9,12 +9,219 @@ import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
 import { getNumericSetting, getBooleanSetting, getSetting, getPaymentMethodAvailability } from '@/lib/settings';
 import { minutesOf, formatClock, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
 
+import { menuSections as fallbackMenuSections } from '@/features/menu/data';
+
+const fallbackItemMap = new Map<string, { id: string; name: string; price: number; isAvailable?: boolean }>();
+for (const sec of fallbackMenuSections) {
+  for (const it of sec.items) {
+    fallbackItemMap.set(it.id, { id: it.id, name: it.name, price: it.price, isAvailable: it.isAvailable ?? true });
+  }
+}
+
+const STATIC_PRODUCT_IDS: Record<string, string> = {
+  'biryani-1': '00000000-0000-0000-0000-000000000001',
+  'biryani-2': '00000000-0000-0000-0000-000000000002',
+  'biryani-3': '00000000-0000-0000-0000-000000000003',
+  'rice-1': '00000000-0000-0000-0000-000000000004',
+  'fish-1': '00000000-0000-0000-0000-000000000005',
+  'fish-2': '00000000-0000-0000-0000-000000000006',
+  'fish-3': '00000000-0000-0000-0000-000000000007',
+  'fish-4': '00000000-0000-0000-0000-000000000008',
+  'meat-1': '00000000-0000-0000-0000-000000000009',
+  'meat-2': '00000000-0000-0000-0000-000000000010',
+  'meat-3': '00000000-0000-0000-0000-000000000011',
+  'meat-4': '00000000-0000-0000-0000-000000000012',
+  'veg-1': '00000000-0000-0000-0000-000000000013',
+  'veg-2': '00000000-0000-0000-0000-000000000014',
+  'veg-3': '00000000-0000-0000-0000-000000000015',
+  'veg-4': '00000000-0000-0000-0000-000000000016',
+  'sweet-1': '00000000-0000-0000-0000-000000000017',
+  'sweet-2': '00000000-0000-0000-0000-000000000018',
+  'sweet-3': '00000000-0000-0000-0000-000000000019',
+  'thali-chicken': '00000000-0000-0000-0000-000000000020',
+  'thali-pork': '00000000-0000-0000-0000-000000000026',
+  'thali-veg': '00000000-0000-0000-0000-000000000021',
+  'gravy-chicken': '00000000-0000-0000-0000-000000000024',
+  'gravy-pork': '00000000-0000-0000-0000-000000000025',
+  'featured-1': '00000000-0000-0000-0000-000000000020',
+  'featured-2': '00000000-0000-0000-0000-000000000021',
+  'featured-3': '00000000-0000-0000-0000-000000000024',
+  'featured-4': '00000000-0000-0000-0000-000000000025',
+  'featured-5': '00000000-0000-0000-0000-000000000026',
+  'offer-1': '00000000-0000-0000-0000-000000000020',
+  'offer-2': '00000000-0000-0000-0000-000000000021',
+  'offer-3': '00000000-0000-0000-0000-000000000024',
+  'offer-4': '00000000-0000-0000-0000-000000000025',
+  'offer-5': '00000000-0000-0000-0000-000000000026',
+};
+
+interface ResolvedLineItem {
+  product_id: string;
+  product_name: string;
+  product_price: number;
+  unit_price: number;
+  quantity: number;
+  subtotal: number;
+  special_instructions?: string;
+}
+
+export async function resolveAuthoritativeLineItems(
+  items: CartItem[]
+): Promise<{ success: true; lineItems: ResolvedLineItem[]; subtotal: number; priceChanged: boolean } | { success: false; error: string }> {
+  if (!items || items.length === 0) {
+    return { success: false, error: 'Cannot place order with an empty bag' };
+  }
+
+  const supabase = createServiceClient();
+  if (!supabase) {
+    return { success: false, error: 'Database service unavailable' };
+  }
+
+  // Collect candidate IDs to query DB
+  const rawIdToDbIdMap = new Map<string, string>();
+  const dbIdsToQuery: string[] = [];
+
+  for (const item of items) {
+    const mappedUuid = STATIC_PRODUCT_IDS[item.id] ?? item.id;
+    rawIdToDbIdMap.set(item.id, mappedUuid);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mappedUuid);
+    if (isUuid) {
+      dbIdsToQuery.push(mappedUuid);
+    }
+  }
+
+  // Fetch current authoritative product records from DB
+  const dbProductMap = new Map<string, { id: string; name: string; price: number; is_active: boolean; is_available: boolean; deleted_at: string | null }>();
+
+  if (dbIdsToQuery.length > 0) {
+    const { data: dbProducts, error: prodErr } = await supabase
+      .from('products')
+      .select('id, name, price, is_active, is_available, deleted_at')
+      .in('id', dbIdsToQuery);
+
+    if (!prodErr && dbProducts) {
+      for (const p of dbProducts) {
+        dbProductMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          price: Number(p.price),
+          is_active: Boolean(p.is_active),
+          is_available: p.is_available ?? true,
+          deleted_at: p.deleted_at ?? null,
+        });
+      }
+    }
+  }
+
+  const lineItems: ResolvedLineItem[] = [];
+  let calculatedSubtotal = 0;
+  let priceChanged = false;
+
+  for (const item of items) {
+    const resolvedDbId = rawIdToDbIdMap.get(item.id) ?? item.id;
+    const dbProd = dbProductMap.get(resolvedDbId) || dbProductMap.get(item.id);
+    const fallbackProd = fallbackItemMap.get(item.id);
+
+    let authoritativePrice: number;
+    let productName: string;
+    let resolvedProductId: string;
+
+    if (dbProd) {
+      if (!dbProd.is_active || dbProd.deleted_at) {
+        return { success: false, error: `"${dbProd.name}" is no longer available on the menu.` };
+      }
+      if (!dbProd.is_available) {
+        return { success: false, error: `"${dbProd.name}" is currently sold out.` };
+      }
+      authoritativePrice = dbProd.price;
+      productName = dbProd.name;
+      resolvedProductId = dbProd.id;
+    } else if (fallbackProd) {
+      if (fallbackProd.isAvailable === false) {
+        return { success: false, error: `"${fallbackProd.name}" is currently sold out.` };
+      }
+      authoritativePrice = fallbackProd.price;
+      productName = fallbackProd.name;
+      resolvedProductId = STATIC_PRODUCT_IDS[item.id] ?? (item.id.length === 36 ? item.id : '00000000-0000-0000-0000-000000000001');
+    } else {
+      return { success: false, error: `Product "${item.name || item.id}" was not found on the menu.` };
+    }
+
+    const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+    if (Math.abs(Number(item.price) - authoritativePrice) > 0.01) {
+      priceChanged = true;
+    }
+
+    const itemSubtotal = authoritativePrice * qty;
+    calculatedSubtotal += itemSubtotal;
+
+    lineItems.push({
+      product_id: resolvedProductId,
+      product_name: productName,
+      product_price: authoritativePrice,
+      unit_price: authoritativePrice,
+      quantity: qty,
+      subtotal: itemSubtotal,
+      special_instructions: undefined,
+    });
+  }
+
+  return {
+    success: true,
+    lineItems,
+    subtotal: calculatedSubtotal,
+    priceChanged,
+  };
+}
+
+export async function validateAndQuoteOrder(input: {
+  items: CartItem[];
+  orderType?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  data?: {
+    lineItems: ResolvedLineItem[];
+    subtotal: number;
+    deliveryFee: number;
+    maintenanceFee: number;
+    total: number;
+    priceChanged: boolean;
+  };
+}> {
+  const { items, orderType } = input;
+  const resolution = await resolveAuthoritativeLineItems(items);
+  if (!resolution.success) {
+    return { success: false, error: resolution.error };
+  }
+
+  const isTakeaway = orderType === 'takeaway' || orderType === 'dine_in' || orderType === 'in_store';
+  const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
+  const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
+
+  const deliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
+  const maintenanceFee = maintenanceFeeSetting;
+  const total = resolution.subtotal + deliveryFee + maintenanceFee;
+
+  return {
+    success: true,
+    data: {
+      lineItems: resolution.lineItems,
+      subtotal: resolution.subtotal,
+      deliveryFee,
+      maintenanceFee,
+      total,
+      priceChanged: resolution.priceChanged,
+    },
+  };
+}
+
 interface CreateOrderParams {
   items: CartItem[];
-  subtotal: number;
-  deliveryFee: number;
-  maintenanceFee: number;
-  total: number;
+  subtotal?: number;
+  deliveryFee?: number;
+  maintenanceFee?: number;
+  total?: number;
   paymentMethod: string;
   address: string;
   city?: string;
@@ -42,15 +249,12 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'The store is currently in maintenance mode. Please try again later.' };
   }
 
-  // Store hours are compared in IST (UTC+5:30) so the check is correct on any
-  // server timezone. Uses the same config the storefront shows in StatusStrip.
+  // Store hours are compared in IST (UTC+5:30)
   const istNow = new Date(Date.now() + (5 * 60 + 30) * 60 * 1000);
   const openTime = (await getSetting('store_hours_open')) || '10:00';
   const closeTime = (await getSetting('store_hours_close')) || '21:30';
   const istMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
 
-  // Temporary same-day closure set by the owner in General Settings. While the
-  // reopen time hasn't passed yet the store is closed TODAY (not tomorrow).
   const tempReopensAt = (await getSetting('store_temp_close_until')) || '';
   if (tempReopensAt && istMinutes < minutesOf(tempReopensAt)) {
     return {
@@ -80,8 +284,6 @@ export async function createOrder(params: CreateOrderParams) {
       }
       restaurantId = rows[0].id;
     } else {
-      // No restaurant exists yet (fresh DB). Create a default one so checkout
-      // is never blocked. Mirrors getMerchantRestaurantId auto-create.
       const { data: created, error: createErr } = await supabase
         .from('restaurants')
         .insert({
@@ -112,7 +314,7 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Restaurant not available' };
   }
 
-  const { items, subtotal, deliveryFee, maintenanceFee, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
+  const { items, paymentMethod, address, notes, customerPhone, customerName, customerEmail, orderType } = params;
 
   if (!customerPhone || !/^[0-9]{10}$/.test(customerPhone)) {
     return { success: false, error: 'Phone number must be exactly 10 digits' };
@@ -122,13 +324,20 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: 'Pay on Delivery is only available for Hostel Delivery orders' };
   }
 
-  // Take Away orders are picked up from the restaurant — no delivery fee.
-  // The server enforces this so the stored order total can never include a
-  // delivery charge even if a stale client value slips through.
-  const isTakeaway = orderType === 'takeaway';
-  const effectiveDeliveryFee = isTakeaway ? 0 : Number(deliveryFee) || 0;
-  const effectiveMaintenanceFee = Number(maintenanceFee) || 0;
-  const effectiveTotal = Number(subtotal) + effectiveDeliveryFee + effectiveMaintenanceFee;
+  // Calculate authoritative prices & line items strictly from DB
+  const priceResolution = await resolveAuthoritativeLineItems(items);
+  if (!priceResolution.success) {
+    return { success: false, error: priceResolution.error };
+  }
+
+  const isTakeaway = orderType === 'takeaway' || orderType === 'dine_in' || orderType === 'in_store';
+  const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
+  const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
+
+  const calculatedSubtotal = priceResolution.subtotal;
+  const effectiveDeliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
+  const effectiveMaintenanceFee = maintenanceFeeSetting;
+  const effectiveTotal = calculatedSubtotal + effectiveDeliveryFee + effectiveMaintenanceFee;
 
   const availability = await getPaymentMethodAvailability();
   const avail = availability.find((a) => a.id === paymentMethod);
@@ -192,7 +401,7 @@ export async function createOrder(params: CreateOrderParams) {
     status: 'pending',
     payment_status: 'pending',
     payment_method: paymentMethodDb,
-    subtotal,
+    subtotal: calculatedSubtotal,
     delivery_fee: effectiveDeliveryFee,
     tax_amount: effectiveMaintenanceFee,
     discount_amount: 0,
@@ -200,11 +409,13 @@ export async function createOrder(params: CreateOrderParams) {
     customer_name: customerName || user?.fullName || null,
     customer_email: customerEmail || user?.email || null,
     customer_phone: customerPhone || null,
-    delivery_address: orderType === 'room_delivery'
+    delivery_address: orderType === 'room_delivery' || !orderType
       ? { address, city: params.city ?? '', pincode: params.pincode ?? '' }
       : { address: 'Take away from restaurant' },
     delivery_notes: notes ?? null,
     order_type: orderType ?? null,
+    pickup_qr_token: null,
+    pickup_qr_expires_at: null,
     ...slotPayload,
   };
 
@@ -218,73 +429,47 @@ export async function createOrder(params: CreateOrderParams) {
     return { success: false, error: orderError?.message || 'Failed to create order' };
   }
 
-  const productIds: Record<string, string> = {
-    'biryani-1': '00000000-0000-0000-0000-000000000001',
-    'biryani-2': '00000000-0000-0000-0000-000000000002',
-    'biryani-3': '00000000-0000-0000-0000-000000000003',
-    'rice-1': '00000000-0000-0000-0000-000000000004',
-    'fish-1': '00000000-0000-0000-0000-000000000005',
-    'fish-2': '00000000-0000-0000-0000-000000000006',
-    'fish-3': '00000000-0000-0000-0000-000000000007',
-    'fish-4': '00000000-0000-0000-0000-000000000008',
-    'meat-1': '00000000-0000-0000-0000-000000000009',
-    'meat-2': '00000000-0000-0000-0000-000000000010',
-    'meat-3': '00000000-0000-0000-0000-000000000011',
-    'meat-4': '00000000-0000-0000-0000-000000000012',
-    'veg-1': '00000000-0000-0000-0000-000000000013',
-    'veg-2': '00000000-0000-0000-0000-000000000014',
-    'veg-3': '00000000-0000-0000-0000-000000000015',
-    'veg-4': '00000000-0000-0000-0000-000000000016',
-    'sweet-1': '00000000-0000-0000-0000-000000000017',
-    'sweet-2': '00000000-0000-0000-0000-000000000018',
-    'sweet-3': '00000000-0000-0000-0000-000000000019',
-    'thali-chicken': '00000000-0000-0000-0000-000000000020',
-    'thali-pork': '00000000-0000-0000-0000-000000000026',
-    'thali-veg': '00000000-0000-0000-0000-000000000021',
-    'gravy-chicken': '00000000-0000-0000-0000-000000000024',
-    'gravy-pork': '00000000-0000-0000-0000-000000000025',
-
-    'featured-1': '00000000-0000-0000-0000-000000000020',
-    'featured-2': '00000000-0000-0000-0000-000000000021',
-    'featured-3': '00000000-0000-0000-0000-000000000024',
-    'featured-4': '00000000-0000-0000-0000-000000000025',
-    'featured-5': '00000000-0000-0000-0000-000000000026',
-    'offer-1': '00000000-0000-0000-0000-000000000020',
-    'offer-2': '00000000-0000-0000-0000-000000000021',
-    'offer-3': '00000000-0000-0000-0000-000000000024',
-    'offer-4': '00000000-0000-0000-0000-000000000025',
-    'offer-5': '00000000-0000-0000-0000-000000000026',
-  };
-
-  const orderItems = items.map((item) => ({
+  const orderItemsToInsert = priceResolution.lineItems.map((li) => ({
     order_id: order.id,
-    product_id: productIds[item.id] ?? item.id,
-    product_name: item.name,
-    product_price: item.price,
-    unit_price: item.price,
-    quantity: item.quantity,
-    subtotal: item.price * item.quantity,
+    product_id: li.product_id,
+    product_name: li.product_name,
+    product_price: li.product_price,
+    unit_price: li.unit_price,
+    quantity: li.quantity,
+    subtotal: li.subtotal,
+    special_instructions: li.special_instructions ?? null,
   }));
 
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+  const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
 
   if (itemsError) {
     await supabase.from('orders').delete().eq('id', order.id);
     return { success: false, error: 'Failed to save order items' };
   }
 
+  // QR token is strictly for delivery orders (room_delivery). Takeaway and dine-in must NEVER generate delivery QR.
   let qrToken: string | null = null;
-  try {
-    if (isQrConfigured()) {
-      qrToken = signQrToken(order.tracking_code);
-      await supabase
-        .from('orders')
-        .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
-        .eq('id', order.id);
-    }
-  } catch {}
+  if (isDeliveryOrder) {
+    try {
+      if (isQrConfigured()) {
+        qrToken = signQrToken(order.tracking_code);
+        await supabase
+          .from('orders')
+          .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
+          .eq('id', order.id);
+      }
+    } catch {}
+  }
 
-  return { success: true, data: { orderId: order.id, trackingCode: order.tracking_code, qrToken } };
+  return {
+    success: true,
+    data: {
+      orderId: order.id,
+      trackingCode: order.tracking_code,
+      qrToken,
+      calculatedTotal: effectiveTotal,
+    },
+  };
 }
 
 export async function sendOrderNotification(orderId: string, qrTokenOverride?: string | null) {
@@ -306,6 +491,8 @@ export async function sendOrderNotification(orderId: string, qrTokenOverride?: s
   }));
 
   const address = (data.delivery_address as Record<string, string> | null)?.address ?? '';
+  const isDelivery = !data.order_type || data.order_type === 'room_delivery';
+  const effectiveQr = isDelivery ? (qrTokenOverride ?? data.pickup_qr_token ?? null) : null;
 
   await notifyNewOrder({
     id: data.id,
@@ -317,7 +504,7 @@ export async function sendOrderNotification(orderId: string, qrTokenOverride?: s
     customerName: data.customer_name,
     customerPhone: data.customer_phone,
     orderType: data.order_type,
-  }, data.status, qrTokenOverride ?? data.pickup_qr_token ?? null);
+  }, data.status, effectiveQr);
 }
 
 export async function getOrderTrackingByCode(trackingCode: string) {
@@ -341,29 +528,41 @@ export async function getOrderTrackingByCode(trackingCode: string) {
 
   if (!order) return { success: false, error: 'No order found with this tracking code' };
 
-  const { data: assignment } = await supabase
-    .from('delivery_assignments')
-    .select('*')
-    .eq('order_id', order.id)
-    .maybeSingle();
+  const isDelivery = !order.order_type || order.order_type === 'room_delivery';
 
-  const { data: partner } = order.delivery_partner_id
-    ? await supabase.from('profiles').select('full_name, phone').eq('id', order.delivery_partner_id).maybeSingle()
-    : { data: null };
+  // For takeaway, dine-in, and in-store, delivery assignments and partners must never be shown
+  let assignment = null;
+  let partner = null;
+
+  if (isDelivery) {
+    const { data: assignmentData } = await supabase
+      .from('delivery_assignments')
+      .select('*')
+      .eq('order_id', order.id)
+      .maybeSingle();
+
+    const { data: partnerData } = order.delivery_partner_id
+      ? await supabase.from('profiles').select('full_name, phone').eq('id', order.delivery_partner_id).maybeSingle()
+      : { data: null };
+
+    assignment = assignmentData
+      ? {
+          status: assignmentData.status,
+          otpValue: assignmentData.otp_value ?? null,
+          otpExpiresAt: assignmentData.otp_expires_at ?? null,
+          otpVerifiedAt: assignmentData.otp_verified_at ?? null,
+        }
+      : null;
+
+    partner = partnerData ? { fullName: partnerData.full_name ?? null, phone: partnerData.phone ?? null } : null;
+  }
 
   return {
     success: true,
     data: {
       order: order as Order & { order_items?: OrderItem[] },
-      assignment: assignment
-        ? {
-            status: assignment.status,
-            otpValue: assignment.otp_value ?? null,
-            otpExpiresAt: assignment.otp_expires_at ?? null,
-            otpVerifiedAt: assignment.otp_verified_at ?? null,
-          }
-        : null,
-      partner: partner ? { fullName: partner.full_name ?? null, phone: partner.phone ?? null } : null,
+      assignment,
+      partner,
     },
   };
 }

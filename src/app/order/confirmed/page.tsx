@@ -59,26 +59,51 @@ function OrderConfirmedContent() {
             </div>
           </div>
 
-          <div className="bg-zcard rounded-xl shadow-z p-6 mt-4 text-left">
-            <div className="flex items-center gap-3 text-sm">
-              <Bike size={18} className="text-zred" />
-              <div>
-                <p className="font-semibold text-ztext">Delivery partner will be assigned soon</p>
-                <p className="text-xs text-ztext-light mt-0.5">Expected delivery in 25–35 minutes</p>
-              </div>
-            </div>
-            {address && (
-              <div className="flex items-center gap-3 text-sm mt-4 pt-4 border-t border-zborder">
-                <MapPin size={18} className="text-zred" />
+          {order.order_type === 'takeaway' ? (
+            <div className="bg-zcard rounded-xl shadow-z p-6 mt-4 text-left border border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-center gap-3 text-sm">
+                <MapPin size={18} className="text-amber-500 shrink-0" />
                 <div>
-                  <p className="font-semibold text-ztext">Delivering to</p>
-                  <p className="text-xs text-ztext-light mt-0.5">
-                    {address.address}{address.city ? `, ${address.city}` : ''}{address.pincode ? ` - ${address.pincode}` : ''}
-                  </p>
+                  <p className="font-semibold text-ztext">Store Pickup (Take Away)</p>
+                  <p className="text-xs text-ztext-light mt-0.5">Please collect your freshly prepared order directly from the store counter.</p>
                 </div>
               </div>
-            )}
-          </div>
+              <div className="mt-3 pt-3 border-t border-amber-500/15 text-xs text-ztext-lighter">
+                📍 Dilip Da Canteen, Near CIT Kokrajhar 2nd Gate
+              </div>
+            </div>
+          ) : order.order_type === 'dine_in' || order.order_type === 'in_store' ? (
+            <div className="bg-zcard rounded-xl shadow-z p-6 mt-4 text-left border border-purple-500/20 bg-purple-500/5">
+              <div className="flex items-center gap-3 text-sm">
+                <MapPin size={18} className="text-purple-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-ztext">In-Store Order</p>
+                  <p className="text-xs text-ztext-light mt-0.5">Your order is being served at the canteen counter / table.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-zcard rounded-xl shadow-z p-6 mt-4 text-left">
+              <div className="flex items-center gap-3 text-sm">
+                <Bike size={18} className="text-zred" />
+                <div>
+                  <p className="font-semibold text-ztext">Delivery partner will be assigned soon</p>
+                  <p className="text-xs text-ztext-light mt-0.5">Expected delivery in 25–35 minutes</p>
+                </div>
+              </div>
+              {address && (
+                <div className="flex items-center gap-3 text-sm mt-4 pt-4 border-t border-zborder">
+                  <MapPin size={18} className="text-zred" />
+                  <div>
+                    <p className="font-semibold text-ztext">Delivering to</p>
+                    <p className="text-xs text-ztext-light mt-0.5">
+                      {address.address}{address.city ? `, ${address.city}` : ''}{address.pincode ? ` - ${address.pincode}` : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <Link href={`/order/track?code=${encodeURIComponent(order.tracking_code)}`} className="bg-zcard rounded-xl shadow-z p-6 mt-4 block hover:border hover:border-zred/30 transition-colors">
             <p className="text-sm text-ztext-light">Tracking code</p>

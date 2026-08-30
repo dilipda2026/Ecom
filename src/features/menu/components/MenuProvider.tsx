@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { menuSections as fallbackSections, type MenuItem, type MenuSection } from '../data';
 
+import { useCartStore } from '@/features/cart/store';
+
 interface MenuContextValue {
   sections: MenuSection[];
   allItems: MenuItem[];
@@ -33,16 +35,28 @@ export function MenuProvider({
   const [source, setSource] = useState<'db' | 'fallback'>(initialSource ?? 'fallback');
 
   useEffect(() => {
+    if (initialSections && initialSections.length > 0) {
+      const items = initialSections.flatMap((s) => s.items);
+      useCartStore.getState().syncPrices(items);
+    }
+  }, [initialSections]);
+
+  useEffect(() => {
     let active = true;
 
     async function fetchMenu() {
       try {
-        const res = await fetch('/api/menu');
+        const res = await fetch('/api/menu', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' },
+        });
         if (res.ok) {
           const data = await res.json();
           if (active && data.success && data.sections && data.sections.length > 0) {
             setSections(data.sections);
             setSource(data.source);
+            const freshItems = data.sections.flatMap((s: MenuSection) => s.items);
+            useCartStore.getState().syncPrices(freshItems);
           }
         }
       } catch (err) {

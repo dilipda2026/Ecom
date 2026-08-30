@@ -180,7 +180,19 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {deliveryInfo?.hasDelivery && (
+        {order.order_type === 'takeaway' && (
+          <div className="bg-zcard rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 mt-4">
+            <div className="flex items-center gap-2.5 text-sm">
+              <MapPin size={16} className="text-amber-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-ztext">Store Pickup (Take Away)</p>
+                <p className="text-xs text-ztext-light mt-0.5">Collect directly from store counter • Dilip Da Canteen</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {deliveryInfo?.hasDelivery && (!order.order_type || order.order_type === 'room_delivery') && (
           <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
             <div className="flex items-center gap-2 text-sm mb-3">
               <Bike size={16} className="text-zred" />
@@ -241,7 +253,7 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {address && (
+        {address && (!order.order_type || order.order_type === 'room_delivery') && (
           <div className="bg-zcard rounded-xl border border-zborder p-5 mt-4">
             <div className="flex items-center gap-2.5 text-sm">
               <MapPin size={16} className="text-zred shrink-0" />

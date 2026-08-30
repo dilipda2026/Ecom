@@ -137,24 +137,40 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
 
     const isCash = paymentMethod === 'cash';
 
+    // Query DB for authoritative line items and prices
+    const { resolveAuthoritativeLineItems } = await import('@/features/orders/actions/customer');
+    const priceResolution = await resolveAuthoritativeLineItems(items);
+    if (!priceResolution.success) {
+      return { success: false, error: priceResolution.error };
+    }
+
+    const calculatedSubtotal = priceResolution.subtotal;
+    const finalTaxAmount = Number(taxAmount) || 0;
+    const finalDiscountAmount = Number(discountAmount) || 0;
+    const finalTotal = Math.max(0, calculatedSubtotal + finalTaxAmount - finalDiscountAmount);
+    const nowIso = new Date().toISOString();
+
     const orderPayload = {
       user_id: matchedUserId,
       restaurant_id: restaurant.id,
-      status: isCash ? 'accepted' : 'pending',
+      status: isCash ? 'delivered' : 'pending',
       payment_status: isCash ? 'confirmed' : 'pending',
       payment_method: isCash ? 'cash' : 'razorpay',
       order_type: finalOrderType,
-      subtotal,
+      subtotal: calculatedSubtotal,
       delivery_fee: 0,
-      tax_amount: taxAmount,
-      discount_amount: discountAmount,
-      total,
+      tax_amount: finalTaxAmount,
+      discount_amount: finalDiscountAmount,
+      total: finalTotal,
       customer_name: finalCustomerName,
       customer_phone: finalCustomerPhone,
       customer_email: finalCustomerEmail,
       delivery_address: { address: isTakeaway ? 'In Store Take Away' : 'In Store Counter Checkout' },
       delivery_notes: notes?.trim() || (isTakeaway ? 'In Store Take Away order' : 'In Store counter order'),
-      accepted_at: isCash ? new Date().toISOString() : null,
+      accepted_at: isCash ? nowIso : null,
+      delivered_at: isCash ? nowIso : null,
+      pickup_qr_token: null,
+      pickup_qr_expires_at: null,
     };
 
     const { data: order, error: orderError } = await supabase
@@ -167,15 +183,16 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       return { success: false, error: orderError?.message || 'Failed to create order' };
     }
 
-    // Prepare line items
-    const orderItems = items.map((item) => ({
+    // Prepare line items with authoritative prices
+    const orderItems = priceResolution.lineItems.map((li) => ({
       order_id: order.id,
-      product_id: item.id.includes('-') && item.id.length === 36 ? item.id : '00000000-0000-0000-0000-000000000001',
-      product_name: item.name,
-      product_price: item.price,
-      unit_price: item.price,
-      quantity: item.quantity,
-      subtotal: item.price * item.quantity,
+      product_id: li.product_id,
+      product_name: li.product_name,
+      product_price: li.product_price,
+      unit_price: li.unit_price,
+      quantity: li.quantity,
+      subtotal: li.subtotal,
+      special_instructions: li.special_instructions ?? null,
     }));
 
     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
@@ -190,7 +207,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       await supabase.from('payments').insert({
         order_id: order.id,
         user_id: matchedUserId,
-        amount: total,
+        amount: finalTotal,
         currency: 'INR',
         payment_method: 'cash',
         gateway: 'manual',
@@ -202,7 +219,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
         table_name: 'orders',
         record_id: order.id,
         action: 'create_in_store_order',
-        new_data: { total, payment_method: 'cash', tracking_code: order.tracking_code, order_type: finalOrderType },
+        new_data: { total: finalTotal, payment_method: 'cash', tracking_code: order.tracking_code, order_type: finalOrderType },
         changed_by: adminUser.id,
       });
 
@@ -215,6 +232,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       data: {
         orderId: order.id,
         trackingCode: order.tracking_code,
+        calculatedTotal: finalTotal,
       },
     };
   } catch (err) {
@@ -346,6 +364,8 @@ async function sendInStoreNotification(orderId: string) {
     const headerTitle = isTakeaway ? '🥡 New In-Store Take Away Order!' : '🏪 New In-Store Counter Order!';
     const typeBadge = isTakeaway ? '🥡 Take Away' : '🏪 In Store (Counter)';
 
+    const itemsList = items.map((i: { name: string; quantity: number; price: number }) => `  • ${i.name} ×${i.quantity} — ₹${i.price * i.quantity}`).join('\n');
+
     const msg =
       `<b>${headerTitle}</b>\n` +
       `📦 <b>#${data.tracking_code}</b>\n` +
@@ -355,8 +375,9 @@ async function sendInStoreNotification(orderId: string) {
       `💳 CASH (In Store Counter)\n` +
       `💰 <b>₹${data.total}</b>\n\n` +
       `<b>Items:</b>\n` +
-      items.map((i: { name: string; quantity: number; price: number }) => `  • ${i.name} ×${i.quantity} — ₹${i.price * i.quantity}`).join('\n');
+      itemsList;
 
-    await sendTelegramMessageWithButtons(`${msg}\n\n✅ Accepted`, buttons);
+    const statusLabel = data.status === 'delivered' ? '📦 Delivered' : '⏳ Pending';
+    await sendTelegramMessageWithButtons(`${msg}\n\n${statusLabel}`, buttons);
   } catch {}
 }

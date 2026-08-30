@@ -8,8 +8,15 @@ import type { Product, ProductFormData, Category, CategoryFormData, ProductsFilt
 import { revalidatePath } from 'next/cache';
 
 function revalidateMenu() {
-  revalidatePath('/');
-  revalidatePath('/menu');
+  try {
+    revalidatePath('/', 'page');
+    revalidatePath('/menu', 'page');
+    revalidatePath('/cart', 'page');
+    revalidatePath('/checkout', 'page');
+    revalidatePath('/api/menu');
+  } catch (err) {
+    console.error('Failed to revalidate menu caches:', err);
+  }
 }
 
 interface ApiResponse<T> {

@@ -45,6 +45,27 @@ export const useCartStore = create<CartStore>()(
 
       setOrderType: (orderType) => set({ orderType }),
 
+      syncPrices: (menuItems) => {
+        if (!menuItems || menuItems.length === 0) return;
+        const map = new Map<string, { id: string; name: string; price: number; img?: string; veg?: boolean }>();
+        for (const m of menuItems) {
+          map.set(m.id, m);
+        }
+        set({
+          items: get().items.map((cartItem) => {
+            const fresh = map.get(cartItem.id);
+            if (!fresh) return cartItem;
+            return {
+              ...cartItem,
+              name: fresh.name || cartItem.name,
+              price: Number(fresh.price),
+              veg: fresh.veg ?? cartItem.veg,
+              image: fresh.img || cartItem.image,
+            };
+          }),
+        });
+      },
+
       totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
       deliveryFee: () => get().items.length > 0 && get().orderType !== 'takeaway' ? get().pricing.deliveryFee : 0,
