@@ -16,12 +16,13 @@ export const useCartStore = create<CartStore>()(
       pricing: defaultPricing,
       orderType: 'room_delivery' as const,
 
-      addItem: (item) => {
+      addItem: (item, quantity = 1) => {
+        const qtyToAdd = Math.max(1, quantity);
         const existing = get().items.find((i) => i.id === item.id);
         if (existing) {
-          set({ items: get().items.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i), lastAddedAt: Date.now() });
+          set({ items: get().items.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + qtyToAdd } : i), lastAddedAt: Date.now() });
         } else {
-          set({ items: [...get().items, { ...item, quantity: 1 }], lastAddedAt: Date.now() });
+          set({ items: [...get().items, { ...item, quantity: qtyToAdd }], lastAddedAt: Date.now() });
         }
       },
 

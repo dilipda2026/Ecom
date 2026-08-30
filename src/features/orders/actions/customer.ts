@@ -70,6 +70,7 @@ export async function createOrder(params: CreateOrderParams) {
   try {
     const res = await fetch(`${url}/rest/v1/restaurants?select=id,is_open&deleted_at=is.null&limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
+      cache: 'no-store',
     });
     if (!res.ok) return { success: false, error: 'Restaurant not available' };
     const rows = await res.json();

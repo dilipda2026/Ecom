@@ -27,6 +27,15 @@ export default function AdminProductsPage() {
   const [price, setPrice] = useState<string>('');
   const [compareAtPrice, setCompareAtPrice] = useState<string>('');
   const [description, setDescription] = useState('');
+  const [fullDescription, setFullDescription] = useState('');
+  const [servings, setServings] = useState('');
+  const [pieces, setPieces] = useState('');
+  const [portionSize, setPortionSize] = useState('');
+  const [unit, setUnit] = useState<'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box'>('piece');
+  const [deliveryTime, setDeliveryTime] = useState('20–30 min');
+  const [includedItems, setIncludedItems] = useState('');
+  const [ingredients, setIngredients] = useState('');
+  const [allergens, setAllergens] = useState('');
   const [image, setImage] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isVegetarian, setIsVegetarian] = useState(true);
@@ -81,6 +90,15 @@ export default function AdminProductsPage() {
     setPrice('');
     setCompareAtPrice('');
     setDescription('');
+    setFullDescription('');
+    setServings('');
+    setPieces('');
+    setPortionSize('');
+    setUnit('piece');
+    setDeliveryTime('20–30 min');
+    setIncludedItems('');
+    setIngredients('');
+    setAllergens('');
     setImage('');
     setImageFile(null);
     setIsVegetarian(true);
@@ -110,6 +128,15 @@ export default function AdminProductsPage() {
     setPrice(prod.price.toString());
     setCompareAtPrice(prod.compare_at_price ? prod.compare_at_price.toString() : '');
     setDescription(prod.description ?? '');
+    setFullDescription(prod.full_description ?? '');
+    setServings(prod.servings ?? '');
+    setPieces(prod.pieces ?? '');
+    setPortionSize(prod.portion_size ?? '');
+    setUnit((prod.unit as 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box') ?? 'piece');
+    setDeliveryTime(prod.delivery_time ?? '20–30 min');
+    setIncludedItems(prod.included_items ? prod.included_items.join('\n') : '');
+    setIngredients(prod.ingredients ? prod.ingredients.join(', ') : '');
+    setAllergens(prod.allergens ? prod.allergens.join(', ') : '');
     setImage(prod.image ?? '');
     setImageFile(null);
     setIsVegetarian(prod.is_vegetarian);
@@ -141,6 +168,15 @@ export default function AdminProductsPage() {
       if (categoryId) formData.append('category_id', categoryId);
       if (compareAtPrice) formData.append('compare_at_price', compareAtPrice);
       if (description.trim()) formData.append('description', description.trim());
+      if (fullDescription.trim()) formData.append('full_description', fullDescription.trim());
+      if (servings.trim()) formData.append('servings', servings.trim());
+      if (pieces.trim()) formData.append('pieces', pieces.trim());
+      if (portionSize.trim()) formData.append('portion_size', portionSize.trim());
+      if (unit) formData.append('unit', unit);
+      if (deliveryTime.trim()) formData.append('delivery_time', deliveryTime.trim());
+      if (includedItems.trim()) formData.append('included_items', includedItems.trim());
+      if (ingredients.trim()) formData.append('ingredients', ingredients.trim());
+      if (allergens.trim()) formData.append('allergens', allergens.trim());
       if (image.trim()) formData.append('image', image.trim());
       if (isVegetarian) formData.append('is_vegetarian', 'true');
       if (isVegan) formData.append('is_vegan', 'true');
@@ -405,13 +441,125 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Description</label>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Short Description</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
                 placeholder="Tasty, cooked fresh to order with spices..."
                 className="input-z py-2"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Full Detailed Description (for Customer Food Details view)</label>
+              <textarea
+                value={fullDescription}
+                onChange={(e) => setFullDescription(e.target.value)}
+                rows={3}
+                placeholder="A complete traditional meal prepared with freshly cooked rice, chicken curry, dal, seasonal vegetables and sides. Wholesome and perfect for one person."
+                className="input-z py-2"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Servings</label>
+              <input
+                type="text"
+                value={servings}
+                onChange={(e) => setServings(e.target.value)}
+                placeholder="e.g. 1 person or 2 persons"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Unit</label>
+              <select
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box')}
+                className="input-z text-sm"
+              >
+                <option value="piece">Piece</option>
+                <option value="plate">Plate</option>
+                <option value="kg">Kg</option>
+                <option value="g">Gram</option>
+                <option value="ml">Ml</option>
+                <option value="l">Litre</option>
+                <option value="dozen">Dozen</option>
+                <option value="box">Box</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Pieces / Quantity</label>
+              <input
+                type="text"
+                value={pieces}
+                onChange={(e) => setPieces(e.target.value)}
+                placeholder="e.g. 5 pieces"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Portion Size</label>
+              <input
+                type="text"
+                value={portionSize}
+                onChange={(e) => setPortionSize(e.target.value)}
+                placeholder="e.g. 1 complete thali (approx 450g)"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Est. Delivery Time</label>
+              <input
+                type="text"
+                value={deliveryTime}
+                onChange={(e) => setDeliveryTime(e.target.value)}
+                placeholder="e.g. 20–30 min"
+                className="input-z"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">
+                What&apos;s Included <span className="text-[10px] text-ztext-muted font-normal">(enter each item on a new line or separated by commas)</span>
+              </label>
+              <textarea
+                value={includedItems}
+                onChange={(e) => setIncludedItems(e.target.value)}
+                rows={3}
+                placeholder={"1 serving steamed rice\n1 portion chicken curry\n1 bowl yellow dal\nSeasonal vegetable sabzi\nFresh salad & pickle"}
+                className="input-z py-2 font-mono text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">
+                Ingredients <span className="text-[10px] text-ztext-muted font-normal">(comma-separated)</span>
+              </label>
+              <input
+                type="text"
+                value={ingredients}
+                onChange={(e) => setIngredients(e.target.value)}
+                placeholder="e.g. Chicken, Rice, Lentils, Spices, Mustard oil"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">
+                Allergen Information <span className="text-[10px] text-ztext-muted font-normal">(comma-separated or None)</span>
+              </label>
+              <input
+                type="text"
+                value={allergens}
+                onChange={(e) => setAllergens(e.target.value)}
+                placeholder="e.g. Dairy, Nuts, or None"
+                className="input-z"
               />
             </div>
 

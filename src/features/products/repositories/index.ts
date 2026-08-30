@@ -2,7 +2,9 @@ import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import type { Product, ProductFormData, Category, CategoryFormData, ProductsFilter } from '../types';
 
-const PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, price, compare_at_price, cost_per_unit, unit, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
+const BASE_PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, price, compare_at_price, cost_per_unit, unit, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
+
+const FULL_PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, full_description, price, compare_at_price, cost_per_unit, unit, servings, pieces, portion_size, included_items, ingredients, allergens, delivery_time, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
 
 const CATEGORY_COLUMNS = 'id, restaurant_id, name, slug, description, display_order, is_active, created_at, updated_at';
 
@@ -10,12 +12,14 @@ export class ProductRepository {
   async findByRestaurant(restaurantId: string, filter: ProductsFilter = {}): Promise<Product[]> {
     const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return [];
+    
     let query = supabase
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select(FULL_PRODUCT_COLUMNS)
       .eq('restaurant_id', restaurantId)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
+
     if (filter.deletedOnly) {
       query = query.not('deleted_at', 'is', null);
     } else if (!filter.includeDeleted) {
@@ -30,7 +34,34 @@ export class ProductRepository {
       const from = ((filter.page ?? 1) - 1) * filter.pageSize;
       query = query.range(from, from + filter.pageSize - 1);
     }
-    const { data } = await query;
+
+    const { data, error } = await query;
+    if (error && String(error.message).toLowerCase().includes('column')) {
+      // Fall back if newer columns are missing from DB
+      let fallbackQuery = supabase
+        .from('products')
+        .select(BASE_PRODUCT_COLUMNS)
+        .eq('restaurant_id', restaurantId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (filter.deletedOnly) {
+        fallbackQuery = fallbackQuery.not('deleted_at', 'is', null);
+      } else if (!filter.includeDeleted) {
+        fallbackQuery = fallbackQuery.is('deleted_at', null);
+      }
+      if (filter.category_id) fallbackQuery = fallbackQuery.eq('category_id', filter.category_id);
+      if (filter.is_active !== undefined) fallbackQuery = fallbackQuery.eq('is_active', filter.is_active);
+      if (filter.is_available !== undefined) fallbackQuery = fallbackQuery.eq('is_available', filter.is_available);
+      if (filter.search) fallbackQuery = fallbackQuery.or(`name.ilike.%${filter.search}%,description.ilike.%${filter.search}%`);
+      if (filter.low_stock) fallbackQuery = fallbackQuery.gt('stock_quantity', 0).lte('stock_quantity', 5);
+      if (filter.pageSize) {
+        const from = ((filter.page ?? 1) - 1) * filter.pageSize;
+        fallbackQuery = fallbackQuery.range(from, from + filter.pageSize - 1);
+      }
+      const { data: fallbackData } = await fallbackQuery;
+      return (fallbackData ?? []) as Product[];
+    }
     return (data ?? []) as Product[];
   }
 
@@ -39,10 +70,18 @@ export class ProductRepository {
     if (!supabase) return null;
     let query = supabase
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select(FULL_PRODUCT_COLUMNS)
       .eq('id', id);
     if (!includeDeleted) query = query.is('deleted_at', null);
-    const { data } = await query.maybeSingle();
+    const { data, error } = await query.maybeSingle();
+    if (error && String(error.message).toLowerCase().includes('column')) {
+      const { data: fallback } = await supabase
+        .from('products')
+        .select(BASE_PRODUCT_COLUMNS)
+        .eq('id', id)
+        .maybeSingle();
+      return fallback as Product | null;
+    }
     return data as Product | null;
   }
 
@@ -50,36 +89,68 @@ export class ProductRepository {
     const supabase = createServiceClient() ?? (await createServerSupabaseClient());
     if (!supabase) return null;
     const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'item';
-    const { data: product, error } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      restaurant_id: restaurantId,
+      name: data.name,
+      slug: `${slugBase}-${Date.now().toString(36)}`,
+      description: data.description ?? null,
+      full_description: data.full_description ?? null,
+      price: data.price,
+      compare_at_price: data.compare_at_price ?? null,
+      cost_per_unit: data.cost_per_unit ?? null,
+      unit: data.unit ?? 'piece',
+      servings: data.servings ?? null,
+      pieces: data.pieces ?? null,
+      portion_size: data.portion_size ?? null,
+      included_items: data.included_items ?? [],
+      ingredients: data.ingredients ?? [],
+      allergens: data.allergens ?? [],
+      delivery_time: data.delivery_time ?? null,
+      category_id: data.category_id ?? null,
+      is_vegetarian: data.is_vegetarian ?? false,
+      is_vegan: data.is_vegan ?? false,
+      is_gluten_free: data.is_gluten_free ?? false,
+      spice_level: data.spice_level ?? 0,
+      preparation_time: data.preparation_time ?? 10,
+      image: data.image ?? null,
+      stock_quantity: data.stock_quantity ?? 0,
+      track_inventory: data.track_inventory ?? false,
+      is_available: data.is_available ?? true,
+      is_active: data.is_active ?? true,
+      tags: data.tags ?? null,
+    };
+    let product: Product | null = null;
+    const { data: insertedProduct, error } = await supabase
       .from('products')
-      .insert({
-        restaurant_id: restaurantId,
-        name: data.name,
-        slug: `${slugBase}-${Date.now().toString(36)}`,
-        description: data.description ?? null,
-        price: data.price,
-        compare_at_price: data.compare_at_price ?? null,
-        cost_per_unit: data.cost_per_unit ?? null,
-        unit: data.unit ?? 'piece',
-        category_id: data.category_id ?? null,
-        is_vegetarian: data.is_vegetarian ?? false,
-        is_vegan: data.is_vegan ?? false,
-        is_gluten_free: data.is_gluten_free ?? false,
-        spice_level: data.spice_level ?? 0,
-        preparation_time: data.preparation_time ?? 10,
-        image: data.image ?? null,
-        stock_quantity: data.stock_quantity ?? 0,
-        track_inventory: data.track_inventory ?? false,
-        is_available: data.is_available ?? true,
-        is_active: data.is_active ?? true,
-        tags: data.tags ?? null,
-      })
-      .select(PRODUCT_COLUMNS)
+      .insert(insertPayload)
+      .select(FULL_PRODUCT_COLUMNS)
       .single();
-    if (error) {
+
+    if (error && String(error.message).toLowerCase().includes('column')) {
+      delete insertPayload.full_description;
+      delete insertPayload.servings;
+      delete insertPayload.pieces;
+      delete insertPayload.portion_size;
+      delete insertPayload.included_items;
+      delete insertPayload.ingredients;
+      delete insertPayload.allergens;
+      delete insertPayload.delivery_time;
+
+      const fallbackRes = await supabase
+        .from('products')
+        .insert(insertPayload)
+        .select(BASE_PRODUCT_COLUMNS)
+        .single();
+      product = fallbackRes.data as unknown as Product | null;
+      if (fallbackRes.error) {
+        console.error('Product insert fallback error:', fallbackRes.error);
+      }
+    } else if (error) {
       console.error('Product insert error:', error);
+    } else {
+      product = insertedProduct as unknown as Product | null;
     }
-    return product as Product | null;
+    return product;
   }
 
   async update(id: string, restaurantId: string, data: Partial<ProductFormData>): Promise<Product | null> {
@@ -88,10 +159,18 @@ export class ProductRepository {
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) { updateData.name = data.name; updateData.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36); }
     if (data.description !== undefined) updateData.description = data.description;
+    if (data.full_description !== undefined) updateData.full_description = data.full_description;
     if (data.price !== undefined) updateData.price = data.price;
     if (data.compare_at_price !== undefined) updateData.compare_at_price = data.compare_at_price;
     if (data.cost_per_unit !== undefined) updateData.cost_per_unit = data.cost_per_unit;
     if (data.unit !== undefined) updateData.unit = data.unit;
+    if (data.servings !== undefined) updateData.servings = data.servings;
+    if (data.pieces !== undefined) updateData.pieces = data.pieces;
+    if (data.portion_size !== undefined) updateData.portion_size = data.portion_size;
+    if (data.included_items !== undefined) updateData.included_items = data.included_items;
+    if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
+    if (data.allergens !== undefined) updateData.allergens = data.allergens;
+    if (data.delivery_time !== undefined) updateData.delivery_time = data.delivery_time;
     if (data.category_id !== undefined) updateData.category_id = data.category_id;
     if (data.is_vegetarian !== undefined) updateData.is_vegetarian = data.is_vegetarian;
     if (data.is_vegan !== undefined) updateData.is_vegan = data.is_vegan;
@@ -105,17 +184,43 @@ export class ProductRepository {
     if (data.is_active !== undefined) updateData.is_active = data.is_active;
     if (data.tags !== undefined) updateData.tags = data.tags;
     updateData.updated_at = new Date().toISOString();
-    const { data: product, error } = await supabase
+
+    let product: Product | null = null;
+    const { data: updatedProduct, error } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id)
       .eq('restaurant_id', restaurantId)
-      .select(PRODUCT_COLUMNS)
+      .select(FULL_PRODUCT_COLUMNS)
       .single();
-    if (error) {
+
+    if (error && String(error.message).toLowerCase().includes('column')) {
+      delete updateData.full_description;
+      delete updateData.servings;
+      delete updateData.pieces;
+      delete updateData.portion_size;
+      delete updateData.included_items;
+      delete updateData.ingredients;
+      delete updateData.allergens;
+      delete updateData.delivery_time;
+
+      const fallbackRes = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+        .eq('restaurant_id', restaurantId)
+        .select(BASE_PRODUCT_COLUMNS)
+        .single();
+      product = fallbackRes.data as unknown as Product | null;
+      if (fallbackRes.error) {
+        console.error('Product update fallback error:', fallbackRes.error);
+      }
+    } else if (error) {
       console.error('Product update error:', error);
+    } else {
+      product = updatedProduct as unknown as Product | null;
     }
-    return product as Product | null;
+    return product;
   }
 
   async softDelete(id: string, restaurantId: string): Promise<boolean> {
@@ -167,7 +272,7 @@ export class ProductRepository {
       .update({ stock_quantity: quantity, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('restaurant_id', restaurantId)
-      .select(PRODUCT_COLUMNS)
+      .select(BASE_PRODUCT_COLUMNS)
       .single();
     return data as Product | null;
   }

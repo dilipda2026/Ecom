@@ -17,7 +17,7 @@ export interface CartState {
 }
 
 export interface CartStore extends CartState {
-  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
   setLastAddedRect: (rect: { left: number; top: number; width: number; height: number } | null) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;

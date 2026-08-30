@@ -4,6 +4,7 @@ import { adminRepository } from '../repositories';
 import { getServerSession, getServerProfile } from '@/features/auth/actions';
 import { createAdminClient } from '@/infrastructure/supabase/admin';
 import { clearSettingsCache, getOwnerEmail } from '@/lib/settings';
+import { revalidatePath } from 'next/cache';
 import { isOwnerEmail } from '@/config/auth-access';
 import type { AdminFilter } from '../types';
 
@@ -616,6 +617,7 @@ export async function updateSystemSetting(id: string, value: string) {
       changed_by: user.id,
     });
     clearSettingsCache();
+    revalidatePath('/', 'layout');
     return { success: true };
   } catch (e) {
     return { success: false, error: (e as Error).message };

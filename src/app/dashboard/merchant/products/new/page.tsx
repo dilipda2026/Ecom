@@ -10,6 +10,7 @@ import type { Category } from '@/features/products/types';
 const units = [
   { value: 'piece', label: 'Piece' },
   { value: 'plate', label: 'Plate' },
+  { value: 'bowl', label: 'Bowl' },
   { value: 'kg', label: 'Kg' },
   { value: 'g', label: 'Gram' },
   { value: 'ml', label: 'Ml' },
@@ -25,13 +26,19 @@ export default function NewProductPage() {
   const [error, setError] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [form, setForm] = useState<{
-    name: string; description: string; price: number; compare_at_price: number; cost_per_unit: number;
+    name: string; description: string; full_description: string;
+    servings: string; pieces: string; portion_size: string;
+    included_items: string; ingredients: string; allergens: string; delivery_time: string;
+    price: number; compare_at_price: number; cost_per_unit: number;
     unit: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
     category_id: string; is_vegetarian: boolean; is_vegan: boolean;
     is_gluten_free: boolean; spice_level: number; preparation_time: number;
     stock_quantity: number; track_inventory: boolean; image: string; tags: string;
   }>({
-    name: '', description: '', price: 0, compare_at_price: 0, cost_per_unit: 0,
+    name: '', description: '', full_description: '',
+    servings: '', pieces: '', portion_size: '',
+    included_items: '', ingredients: '', allergens: '', delivery_time: '20–30 min',
+    price: 0, compare_at_price: 0, cost_per_unit: 0,
     unit: 'piece', category_id: '', is_vegetarian: false, is_vegan: false,
     is_gluten_free: false, spice_level: 0, preparation_time: 10,
     stock_quantity: 0, track_inventory: false, image: '', tags: '',
@@ -52,12 +59,22 @@ export default function NewProductPage() {
     fd.append('name', form.name.trim());
     fd.append('price', String(form.price));
     if (form.description.trim()) fd.append('description', form.description.trim());
+    if (form.full_description.trim()) fd.append('full_description', form.full_description.trim());
+    if (form.servings.trim()) fd.append('servings', form.servings.trim());
+    if (form.pieces.trim()) fd.append('pieces', form.pieces.trim());
+    if (form.portion_size.trim()) fd.append('portion_size', form.portion_size.trim());
+    if (form.delivery_time.trim()) fd.append('delivery_time', form.delivery_time.trim());
+    if (form.included_items.trim()) fd.append('included_items', form.included_items.trim());
+    if (form.ingredients.trim()) fd.append('ingredients', form.ingredients.trim());
+    if (form.allergens.trim()) fd.append('allergens', form.allergens.trim());
+    if (form.unit) fd.append('unit', form.unit);
     if (form.category_id) fd.append('category_id', form.category_id);
     if (form.is_vegetarian) fd.append('is_vegetarian', 'true');
     if (form.is_vegan) fd.append('is_vegan', 'true');
     if (form.is_gluten_free) fd.append('is_gluten_free', 'true');
     if (form.compare_at_price) fd.append('compare_at_price', String(form.compare_at_price));
     if (form.cost_per_unit) fd.append('cost_per_unit', String(form.cost_per_unit));
+    if (form.preparation_time) fd.append('preparation_time', String(form.preparation_time));
     if (form.stock_quantity) fd.append('stock_quantity', String(form.stock_quantity));
     if (form.track_inventory) fd.append('track_inventory', 'true');
     if (form.tags) fd.append('tags', form.tags);
@@ -89,8 +106,12 @@ export default function NewProductPage() {
             <input value={form.name} onChange={(e) => update('name', e.target.value)} className="input-z mt-1" placeholder="e.g. Chicken Biryani" />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs font-medium text-ztext-lighter">Description</label>
-            <textarea value={form.description} onChange={(e) => update('description', e.target.value)} className="input-z mt-1 h-20 resize-none" placeholder="Brief description..." />
+            <label className="text-xs font-medium text-ztext-lighter">Short Description</label>
+            <textarea value={form.description} onChange={(e) => update('description', e.target.value)} className="input-z mt-1 h-16 resize-none" placeholder="Brief description..." />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium text-ztext-lighter">Full Detailed Description (for Food Details View)</label>
+            <textarea value={form.full_description} onChange={(e) => update('full_description', e.target.value)} className="input-z mt-1 h-20 resize-none" placeholder="Complete meal overview..." />
           </div>
           <div>
             <label className="text-xs font-medium text-ztext-lighter">Price (₹) *</label>
@@ -101,8 +122,32 @@ export default function NewProductPage() {
             <input type="number" min={0} value={form.compare_at_price} onChange={(e) => update('compare_at_price', Number(e.target.value))} className="input-z mt-1" />
           </div>
           <div>
-            <label className="text-xs font-medium text-ztext-lighter">Cost per unit (₹)</label>
-            <input type="number" min={0} step={1} value={form.cost_per_unit} onChange={(e) => update('cost_per_unit', Number(e.target.value))} className="input-z mt-1" />
+            <label className="text-xs font-medium text-ztext-lighter">Servings</label>
+            <input value={form.servings} onChange={(e) => update('servings', e.target.value)} className="input-z mt-1" placeholder="e.g. 1 person" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Pieces / Quantity</label>
+            <input value={form.pieces} onChange={(e) => update('pieces', e.target.value)} className="input-z mt-1" placeholder="e.g. 5 pieces" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Portion Size</label>
+            <input value={form.portion_size} onChange={(e) => update('portion_size', e.target.value)} className="input-z mt-1" placeholder="e.g. 1 plate (approx 450g)" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Est. Delivery Time</label>
+            <input value={form.delivery_time} onChange={(e) => update('delivery_time', e.target.value)} className="input-z mt-1" placeholder="e.g. 20–30 min" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium text-ztext-lighter">What&apos;s Included (one per line or comma-separated)</label>
+            <textarea value={form.included_items} onChange={(e) => update('included_items', e.target.value)} className="input-z mt-1 h-20 resize-none font-mono text-xs" placeholder="Rice&#10;Chicken Curry&#10;Dal" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Ingredients (comma-separated)</label>
+            <input value={form.ingredients} onChange={(e) => update('ingredients', e.target.value)} className="input-z mt-1" placeholder="Chicken, Rice, Lentils, Spices" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Allergens (comma-separated or None)</label>
+            <input value={form.allergens} onChange={(e) => update('allergens', e.target.value)} className="input-z mt-1" placeholder="Dairy, or None" />
           </div>
           <div>
             <label className="text-xs font-medium text-ztext-lighter">Unit</label>
@@ -118,13 +163,13 @@ export default function NewProductPage() {
             </select>
           </div>
           <div>
+            <label className="text-xs font-medium text-ztext-lighter">Prep time (min)</label>
+            <input type="number" min={0} value={form.preparation_time} onChange={(e) => update('preparation_time', Number(e.target.value))} className="input-z mt-1" />
+          </div>
+          <div>
             <label className="text-xs font-medium text-ztext-lighter">Spice level (0-5)</label>
             <input type="range" min={0} max={5} value={form.spice_level} onChange={(e) => update('spice_level', Number(e.target.value))} className="w-full mt-2" />
             <span className="text-xs text-ztext-muted">{form.spice_level}/5</span>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-ztext-lighter">Prep time (min)</label>
-            <input type="number" min={0} value={form.preparation_time} onChange={(e) => update('preparation_time', Number(e.target.value))} className="input-z mt-1" />
           </div>
         </div>
 

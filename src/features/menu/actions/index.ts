@@ -50,10 +50,23 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
         name: prod.name,
         price: Number(prod.price),
         desc: prod.description || '',
+        fullDesc: prod.full_description || prod.description || '',
         veg: Boolean(prod.is_vegetarian),
         popular: Boolean(prod.compare_at_price || (prod.tags && prod.tags.includes('popular')) || prod.tags?.includes('bestseller')),
         img: prod.image || '/images/Chicken Curry.jpg',
         rating: 4.8,
+        category: categoryName,
+        servings: prod.servings || undefined,
+        pieces: prod.pieces || undefined,
+        portionSize: prod.portion_size || undefined,
+        includedItems: Array.isArray(prod.included_items) && prod.included_items.length > 0 ? prod.included_items : undefined,
+        ingredients: Array.isArray(prod.ingredients) && prod.ingredients.length > 0 ? prod.ingredients : undefined,
+        allergens: Array.isArray(prod.allergens) && prod.allergens.length > 0 ? prod.allergens : undefined,
+        prepTime: prod.preparation_time ? Number(prod.preparation_time) : 15,
+        deliveryTime: prod.delivery_time || '20–30 min',
+        spiceLevel: prod.spice_level != null ? Number(prod.spice_level) : undefined,
+        unit: prod.unit || 'piece',
+        isAvailable: prod.is_available ?? true,
       };
 
       sectionsMap.get(categoryName)!.push(item);
