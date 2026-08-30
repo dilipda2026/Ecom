@@ -77,13 +77,10 @@ const STATUS_ACTIONS: Record<string, ButtonDef[]> = {
   ],
   ready: [
     { text: '🚚 Out for Delivery', status: 'out_for_delivery' },
-    { text: '✅ Complete', status: 'completed' },
+    { text: '📦 Delivered', status: 'delivered' },
   ],
   out_for_delivery: [
     { text: '📦 Delivered', status: 'delivered' },
-  ],
-  delivered: [
-    { text: '✅ Complete', status: 'completed' },
   ],
 };
 

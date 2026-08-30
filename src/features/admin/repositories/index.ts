@@ -454,7 +454,13 @@ export class AdminRepository {
     if (status === 'preparing') updateData.prepared_at = new Date().toISOString();
     if (status === 'ready') updateData.prepared_at = order.prepared_at ?? new Date().toISOString();
     if (status === 'cancelled') updateData.cancelled_at = new Date().toISOString();
-    if (status === 'completed' || status === 'delivered') updateData.delivered_at = new Date().toISOString();
+    if (status === 'completed' || status === 'delivered') {
+      updateData.delivered_at = new Date().toISOString();
+      updateData.payment_status = 'confirmed';
+    }
+    if (status === 'cancelled' && order.payment_method === 'cod') {
+      updateData.payment_status = 'failed';
+    }
     const { error } = await admin.from('orders').update(updateData).eq('id', orderId);
     if (error) throw new Error(error.message);
 

@@ -52,7 +52,7 @@ export class OrderRepository {
     if (status === 'completed' || status === 'delivered') timestamps.delivered_at = new Date().toISOString();
     if (status === 'cancelled') timestamps.cancelled_at = new Date().toISOString();
     if (status === 'declined') timestamps.cancelled_at = new Date().toISOString();
-    const paymentStatus: PaymentStatus | undefined = status === 'completed' ? 'confirmed' :
+    const paymentStatus: PaymentStatus | undefined = (status === 'completed' || status === 'delivered') ? 'confirmed' :
       status === 'cancelled' && order.payment_method === 'cod' ? 'failed' : undefined;
     const updateData: Record<string, unknown> = {
       status,

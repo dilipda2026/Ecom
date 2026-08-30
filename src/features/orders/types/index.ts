@@ -105,7 +105,7 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   accepted: ['preparing', 'cancelled'],
   declined: [],
   preparing: ['ready', 'cancelled'],
-  ready: ['assigned', 'out_for_delivery', 'completed', 'cancelled'],
+  ready: ['assigned', 'out_for_delivery', 'delivered', 'completed', 'cancelled'],
   assigned: ['out_for_delivery'],
   out_for_delivery: ['delivered'],
   delivered: ['completed'],
