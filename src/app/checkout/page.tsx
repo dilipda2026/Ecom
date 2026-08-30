@@ -20,7 +20,7 @@ import { isStoreOpen, formatClock, isTemporarilyClosed, temporaryCloseLabel } fr
 import { getSlotAvailability, formatClock12h, minutesFromMidnight, getCurrentISTMinutes } from '@/features/delivery/lib/slots';
 
 const basePaymentMethods = [
-  { id: 'wallet', label: 'Dilip Da Wallet', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
+  { id: 'wallet', label: 'Ethics Pay', desc: 'Pay instantly using your wallet cash balance', icon: Wallet },
   { id: 'razorpay', label: 'Pay with Razorpay', desc: 'Credit/Debit card, UPI, Net Banking', icon: CreditCard },
   { id: 'phonepe', label: 'Pay with PhonePe', desc: 'Pay using PhonePe UPI', icon: CreditCard },
   { id: 'gpay', label: 'Pay with Google Pay', desc: 'Pay using GPay UPI', icon: CreditCard },
@@ -234,7 +234,7 @@ export default function CheckoutPage() {
     openRazorpayCheckout({
       key: razorpayKey,
       amount: rzpResult.data.amount,
-      name: 'Dilipda',
+      name: 'Ethics Pay',
       description: opts?.description ?? 'Food order',
       method: opts?.method,
       orderId: rzpResult.data.id,
@@ -582,7 +582,7 @@ export default function CheckoutPage() {
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           {walletBalance !== null && (walletBalance - total()) >= -publicSettings.walletCreditLimit ? (
                             <>
-                              <CheckCircle2 size={15} /> Dilip Da Wallet (₹{publicSettings.walletCreditLimit} Overdraft Allowed)
+                              <CheckCircle2 size={15} /> Ethics Pay (₹{publicSettings.walletCreditLimit} Overdraft Allowed)
                             </>
                           ) : (
                             <>

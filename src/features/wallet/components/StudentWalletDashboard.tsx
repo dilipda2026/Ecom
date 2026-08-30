@@ -127,7 +127,7 @@ export default function StudentWalletDashboard() {
           key: rzpOrder.data.keyId,
           amount: amt * 100,
           currency: 'INR',
-          name: 'Dilip Da Wallet',
+          name: 'Ethics Pay',
           description: `Top Up Wallet ₹${amt}`,
           orderId: rzpOrder.data.id,
           onSuccess: async (response) => {
@@ -290,7 +290,7 @@ export default function StudentWalletDashboard() {
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zred/10 border border-zred/20 text-zred text-[11px] sm:text-xs font-bold mb-2">
-              <Sparkles size={12} /> Dilip Da Wallet Balance
+              <Sparkles size={12} /> Ethics Pay Balance
             </div>
             <p className="text-[10px] sm:text-xs text-ztext-lighter uppercase tracking-wider font-semibold">Total Available Balance</p>
             <h2 className={`text-3xl xs:text-4xl sm:text-5xl font-black tracking-tight ${balance < 0 ? 'text-red-400' : 'text-ztext'}`}>
