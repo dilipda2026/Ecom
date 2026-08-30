@@ -47,6 +47,22 @@ async function authorizeAdmin() {
   return { authorized: true, userId: user.id, supabase };
 }
 
+function formatExpenseError(err: unknown, defaultMessage: string): string {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : typeof err === 'string'
+      ? err
+      : defaultMessage;
+
+  if (msg.includes('schema cache') || msg.includes('Could not find the table') || msg.includes('expense_transactions') || msg.includes('expense_settings')) {
+    return "Database table 'expense_transactions' is missing. Please run the SQL migration (supabase/migrations/20260824120000_expense_tracker.sql) in your Supabase SQL Editor.";
+  }
+  return msg || defaultMessage;
+}
+
 function formatDateISO(d: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -130,7 +146,7 @@ export async function getExpenseSummary(
 
     if (fetchErr) {
       console.error('Error fetching expense transactions:', fetchErr);
-      return { success: false, error: 'Failed to fetch transactions' };
+      return { success: false, error: formatExpenseError(fetchErr, 'Failed to fetch transactions') };
     }
 
     let running = startingBalance;
@@ -256,7 +272,7 @@ export async function updateStartingBalance(
 
       if (updateErr) {
         console.error('updateStartingBalance update error:', updateErr);
-        return { success: false, error: updateErr.message || 'Failed to update starting balance' };
+        return { success: false, error: formatExpenseError(updateErr, 'Failed to update starting balance') };
       }
     } else {
       const { error: insertErr } = await supabase.from('expense_settings').insert({
@@ -266,7 +282,7 @@ export async function updateStartingBalance(
 
       if (insertErr) {
         console.error('updateStartingBalance insert error:', insertErr);
-        return { success: false, error: insertErr.message || 'Failed to insert starting balance' };
+        return { success: false, error: formatExpenseError(insertErr, 'Failed to insert starting balance') };
       }
     }
 
@@ -275,7 +291,7 @@ export async function updateStartingBalance(
     console.error('updateStartingBalance error:', err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : 'Failed to update starting balance',
+      error: formatExpenseError(err, 'Failed to update starting balance'),
     };
   }
 }
@@ -309,7 +325,7 @@ export async function addExpenseTransaction(
 
     if (insertErr) {
       console.error('addExpenseTransaction insert error:', insertErr);
-      return { success: false, error: insertErr.message || 'Failed to add transaction' };
+      return { success: false, error: formatExpenseError(insertErr, 'Failed to add transaction') };
     }
 
     return { success: true };
@@ -317,7 +333,7 @@ export async function addExpenseTransaction(
     console.error('addExpenseTransaction error:', err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : 'Failed to add transaction',
+      error: formatExpenseError(err, 'Failed to add transaction'),
     };
   }
 }
@@ -354,7 +370,7 @@ export async function updateExpenseTransaction(
 
     if (updateErr) {
       console.error('updateExpenseTransaction update error:', updateErr);
-      return { success: false, error: updateErr.message || 'Failed to update transaction' };
+      return { success: false, error: formatExpenseError(updateErr, 'Failed to update transaction') };
     }
 
     return { success: true };
@@ -362,7 +378,7 @@ export async function updateExpenseTransaction(
     console.error('updateExpenseTransaction error:', err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : 'Failed to update transaction',
+      error: formatExpenseError(err, 'Failed to update transaction'),
     };
   }
 }
@@ -390,7 +406,7 @@ export async function deleteExpenseTransaction(
 
     if (deleteErr) {
       console.error('deleteExpenseTransaction delete error:', deleteErr);
-      return { success: false, error: deleteErr.message || 'Failed to delete transaction' };
+      return { success: false, error: formatExpenseError(deleteErr, 'Failed to delete transaction') };
     }
 
     return { success: true };
@@ -398,7 +414,7 @@ export async function deleteExpenseTransaction(
     console.error('deleteExpenseTransaction error:', err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : 'Failed to delete transaction',
+      error: formatExpenseError(err, 'Failed to delete transaction'),
     };
   }
 }

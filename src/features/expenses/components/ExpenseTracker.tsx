@@ -165,6 +165,18 @@ export default function ExpenseTracker() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs sm:text-sm text-red-400 font-medium flex items-center justify-between gap-3">
+          <p>{error}</p>
+          <button
+            onClick={loadData}
+            className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 font-bold hover:bg-red-500/30 transition-colors shrink-0 text-xs"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header & Main Button Action Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

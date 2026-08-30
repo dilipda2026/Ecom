@@ -934,6 +934,72 @@ end;
 $$;
 
 -- ============================================================================
+-- 25. Expense Tracker & Starting Balance
+-- ============================================================================
+create table if not exists public.expense_settings (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users(id) on delete cascade unique,
+  starting_balance numeric(10,2) not null default 0.00,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+create table if not exists public.expense_transactions (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users(id) on delete cascade,
+  transaction_date date not null default current_date,
+  description      text not null,
+  amount           numeric(10,2) not null check (amount > 0),
+  type             text not null check (type in ('income', 'expense')),
+  note             text,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+create index if not exists idx_expense_tx_user_date 
+  on public.expense_transactions(user_id, transaction_date desc, created_at desc);
+
+-- Triggers for updated_at
+create or replace function public.update_expense_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_expense_settings_updated_at on public.expense_settings;
+create trigger trg_expense_settings_updated_at
+  before update on public.expense_settings
+  for each row
+  execute function public.update_expense_updated_at();
+
+drop trigger if exists trg_expense_transactions_updated_at on public.expense_transactions;
+create trigger trg_expense_transactions_updated_at
+  before update on public.expense_transactions
+  for each row
+  execute function public.update_expense_updated_at();
+
+alter table public.expense_settings enable row level security;
+alter table public.expense_transactions enable row level security;
+
+drop policy if exists "expense_settings_owner_select" on public.expense_settings;
+create policy "expense_settings_owner_select" on public.expense_settings
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "expense_settings_owner_all" on public.expense_settings;
+create policy "expense_settings_owner_all" on public.expense_settings
+  for all using (auth.uid() = user_id);
+
+drop policy if exists "expense_transactions_owner_select" on public.expense_transactions;
+create policy "expense_transactions_owner_select" on public.expense_transactions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "expense_transactions_owner_all" on public.expense_transactions;
+create policy "expense_transactions_owner_all" on public.expense_transactions
+  for all using (auth.uid() = user_id);
+
+-- ============================================================================
 -- SEED DATA: Default admin user reference
 -- ============================================================================
 -- To create your first admin, run this AFTER the user has signed up:

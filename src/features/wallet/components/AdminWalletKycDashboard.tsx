@@ -142,7 +142,6 @@ export default function AdminWalletKycDashboard() {
   };
 
   const pendingCount = kycs.filter((k) => k.status === 'pending').length;
-  const unverifiedCount = kycs.filter((k) => k.status === 'unverified').length;
 
   const filteredKycs = kycs.filter((k) => {
     const name = (k.kyc_name || '').toLowerCase();
@@ -165,7 +164,7 @@ export default function AdminWalletKycDashboard() {
           <h1 className="text-2xl font-black text-ztext flex items-center gap-2">
             <ShieldCheck className="text-amber-500" /> Wallet Management
           </h1>
-          <p className="text-sm text-ztext-light mt-1">Review KYCs and manage active wallets.</p>
+          <p className="text-sm text-ztext-light mt-1">Review KYC submissions and manage student wallets.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -202,7 +201,7 @@ export default function AdminWalletKycDashboard() {
           onClick={() => setFilterStatus('all')}
           className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filterStatus === 'all' ? 'bg-zgray text-ztext' : 'text-ztext-light hover:text-ztext'}`}
         >
-          All Wallets
+          All Requests ({kycs.length})
         </button>
         <button
           onClick={() => setFilterStatus('active')}
@@ -215,12 +214,6 @@ export default function AdminWalletKycDashboard() {
           className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${filterStatus === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'text-ztext-light hover:text-ztext'}`}
         >
           Pending {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px]">{pendingCount}</span>}
-        </button>
-        <button
-          onClick={() => setFilterStatus('unverified')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${filterStatus === 'unverified' ? 'bg-blue-500/10 text-blue-500' : 'text-ztext-light hover:text-ztext'}`}
-        >
-          Unverified {unverifiedCount > 0 && <span className="px-1.5 py-0.5 rounded-md bg-blue-500 text-white text-[10px]">{unverifiedCount}</span>}
         </button>
         <button
           onClick={() => setFilterStatus('rejected')}

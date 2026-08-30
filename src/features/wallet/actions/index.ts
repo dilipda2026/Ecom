@@ -847,10 +847,12 @@ export async function getAllWallets(): Promise<{ success: boolean; data?: Wallet
   const { supabase } = auth;
 
   try {
-    // 1. Fetch all existing wallets
+    // 1. Fetch only wallets with a submitted KYC / wallet request
     const { data: wallets, error: walletsErr } = await supabase
       .from('wallets')
       .select('*')
+      .or('kyc_submitted_at.not.is.null,status.in.(pending,active,rejected)')
+      .order('kyc_submitted_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     if (walletsErr) {
@@ -858,48 +860,34 @@ export async function getAllWallets(): Promise<{ success: boolean; data?: Wallet
       throw new Error(walletsErr.message);
     }
 
-    // 2. Fetch all student profiles to make sure every student appears in the list
-    const { data: profiles, error: profilesErr } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, role, created_at')
-      .is('deleted_at', null);
+    const submittedWallets = (wallets || []).filter((w) => {
+      // Only include students who have actually submitted a KYC wallet request
+      return Boolean(w.kyc_submitted_at || w.kyc_photo_url || w.pan_card_url || ['pending', 'active', 'rejected'].includes(w.status));
+    });
 
-    if (profilesErr) {
-      console.warn('Could not fetch profiles for wallets:', profilesErr);
+    // 2. Fetch profiles only for user details enrichment of those submitted wallets
+    const userIds = submittedWallets.map((w) => w.user_id).filter(Boolean);
+    let profilesMap = new Map<string, { id: string; email?: string; full_name?: string }>();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+
+      if (profiles) {
+        profilesMap = new Map(profiles.map((p) => [p.id, p]));
+      }
     }
 
-    const profilesMap = new Map((profiles || []).map((p) => [p.id, p]));
-    const existingWalletUserIds = new Set((wallets || []).map((w) => w.user_id));
-
-    // Enrich existing wallets with student name/email
-    const enrichedWallets: Wallet[] = (wallets || []).map((w) => {
+    // Enrich submitted wallets with student name/email
+    const enrichedWallets: Wallet[] = submittedWallets.map((w) => {
       const p = profilesMap.get(w.user_id);
       return {
         ...w,
         kyc_name: w.kyc_name || p?.full_name || 'Student',
         kyc_email: w.kyc_email || p?.email || '',
       };
-    });
-
-    // Also include student profiles that don't have a wallet row yet so admin can see all students
-    (profiles || []).forEach((p) => {
-      const isStudentOrCustomer = !p.role || ['student', 'customer'].includes(p.role);
-      if (isStudentOrCustomer && !existingWalletUserIds.has(p.id)) {
-        enrichedWallets.push({
-          id: p.id,
-          user_id: p.id,
-          balance: 0,
-          total_credit: 0,
-          total_debit: 0,
-          credit_limit: 0,
-          credit_used: 0,
-          status: 'unverified',
-          kyc_name: p.full_name || 'Student',
-          kyc_email: p.email || '',
-          created_at: p.created_at || new Date().toISOString(),
-          updated_at: p.created_at || new Date().toISOString(),
-        });
-      }
     });
 
     return { success: true, data: enrichedWallets };
