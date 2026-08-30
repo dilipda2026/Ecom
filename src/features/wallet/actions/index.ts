@@ -526,6 +526,8 @@ export async function submitWalletKyc(data: {
         balance: 0,
         total_credit: 0,
         total_debit: 0,
+        credit_limit: 0,
+        credit_used: 0,
         status: 'pending',
         kyc_name: data.kycName,
         kyc_email: data.kycEmail,

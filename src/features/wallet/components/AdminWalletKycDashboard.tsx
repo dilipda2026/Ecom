@@ -302,7 +302,7 @@ export default function AdminWalletKycDashboard() {
                     
                     {selectedHistoryWallet?.id === kyc.id && (
                       <tr className="bg-zcard/50">
-                        <td colSpan={4} className="p-0 border-b border-zborder">
+                        <td colSpan={6} className="p-0 border-b border-zborder">
                           <div className="px-6 py-4 bg-zgray/20 shadow-inner">
                             {loadingHistory ? (
                               <div className="p-4 text-center flex flex-col items-center justify-center gap-2 text-ztext-light">

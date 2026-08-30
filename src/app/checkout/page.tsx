@@ -281,10 +281,13 @@ export default function CheckoutPage() {
 
       const orderTotal = quoteRes.data.total;
       const currentBalance = walletBalance ?? 0;
-      const CREDIT_LIMIT = publicSettings.walletCreditLimit;
 
-      if (currentBalance - orderTotal < -CREDIT_LIMIT) {
-        setError(`Credit limit reached (Max overdraft: ₹${CREDIT_LIMIT}). Current balance: ₹${currentBalance.toLocaleString('en-IN')}, Order Total: ₹${orderTotal.toLocaleString('en-IN')}. Please top up your wallet.`);
+      if (currentBalance - orderTotal < -walletCreditLimit) {
+        if (walletCreditLimit > 0) {
+          setError(`Credit limit reached (Max overdraft: ₹${walletCreditLimit}). Current balance: ₹${currentBalance.toLocaleString('en-IN')}, Order Total: ₹${orderTotal.toLocaleString('en-IN')}. Please top up your wallet.`);
+        } else {
+          setError(`Insufficient balance. Current balance: ₹${currentBalance.toLocaleString('en-IN')}, Order Total: ₹${orderTotal.toLocaleString('en-IN')}. Please top up your wallet or change payment method.`);
+        }
         setPlacing(false);
         return;
       }
@@ -590,16 +593,18 @@ export default function CheckoutPage() {
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           {walletBalance !== null && (walletBalance - total()) >= -walletCreditLimit ? (
                             <>
-                              <CheckCircle2 size={15} /> Ethics Pay (₹{walletCreditLimit} Overdraft Allowed)
+                              <CheckCircle2 size={15} /> Ethics Pay {walletCreditLimit > 0 ? `(₹${walletCreditLimit} Overdraft Allowed)` : ''}
                             </>
                           ) : (
                             <>
-                              <AlertCircle size={15} /> Credit Limit Reached (Max Overdraft ₹{walletCreditLimit})
+                              <AlertCircle size={15} /> {walletCreditLimit > 0 ? `Credit Limit Reached (Max Overdraft ₹${walletCreditLimit})` : 'Insufficient Wallet Balance'}
                             </>
                           )}
                         </p>
                         <p className="text-[11px] mt-0.5 opacity-90">
-                          Current Balance: ₹{(walletBalance ?? 0).toLocaleString('en-IN')} &bull; Order: ₹{total().toLocaleString('en-IN')}
+                          {walletBalance !== null && (walletBalance - total()) >= -walletCreditLimit
+                            ? 'Amount will be deducted from your wallet balance.'
+                            : `Current Balance: ₹{(walletBalance ?? 0).toLocaleString('en-IN')} • Order: ₹${total().toLocaleString('en-IN')}`}
                         </p>
                       </div>
                       <Link

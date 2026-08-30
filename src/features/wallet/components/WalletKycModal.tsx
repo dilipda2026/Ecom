@@ -122,6 +122,16 @@ export default function WalletKycModal({
       return;
     }
 
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+    if (kycPhotoFile.size > MAX_SIZE_BYTES) {
+      setKycError('Live Photo / Selfie must be under 5MB in size.');
+      return;
+    }
+    if (documentFile.size > MAX_SIZE_BYTES) {
+      setKycError('ID Document must be under 5MB in size.');
+      return;
+    }
+
     setSubmittingKyc(true);
     try {
       /* 
@@ -241,8 +251,9 @@ export default function WalletKycModal({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">
-                Live Photo / Selfie (Image)
+              <label className="flex items-center justify-between text-[11px] font-semibold text-ztext-lighter mb-1.5">
+                <span>Live Photo / Selfie (Image)</span>
+                <span className="text-ztext-muted">Max 5MB</span>
               </label>
 
               {/* Two Option Mode Switcher */}
@@ -381,8 +392,9 @@ export default function WalletKycModal({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-ztext-lighter mb-1.5">
-                {documentType} Document (Image)
+              <label className="flex items-center justify-between text-[11px] font-semibold text-ztext-lighter mb-1.5">
+                <span>{documentType} Document (Image)</span>
+                <span className="text-ztext-muted">Max 5MB</span>
               </label>
               <input
                 type="file"
