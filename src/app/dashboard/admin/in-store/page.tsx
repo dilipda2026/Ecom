@@ -299,7 +299,9 @@ export default function InStorePage() {
   // Financial calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const maintenanceFee = subtotal > 0 ? publicSettings.maintenanceFee : 0;
-  const total = subtotal + maintenanceFee;
+  const packagingCharge = subtotal > 0 && isTakeaway ? publicSettings.packagingCharge : 0;
+  const totalFees = maintenanceFee + packagingCharge;
+  const total = subtotal + totalFees;
   const tenderedAmount = Number(cashTendered) || 0;
   const changeDue = tenderedAmount >= total ? tenderedAmount - total : 0;
 
@@ -327,7 +329,7 @@ export default function InStorePage() {
       const res = await createInStoreOrder({
         items: cart,
         subtotal,
-        taxAmount: maintenanceFee,
+        taxAmount: totalFees,
         total,
         paymentMethod: 'cash',
         customerPhone: customerPhone.trim() || undefined,
@@ -348,7 +350,7 @@ export default function InStorePage() {
           orderType: currentOrderType,
           total,
           subtotal,
-          taxAmount: maintenanceFee,
+          taxAmount: totalFees,
           paymentMethod: 'Cash',
           items: [...cart],
           createdAt: new Date().toISOString(),
@@ -364,7 +366,7 @@ export default function InStorePage() {
       const res = await createInStoreOrder({
         items: cart,
         subtotal,
-        taxAmount: maintenanceFee,
+        taxAmount: totalFees,
         total,
         paymentMethod: 'upi',
         customerPhone: customerPhone.trim() || undefined,
@@ -385,7 +387,7 @@ export default function InStorePage() {
           orderType: currentOrderType,
           total,
           subtotal,
-          taxAmount: maintenanceFee,
+          taxAmount: totalFees,
           paymentMethod: 'UPI',
           items: [...cart],
           createdAt: new Date().toISOString(),
@@ -435,7 +437,7 @@ export default function InStorePage() {
           const createRes = await createInStoreOrder({
             items: cart,
             subtotal,
-            taxAmount: maintenanceFee,
+            taxAmount: totalFees,
             total,
             paymentMethod: 'razorpay',
             customerPhone: customerPhone.trim() || undefined,
@@ -456,7 +458,7 @@ export default function InStorePage() {
               orderType: currentOrderType,
               total,
               subtotal,
-              taxAmount: maintenanceFee,
+              taxAmount: totalFees,
               paymentMethod: 'Online (Razorpay)',
               items: [...cart],
               createdAt: new Date().toISOString(),
@@ -826,6 +828,12 @@ export default function InStorePage() {
                   <div className="flex justify-between text-ztext-light">
                     <span>Maintenance Fee</span>
                     <span className="font-medium text-ztext">₹{maintenanceFee}</span>
+                  </div>
+                )}
+                {packagingCharge > 0 && (
+                  <div className="flex justify-between text-ztext-light">
+                    <span>Packaging Charge</span>
+                    <span className="font-medium text-ztext">₹{packagingCharge}</span>
                   </div>
                 )}
                 <div className="border-t border-zborder pt-2 flex justify-between font-bold text-ztext text-sm">
