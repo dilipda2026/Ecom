@@ -169,8 +169,6 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       delivery_notes: notes?.trim() || (isTakeaway ? 'In Store Take Away order' : 'In Store counter order'),
       accepted_at: isCash ? nowIso : null,
       delivered_at: isCash ? nowIso : null,
-      pickup_qr_token: null,
-      pickup_qr_expires_at: null,
     };
 
     const { data: order, error: orderError } = await supabase

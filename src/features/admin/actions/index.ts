@@ -341,7 +341,7 @@ export async function regenerateOrderQr(orderId: string) {
       const admin = createAdminClient();
       const { error } = await admin
         .from('orders')
-        .update({ pickup_qr_token: token, pickup_qr_expires_at: expiresAt })
+        .update({ pickup_qr_token: token })
         .eq('id', orderId);
       if (error) throw new Error(error.message);
     } catch {}

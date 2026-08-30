@@ -52,19 +52,13 @@ export default function AdminOrdersPage() {
   const openQr = async (o: AdminOrder) => {
     setQrTarget(o);
     setQrLoading(true);
-    const hasFreshToken = o.pickup_qr_token && o.pickup_qr_expires_at && new Date(o.pickup_qr_expires_at).getTime() > Date.now();
-    if (hasFreshToken) {
-      setQrToken(o.pickup_qr_token ?? null);
-      setQrExpiresAt(o.pickup_qr_expires_at ?? '');
+    const res = await regenerateOrderQr(o.id);
+    if (res.success && res.data) {
+      setQrToken(res.data.token);
+      setQrExpiresAt(res.data.expiresAt);
     } else {
-      const res = await regenerateOrderQr(o.id);
-      if (res.success && res.data) {
-        setQrToken(res.data.token);
-        setQrExpiresAt(res.data.expiresAt);
-      } else {
-        addToast(res.error ?? 'Failed to generate QR', 'error');
-        setQrTarget(null);
-      }
+      addToast(res.error ?? 'Failed to generate QR', 'error');
+      setQrTarget(null);
     }
     setQrLoading(false);
   };

@@ -414,8 +414,6 @@ export async function createOrder(params: CreateOrderParams) {
       : { address: 'Take away from restaurant' },
     delivery_notes: notes ?? null,
     order_type: orderType ?? null,
-    pickup_qr_token: null,
-    pickup_qr_expires_at: null,
     ...slotPayload,
   };
 
@@ -455,7 +453,7 @@ export async function createOrder(params: CreateOrderParams) {
         qrToken = signQrToken(order.tracking_code);
         await supabase
           .from('orders')
-          .update({ pickup_qr_token: qrToken, pickup_qr_expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
+          .update({ pickup_qr_token: qrToken })
           .eq('id', order.id);
       }
     } catch {}
