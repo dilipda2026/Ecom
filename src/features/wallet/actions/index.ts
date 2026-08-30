@@ -2,7 +2,28 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
+import { getAdminEmails } from '@/lib/settings';
+import { isAdminEmail } from '@/config/auth-access';
 import type { Wallet, WalletTransaction, WalletSummary } from '../types';
+
+async function checkAdminAuth() {
+  const supabase = createServiceClient();
+  if (!supabase) return { authorized: false, error: 'Database service unavailable', admin: null, supabase: null };
+
+  const { user: admin } = await getServerSession();
+  if (!admin) return { authorized: false, error: 'Not authenticated', admin: null, supabase: null };
+
+  const adminEmails = await getAdminEmails();
+  const isAdminByEmail = isAdminEmail(admin.email, adminEmails);
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
+  const isAuthorized = ['admin', 'super_admin'].includes(profile?.role || admin.role || '') || isAdminByEmail;
+
+  if (!isAuthorized) {
+    return { authorized: false, error: 'Forbidden. Admin access required.', admin: null, supabase: null };
+  }
+
+  return { authorized: true, admin, profile, supabase };
+}
 
 /* 
 // Legacy Global Limit Logic - Kept for reference
@@ -545,18 +566,11 @@ export async function submitWalletKyc(data: {
 }
 
 export async function getPendingWalletKycs(): Promise<{ success: boolean; data?: Wallet[]; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
-    }
-
     const { data: kycs, error } = await supabase
       .from('wallets')
       .select('*')
@@ -568,94 +582,165 @@ export async function getPendingWalletKycs(): Promise<{ success: boolean; data?:
     return { success: true, data: kycs as Wallet[] };
   } catch (err: unknown) {
     console.error('getPendingWalletKycs error:', err);
-    return { success: false, error: 'Failed to fetch pending KYCs' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch pending KYCs' };
   }
 }
 
 export async function approveWalletKyc(walletId: string, creditLimit: number = 0): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
-    }
-
-    await supabase
+    const { data: existing } = await supabase
       .from('wallets')
-      .update({
-        status: 'active',
+      .select('id, user_id')
+      .or(`id.eq.${walletId},user_id.eq.${walletId}`)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateErr } = await supabase
+        .from('wallets')
+        .update({
+          status: 'active',
+          credit_limit: creditLimit,
+          kyc_approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) throw updateErr;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', walletId)
+        .maybeSingle();
+
+      const { error: insertErr } = await supabase.from('wallets').insert({
+        user_id: walletId,
+        balance: 0,
+        total_credit: 0,
+        total_debit: 0,
         credit_limit: creditLimit,
+        credit_used: 0,
+        status: 'active',
+        kyc_name: profile?.full_name || 'Student',
+        kyc_email: profile?.email || '',
         kyc_approved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', walletId);
+      });
+
+      if (insertErr) throw insertErr;
+    }
 
     return { success: true };
   } catch (err: unknown) {
     console.error('approveWalletKyc error:', err);
-    return { success: false, error: 'Failed to approve KYC' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to approve KYC' };
   }
 }
 
 export async function updateWalletCreditLimit(walletId: string, creditLimit: number): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
-    }
-
-    await supabase
+    const { data: existing } = await supabase
       .from('wallets')
-      .update({
+      .select('id, user_id')
+      .or(`id.eq.${walletId},user_id.eq.${walletId}`)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateErr } = await supabase
+        .from('wallets')
+        .update({
+          credit_limit: creditLimit,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) throw updateErr;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', walletId)
+        .maybeSingle();
+
+      const { error: insertErr } = await supabase.from('wallets').insert({
+        user_id: walletId,
+        balance: 0,
+        total_credit: 0,
+        total_debit: 0,
         credit_limit: creditLimit,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', walletId);
+        credit_used: 0,
+        status: 'active',
+        kyc_name: profile?.full_name || 'Student',
+        kyc_email: profile?.email || '',
+      });
+
+      if (insertErr) throw insertErr;
+    }
 
     return { success: true };
   } catch (err: unknown) {
     console.error('updateWalletCreditLimit error:', err);
-    return { success: false, error: 'Failed to update credit limit' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update credit limit' };
   }
 }
 
 export async function rejectWalletKyc(walletId: string, reason: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
-    }
-
-    await supabase
+    const { data: existing } = await supabase
       .from('wallets')
-      .update({
+      .select('id, user_id')
+      .or(`id.eq.${walletId},user_id.eq.${walletId}`)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateErr } = await supabase
+        .from('wallets')
+        .update({
+          status: 'rejected',
+          kyc_rejection_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) throw updateErr;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', walletId)
+        .maybeSingle();
+
+      const { error: insertErr } = await supabase.from('wallets').insert({
+        user_id: walletId,
+        balance: 0,
+        total_credit: 0,
+        total_debit: 0,
+        credit_limit: 0,
+        credit_used: 0,
         status: 'rejected',
         kyc_rejection_reason: reason,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', walletId);
+        kyc_name: profile?.full_name || 'Student',
+        kyc_email: profile?.email || '',
+      });
+
+      if (insertErr) throw insertErr;
+    }
 
     return { success: true };
   } catch (err: unknown) {
     console.error('rejectWalletKyc error:', err);
-    return { success: false, error: 'Failed to reject KYC' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to reject KYC' };
   }
 }
 
@@ -757,55 +842,99 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
 }
 
 export async function getAllWallets(): Promise<{ success: boolean; data?: Wallet[]; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
-    }
-
-    const { data: wallets, error } = await supabase
+    // 1. Fetch all existing wallets
+    const { data: wallets, error: walletsErr } = await supabase
       .from('wallets')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (walletsErr) {
+      console.error('getAllWallets query error:', walletsErr);
+      throw new Error(walletsErr.message);
+    }
 
-    return { success: true, data: wallets as Wallet[] };
+    // 2. Fetch all student profiles to make sure every student appears in the list
+    const { data: profiles, error: profilesErr } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, created_at')
+      .is('deleted_at', null);
+
+    if (profilesErr) {
+      console.warn('Could not fetch profiles for wallets:', profilesErr);
+    }
+
+    const profilesMap = new Map((profiles || []).map((p) => [p.id, p]));
+    const existingWalletUserIds = new Set((wallets || []).map((w) => w.user_id));
+
+    // Enrich existing wallets with student name/email
+    const enrichedWallets: Wallet[] = (wallets || []).map((w) => {
+      const p = profilesMap.get(w.user_id);
+      return {
+        ...w,
+        kyc_name: w.kyc_name || p?.full_name || 'Student',
+        kyc_email: w.kyc_email || p?.email || '',
+      };
+    });
+
+    // Also include student profiles that don't have a wallet row yet so admin can see all students
+    (profiles || []).forEach((p) => {
+      const isStudentOrCustomer = !p.role || ['student', 'customer'].includes(p.role);
+      if (isStudentOrCustomer && !existingWalletUserIds.has(p.id)) {
+        enrichedWallets.push({
+          id: p.id,
+          user_id: p.id,
+          balance: 0,
+          total_credit: 0,
+          total_debit: 0,
+          credit_limit: 0,
+          credit_used: 0,
+          status: 'unverified',
+          kyc_name: p.full_name || 'Student',
+          kyc_email: p.email || '',
+          created_at: p.created_at || new Date().toISOString(),
+          updated_at: p.created_at || new Date().toISOString(),
+        });
+      }
+    });
+
+    return { success: true, data: enrichedWallets };
   } catch (err: unknown) {
     console.error('getAllWallets error:', err);
-    return { success: false, error: 'Failed to fetch all wallets' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch all wallets' };
   }
 }
 
 export async function getAdminWalletTransactions(walletId: string): Promise<{ success: boolean; data?: WalletTransaction[]; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('id')
+      .or(`id.eq.${walletId},user_id.eq.${walletId}`)
+      .maybeSingle();
+
+    if (!wallet) {
+      return { success: true, data: [] };
     }
 
     const { data: txData, error } = await supabase
       .from('wallet_transactions')
       .select('*')
-      .eq('wallet_id', walletId)
+      .eq('wallet_id', wallet.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     
     // Normalize transactions similar to getWalletDetails
-    const transactions = txData.map(tx => {
+    const transactions = (txData || []).map(tx => {
       const isCreditType = tx.type === 'debit' ? false : (['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0);
       return {
         ...tx,
@@ -817,35 +946,57 @@ export async function getAdminWalletTransactions(walletId: string): Promise<{ su
     return { success: true, data: transactions };
   } catch (err: unknown) {
     console.error('getAdminWalletTransactions error:', err);
-    return { success: false, error: 'Failed to fetch transactions' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch transactions' };
   }
 }
 
 export async function updateWalletStatus(walletId: string, status: Wallet['status']): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServiceClient();
-  if (!supabase) return { success: false, error: 'Service unavailable' };
-
-  const { user: admin } = await getServerSession();
-  if (!admin) return { success: false, error: 'Not authenticated' };
+  const auth = await checkAdminAuth();
+  if (!auth.authorized || !auth.supabase) return { success: false, error: auth.error };
+  const { supabase } = auth;
 
   try {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      return { success: false, error: 'Forbidden' };
+    const { data: existing } = await supabase
+      .from('wallets')
+      .select('id, user_id')
+      .or(`id.eq.${walletId},user_id.eq.${walletId}`)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateErr } = await supabase
+        .from('wallets')
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) throw updateErr;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', walletId)
+        .maybeSingle();
+
+      const { error: insertErr } = await supabase.from('wallets').insert({
+        user_id: walletId,
+        balance: 0,
+        total_credit: 0,
+        total_debit: 0,
+        credit_limit: 0,
+        credit_used: 0,
+        status,
+        kyc_name: profile?.full_name || 'Student',
+        kyc_email: profile?.email || '',
+      });
+
+      if (insertErr) throw insertErr;
     }
 
-    const { error } = await supabase
-      .from('wallets')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', walletId);
-
-    if (error) throw error;
     return { success: true };
   } catch (err: unknown) {
     console.error('updateWalletStatus error:', err);
-    return { success: false, error: 'Failed to update wallet status' };
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update wallet status' };
   }
 }

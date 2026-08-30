@@ -141,13 +141,22 @@ export default function AdminWalletKycDashboard() {
     }
   };
 
-  const filteredKycs = kycs.filter((k) => {
-    const matchesSearch = k.kyc_name?.toLowerCase().includes(search.toLowerCase()) || k.kyc_email?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = filterStatus === 'all' ? true : k.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const pendingCount = kycs.filter((k) => k.status === 'pending').length;
+  const unverifiedCount = kycs.filter((k) => k.status === 'unverified').length;
 
-  const pendingCount = kycs.filter(k => k.status === 'pending').length;
+  const filteredKycs = kycs.filter((k) => {
+    const name = (k.kyc_name || '').toLowerCase();
+    const email = (k.kyc_email || '').toLowerCase();
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || name.includes(q) || email.includes(q);
+    const matchesStatus =
+      filterStatus === 'all'
+        ? true
+        : filterStatus === 'rejected'
+        ? ['rejected', 'suspended', 'frozen'].includes(k.status)
+        : k.status === filterStatus;
+    return Boolean(matchesSearch && matchesStatus);
+  });
 
   return (
     <div className="space-y-6">
@@ -188,7 +197,7 @@ export default function AdminWalletKycDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-zcard border border-zborder rounded-xl w-fit">
+      <div className="flex items-center gap-2 p-1 bg-zcard border border-zborder rounded-xl w-fit flex-wrap">
         <button
           onClick={() => setFilterStatus('all')}
           className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filterStatus === 'all' ? 'bg-zgray text-ztext' : 'text-ztext-light hover:text-ztext'}`}
@@ -206,6 +215,12 @@ export default function AdminWalletKycDashboard() {
           className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${filterStatus === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'text-ztext-light hover:text-ztext'}`}
         >
           Pending {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px]">{pendingCount}</span>}
+        </button>
+        <button
+          onClick={() => setFilterStatus('unverified')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${filterStatus === 'unverified' ? 'bg-blue-500/10 text-blue-500' : 'text-ztext-light hover:text-ztext'}`}
+        >
+          Unverified {unverifiedCount > 0 && <span className="px-1.5 py-0.5 rounded-md bg-blue-500 text-white text-[10px]">{unverifiedCount}</span>}
         </button>
         <button
           onClick={() => setFilterStatus('rejected')}
@@ -251,6 +266,7 @@ export default function AdminWalletKycDashboard() {
                         <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
                           kyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
                           kyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                          kyc.status === 'unverified' ? 'bg-blue-500/10 text-blue-500' :
                           kyc.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
                           'bg-zgray border border-zborder text-ztext-muted'
                         }`}>
@@ -359,6 +375,7 @@ export default function AdminWalletKycDashboard() {
                 <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
                         selectedKyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
                         selectedKyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                        selectedKyc.status === 'unverified' ? 'bg-blue-500/10 text-blue-500' :
                         'bg-red-500/10 text-red-500'
                       }`}>
                         {selectedKyc.status}

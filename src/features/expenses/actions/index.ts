@@ -2,6 +2,8 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
+import { getAdminEmails } from '@/lib/settings';
+import { isAdminEmail } from '@/config/auth-access';
 import {
   expenseTransactionSchema,
   updateExpenseTransactionSchema,
@@ -22,6 +24,9 @@ async function authorizeAdmin() {
   const supabase = createServiceClient();
   if (!supabase) return { authorized: false, error: 'Database service unavailable', userId: null };
 
+  const adminEmails = await getAdminEmails();
+  const isAdminByEmail = isAdminEmail(user.email, adminEmails);
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -32,7 +37,8 @@ async function authorizeAdmin() {
     user.role === 'admin' ||
     user.role === 'super_admin' ||
     profile?.role === 'admin' ||
-    profile?.role === 'super_admin';
+    profile?.role === 'super_admin' ||
+    isAdminByEmail;
 
   if (!isUserAdmin) {
     return { authorized: false, error: 'Forbidden. Admin access required.', userId: null };
@@ -248,14 +254,20 @@ export async function updateStartingBalance(
         })
         .eq('user_id', userId);
 
-      if (updateErr) throw updateErr;
+      if (updateErr) {
+        console.error('updateStartingBalance update error:', updateErr);
+        return { success: false, error: updateErr.message || 'Failed to update starting balance' };
+      }
     } else {
       const { error: insertErr } = await supabase.from('expense_settings').insert({
         user_id: userId,
         starting_balance: parsed.data.starting_balance,
       });
 
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        console.error('updateStartingBalance insert error:', insertErr);
+        return { success: false, error: insertErr.message || 'Failed to insert starting balance' };
+      }
     }
 
     return { success: true };
@@ -295,7 +307,10 @@ export async function addExpenseTransaction(
       note: parsed.data.note ?? null,
     });
 
-    if (insertErr) throw insertErr;
+    if (insertErr) {
+      console.error('addExpenseTransaction insert error:', insertErr);
+      return { success: false, error: insertErr.message || 'Failed to add transaction' };
+    }
 
     return { success: true };
   } catch (err: unknown) {
@@ -337,7 +352,10 @@ export async function updateExpenseTransaction(
       .eq('id', id)
       .eq('user_id', userId);
 
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      console.error('updateExpenseTransaction update error:', updateErr);
+      return { success: false, error: updateErr.message || 'Failed to update transaction' };
+    }
 
     return { success: true };
   } catch (err: unknown) {
@@ -370,7 +388,10 @@ export async function deleteExpenseTransaction(
       .eq('id', id)
       .eq('user_id', userId);
 
-    if (deleteErr) throw deleteErr;
+    if (deleteErr) {
+      console.error('deleteExpenseTransaction delete error:', deleteErr);
+      return { success: false, error: deleteErr.message || 'Failed to delete transaction' };
+    }
 
     return { success: true };
   } catch (err: unknown) {
