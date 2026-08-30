@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, CreditCard, HelpCircle, Instagram, Facebook, Globe, MessageSquare, ShieldCheck } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, HelpCircle, Instagram, Facebook, Globe, MessageSquare, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -439,18 +439,9 @@ export default function ProfilePage() {
             <p className="mt-5 text-[11px] font-bold uppercase tracking-wider text-ztext-muted px-1">Preferences & Support</p>
             <div className="mt-2 bg-zcard rounded-2xl border border-zborder divide-y divide-zborder overflow-hidden">
 
-              {/* Payment methods */}
-              <Link href="/dashboard/student/credit" className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
-                <CreditCard size={18} className="text-zred shrink-0" />
-                <div className="flex-1">
-                  <p className="font-semibold text-ztext text-sm">Payment Methods</p>
-                  <p className="text-xs text-ztext-light mt-0.5">UPI (GPay / PhonePe) · Ethics Pay</p>
-                </div>
-                <ChevronRight size={16} className="text-ztext-muted shrink-0" />
-              </Link>
-
               {/* Help & support */}
               <Link href={`tel:${settings.supportPhone || '6000212823'}`} className="p-4 flex items-center gap-3 hover:bg-zgray transition-colors">
+
                 <HelpCircle size={18} className="text-zred shrink-0" />
                 <div className="flex-1">
                   <p className="font-semibold text-ztext text-sm">Help &amp; Customer Support</p>

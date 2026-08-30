@@ -62,3 +62,6 @@ export function EmptyState({ icon: Icon, title, description, action }: {
     </div>
   );
 }
+
+export { default as HamsterLoader } from './HamsterLoader';
+

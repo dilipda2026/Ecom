@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Home, ShoppingBag, Users, TrendingUp, Settings, LogOut, Bell, UtensilsCrossed } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store';
 import { isOwnerSession } from '@/features/auth/actions';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -29,6 +30,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, user?.role, router]);
 
+
   const tabs = [
     { label: 'Dashboard', href: '/admin', icon: Home },
     { label: 'Menu', href: '/admin/menu', icon: UtensilsCrossed },
@@ -39,7 +41,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   ];
 
   if (isLoading || (!isAuthenticated && typeof window !== 'undefined')) {
-    return <div className="flex h-screen items-center justify-center bg-zbg"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-zred"></div></div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-zbg">
+        <HamsterLoader />
+      </div>
+    );
   }
 
   return (
