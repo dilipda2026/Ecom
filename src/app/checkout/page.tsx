@@ -373,6 +373,37 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              <div className="bg-zcard rounded-xl border border-zborder p-4">
+                <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
+                  <Phone size={15} className="text-zred shrink-0" /> Contact info
+                </h2>
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">Phone number <span className="text-zred">*</span></label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="Enter your phone number"
+                      className="input-z text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block flex items-center gap-1">
+                      <User size={11} /> Person Name
+                    </label>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Name of the person receiving the order"
+                      className="input-z text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Delivery Address Section */}
               {isDelivery ? (
                 <div className="bg-zcard rounded-xl border border-zborder p-4">
@@ -381,7 +412,7 @@ export default function CheckoutPage() {
                   </h2>
                   <div>
                     <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1.5 block">Delivery location</label>
-                    <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-2">
                       {deliveryLocations.length > 0 && deliveryLocations.map((opt) => (
                         <button key={opt.value} type="button" onClick={() => handleLocationSelect(opt.value)}
                           className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
@@ -396,7 +427,7 @@ export default function CheckoutPage() {
                         <span className="text-ztext-light font-medium text-xs">Soon available for nearby PG</span>
                       </div>
                       <button type="button" onClick={handleCustomToggle}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all col-span-2 ${
                           isCustomAddress ? 'border-zred bg-red-500/10' : 'border-zborder hover:border-ztext-light'
                         }`}
                       >
@@ -409,7 +440,7 @@ export default function CheckoutPage() {
                           value={customAddress}
                           onChange={(e) => { setCustomAddress(e.target.value); setAddress(e.target.value); }}
                           placeholder="Type your full address..."
-                          className="input-z text-sm"
+                          className="input-z text-sm col-span-2"
                           autoFocus
                         />
                       )}
@@ -507,63 +538,32 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="bg-zcard rounded-xl border border-zborder p-4">
-                <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
-                  <Phone size={15} className="text-zred shrink-0" /> Contact info
-                </h2>
-                <div className="space-y-2.5">
-                  <div>
-                    <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block">Phone number <span className="text-zred">*</span></label>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="Enter your phone number"
-                      className="input-z text-sm"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-ztext uppercase tracking-wide mb-1 block flex items-center gap-1">
-                      <User size={11} /> Person Name
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Name of the person receiving the order"
-                      className="input-z text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <OrderTypeSelector value={orderType} onChange={(v) => { setOrderType(v); useCartStore.getState().setOrderType(v); if (!canPayOnDelivery(v) && selectedMethod === 'cod') setPaymentMethod(paymentMethods.find((p) => p.id !== 'cod')?.id ?? 'wallet'); }} />
 
               <div className="bg-zcard rounded-xl border border-zborder p-4">
                 <h2 className="font-semibold text-ztext mb-3 flex items-center gap-1.5 text-sm">
                   <CreditCard size={15} className="text-zred shrink-0" /> Payment method
                 </h2>
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   {!methodsLoaded ? (
-                    <p className="text-xs text-ztext-lighter flex items-center gap-2 py-2">
+                    <p className="text-xs text-ztext-lighter flex items-center gap-2 py-2 col-span-2">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading payment options...
                     </p>
                   ) : paymentMethods.filter((pm) => pm.id !== 'cod' || canPayOnDelivery(orderType)).map((pm) => (
                     <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
+                      className={`w-full text-left px-2.5 py-2.5 rounded-xl border transition-all flex items-start gap-1.5 sm:px-3.5 sm:py-2.5 sm:gap-2.5 ${
                         selectedMethod === pm.id
                           ? 'border-zred bg-red-500/10 shadow-z'
                           : 'border-zborder hover:border-ztext-light hover:bg-zgray'
                       }`}
                     >
-                      <pm.icon size={16} className={`mt-0.5 shrink-0 ${selectedMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
-                      <div>
-                        <p className="font-medium text-ztext text-xs">{pm.label}</p>
-                        <p className="text-[10px] text-ztext-light mt-0.5">{pm.desc}</p>
+                      <pm.icon size={16} className={`mt-0.5 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4 ${selectedMethod === pm.id ? 'text-zred' : 'text-ztext-muted'}`} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-ztext text-[11px] sm:text-xs">{pm.label}</p>
+                        <p className="text-[9px] sm:text-[10px] text-ztext-light mt-0.5 leading-tight">{pm.desc}</p>
                       </div>
                       {selectedMethod === pm.id && (
-                        <span className="ml-auto w-4 h-4 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="ml-auto w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-zred flex items-center justify-center shrink-0 mt-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-zcard" />
                         </span>
                       )}
