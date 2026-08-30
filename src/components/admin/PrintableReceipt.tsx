@@ -9,6 +9,7 @@ export interface PrintableReceiptProps {
     customerName: string;
     customerPhone: string;
     customerEmail?: string;
+    orderType?: string;
     total: number;
     subtotal?: number;
     taxAmount?: number;
@@ -34,6 +35,7 @@ export function PrintableReceipt({ order, onClose }: PrintableReceiptProps) {
   const subtotal = order.subtotal ?? order.items.reduce((s, i) => s + (i.subtotal ?? ((i.price ?? 0) * i.quantity)), 0);
   const tax = order.taxAmount ?? Math.max(0, order.total - subtotal);
   const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleString() : new Date().toLocaleString();
+  const isTakeaway = order.orderType === 'takeaway';
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -62,7 +64,7 @@ export function PrintableReceipt({ order, onClose }: PrintableReceiptProps) {
             <h1 className="text-base font-black tracking-tight text-ztext print:text-black">DILIP DA</h1>
             <p className="text-[10px] text-ztext-light print:text-black">Near CIT Kokrajhar, Kokrajhar, Assam</p>
             <p className="text-[10px] font-bold text-zred print:text-black mt-1 uppercase tracking-wider">
-              *** IN-STORE COUNTER RECEIPT ***
+              {isTakeaway ? '*** TAKE AWAY RECEIPT ***' : '*** IN-STORE COUNTER RECEIPT ***'}
             </p>
           </div>
 
@@ -71,6 +73,10 @@ export function PrintableReceipt({ order, onClose }: PrintableReceiptProps) {
             <div className="flex justify-between">
               <span className="text-ztext-light print:text-black">Receipt No:</span>
               <span className="font-bold">{order.trackingCode}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ztext-light print:text-black">Order Type:</span>
+              <span className="font-bold uppercase text-zred print:text-black">{isTakeaway ? 'TAKE AWAY (PARCEL)' : 'IN STORE (DINE-IN)'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-ztext-light print:text-black">Date & Time:</span>

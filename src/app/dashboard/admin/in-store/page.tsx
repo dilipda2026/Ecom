@@ -27,6 +27,7 @@ interface OrderSuccessData {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  orderType?: string;
   total: number;
   subtotal: number;
   taxAmount: number;
@@ -41,6 +42,7 @@ interface InStoreOrderRecord {
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
+  order_type?: string | null;
   total: number;
   subtotal: number;
   tax_amount: number;
@@ -87,8 +89,9 @@ export default function InStorePage() {
   const [searchingCustomer, setSearchingCustomer] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
 
-  // Cart state
+  // Cart & Order Options state
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isTakeaway, setIsTakeaway] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
 
   // Payment & Checkout state
@@ -115,6 +118,7 @@ export default function InStorePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [historyPaymentFilter, setHistoryPaymentFilter] = useState('all');
+  const [historyOrderTypeFilter, setHistoryOrderTypeFilter] = useState('all');
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
 
@@ -184,6 +188,7 @@ export default function InStorePage() {
     const res = await getInStoreOrdersAndStats({
       search: historySearch || undefined,
       paymentMethod: historyPaymentFilter !== 'all' ? historyPaymentFilter : undefined,
+      orderType: historyOrderTypeFilter !== 'all' ? historyOrderTypeFilter : undefined,
       fromDate,
       toDate,
       page: p,
@@ -196,7 +201,7 @@ export default function InStorePage() {
       setHistoryTotalPages(res.data.totalPages);
     }
     setLoadingHistory(false);
-  }, [historySearch, historyPaymentFilter, getDateRangeParams]);
+  }, [historySearch, historyPaymentFilter, historyOrderTypeFilter, getDateRangeParams]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -312,6 +317,7 @@ export default function InStorePage() {
 
     const displayName = customerName.trim() || 'Walk-in Customer';
     const displayPhone = cleanPhone || 'N/A';
+    const currentOrderType = isTakeaway ? 'takeaway' : 'in_store';
 
     if (paymentMethod === 'cash') {
       const res = await createInStoreOrder({
@@ -324,6 +330,7 @@ export default function InStorePage() {
         customerName: customerName.trim() || undefined,
         customerEmail: customerEmail.trim() || undefined,
         notes: orderNotes,
+        orderType: currentOrderType,
       });
 
       setPlacing(false);
@@ -334,6 +341,7 @@ export default function InStorePage() {
           customerName: displayName,
           customerPhone: displayPhone,
           customerEmail: customerEmail.trim() || undefined,
+          orderType: currentOrderType,
           total,
           subtotal,
           taxAmount: maintenanceFee,
@@ -393,6 +401,7 @@ export default function InStorePage() {
             customerName: customerName.trim() || undefined,
             customerEmail: customerEmail.trim() || undefined,
             notes: orderNotes,
+            orderType: currentOrderType,
           });
 
           setPlacing(false);
@@ -403,6 +412,7 @@ export default function InStorePage() {
               customerName: displayName,
               customerPhone: displayPhone,
               customerEmail: customerEmail.trim() || undefined,
+              orderType: currentOrderType,
               total,
               subtotal,
               taxAmount: maintenanceFee,
@@ -425,6 +435,7 @@ export default function InStorePage() {
   // Reset for Next Customer
   function handleStartNewOrder() {
     setCart([]);
+    setIsTakeaway(false);
     setCustomerPhone('');
     setCustomerName('');
     setCustomerEmail('');
@@ -452,6 +463,7 @@ export default function InStorePage() {
       customerName: order.customer_name ?? 'Walk-in Customer',
       customerPhone: order.customer_phone ?? 'N/A',
       customerEmail: order.customer_email ?? undefined,
+      orderType: order.order_type ?? 'in_store',
       total: Number(order.total),
       subtotal: Number(order.subtotal ?? order.total),
       taxAmount: Number(order.tax_amount ?? 0),
@@ -700,6 +712,55 @@ export default function InStorePage() {
                 )}
               </div>
 
+              {/* Take Away Toggle Option */}
+              <div className="bg-zgray/80 p-3 rounded-xl border border-zborder flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                    isTakeaway
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  }`}>
+                    {isTakeaway ? '🥡' : '🏪'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-ztext">
+                        {isTakeaway ? 'Take Away Order' : 'In-Store Order'}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${
+                        isTakeaway
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                          : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                      }`}>
+                        {isTakeaway ? 'Take Away' : 'Normal / Dine-In'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ztext-light truncate">
+                      {isTakeaway ? 'Order will be packed for takeaway' : 'Standard counter / dine-in flow'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Toggle Switch Button */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isTakeaway}
+                  onClick={() => setIsTakeaway((prev) => !prev)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isTakeaway ? 'bg-amber-500' : 'bg-zborder hover:bg-zborder/80'
+                  }`}
+                  title={isTakeaway ? 'Take away enabled (click to disable)' : 'Take away disabled (click to enable)'}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      isTakeaway ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Line Items */}
               <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
                 {cart.length === 0 ? (
@@ -830,10 +891,10 @@ export default function InStorePage() {
               >
                 {placing ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Processing In-Store Order...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Processing {isTakeaway ? 'Take Away' : 'In-Store'} Order...
                   </span>
                 ) : (
-                  `Confirm & Checkout • ₹${total}`
+                  `Confirm & Checkout ${isTakeaway ? '(Take Away)' : ''} • ₹${total}`
                 )}
               </button>
             </div>
@@ -900,7 +961,7 @@ export default function InStorePage() {
                   />
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zborder bg-zgray text-xs">
                     <Filter size={14} className="text-ztext-muted" />
                     <select
@@ -911,6 +972,19 @@ export default function InStorePage() {
                       <option value="all">All Payment Methods</option>
                       <option value="cash">Cash Only</option>
                       <option value="razorpay">Razorpay / Online Only</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zborder bg-zgray text-xs">
+                    <Store size={14} className="text-ztext-muted" />
+                    <select
+                      value={historyOrderTypeFilter}
+                      onChange={(e) => setHistoryOrderTypeFilter(e.target.value)}
+                      className="bg-transparent text-ztext font-medium outline-none cursor-pointer"
+                    >
+                      <option value="all">All Order Types</option>
+                      <option value="in_store">In-Store Only</option>
+                      <option value="takeaway">Take Away Only</option>
                     </select>
                   </div>
                 </div>
@@ -1019,6 +1093,7 @@ export default function InStorePage() {
                 <thead>
                   <tr className="border-b border-zborder text-ztext-lighter text-left font-semibold bg-zgray/50">
                     <th className="px-4 py-3">Tracking</th>
+                    <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Customer</th>
                     <th className="px-4 py-3">Items</th>
                     <th className="px-4 py-3">Amount</th>
@@ -1030,14 +1105,14 @@ export default function InStorePage() {
                 <tbody className="divide-y divide-zborder">
                   {loadingHistory ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-ztext-lighter">
+                      <td colSpan={8} className="px-4 py-8 text-center text-ztext-lighter">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
                         Loading in-store order history...
                       </td>
                     </tr>
                   ) : historyOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-ztext-lighter">
+                      <td colSpan={8} className="px-4 py-8 text-center text-ztext-lighter">
                         No in-store orders found matching your search and date filters.
                       </td>
                     </tr>
@@ -1046,6 +1121,17 @@ export default function InStorePage() {
                       <tr key={order.id} className="hover:bg-zgray/50 transition-colors">
                         <td className="px-4 py-3 font-mono font-bold text-ztext">
                           {order.tracking_code}
+                        </td>
+                        <td className="px-4 py-3">
+                          {order.order_type === 'takeaway' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              🥡 Take Away
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                              🏪 In-Store
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <p className="font-semibold text-ztext">{order.customer_name ?? 'Walk-in Customer'}</p>
@@ -1229,13 +1315,27 @@ export default function InStorePage() {
                 <CheckCircle2 size={32} />
               </div>
               <h2 className="text-lg font-bold text-ztext">Order Successfully Created!</h2>
-              <p className="text-xs text-ztext-light">In-store counter bill has been confirmed</p>
+              <p className="text-xs text-ztext-light">
+                {successData.orderType === 'takeaway'
+                  ? 'In-store take away parcel order has been confirmed'
+                  : 'In-store counter bill has been confirmed'}
+              </p>
             </div>
 
             <div className="bg-zgray p-4 rounded-xl border border-zborder space-y-2.5 text-xs">
               <div className="flex justify-between border-b border-zborder pb-2">
                 <span className="text-ztext-light font-medium">Tracking Code:</span>
                 <span className="font-mono font-bold text-ztext text-sm">{successData.trackingCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ztext-light">Order Type:</span>
+                <span className="font-semibold text-ztext flex items-center gap-1">
+                  {successData.orderType === 'takeaway' ? (
+                    <span className="text-amber-400 font-bold">🥡 Take Away (Parcel)</span>
+                  ) : (
+                    <span className="text-purple-400 font-bold">🏪 In-Store (Dine-in)</span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ztext-light">Customer:</span>
@@ -1299,6 +1399,12 @@ export default function InStorePage() {
 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between"><span className="text-ztext-light">Tracking Code:</span><span className="font-mono font-bold text-ztext">{selectedHistoryOrder.tracking_code}</span></div>
+              <div className="flex justify-between">
+                <span className="text-ztext-light">Order Type:</span>
+                <span className="font-bold text-ztext">
+                  {selectedHistoryOrder.order_type === 'takeaway' ? '🥡 Take Away (Parcel)' : '🏪 In-Store (Dine-in)'}
+                </span>
+              </div>
               <div className="flex justify-between"><span className="text-ztext-light">Customer Name:</span><span className="font-semibold text-ztext">{selectedHistoryOrder.customer_name ?? 'Walk-in Customer'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-light">Phone Number:</span><span className="text-ztext">{selectedHistoryOrder.customer_phone ?? 'N/A'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-light">Payment Method:</span><span className="font-bold text-emerald-400 capitalize">{selectedHistoryOrder.payment_method ?? 'cash'}</span></div>

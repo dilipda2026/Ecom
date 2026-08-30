@@ -16,11 +16,13 @@ interface InStoreOrderParams {
   customerName?: string;
   customerEmail?: string;
   notes?: string;
+  orderType?: 'in_store' | 'takeaway';
 }
 
 export interface InStoreFilter {
   search?: string;
   paymentMethod?: string;
+  orderType?: string;
   fromDate?: string;
   toDate?: string;
   page?: number;
@@ -92,7 +94,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     const supabase = createServiceClient();
     if (!supabase) return { success: false, error: 'Service unavailable' };
 
-    const { items, subtotal, taxAmount, discountAmount = 0, total, paymentMethod, customerPhone, customerName, customerEmail, notes } = params;
+    const { items, subtotal, taxAmount, discountAmount = 0, total, paymentMethod, customerPhone, customerName, customerEmail, notes, orderType = 'in_store' } = params;
 
     if (!items || items.length === 0) {
       return { success: false, error: 'Cannot place order with an empty cart' };
@@ -105,6 +107,8 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
 
     const finalCustomerName = customerName?.trim() || 'Walk-in Customer';
     const finalCustomerEmail = customerEmail?.trim() || null;
+    const isTakeaway = orderType === 'takeaway';
+    const finalOrderType = isTakeaway ? 'takeaway' : 'in_store';
 
     // Resolve active restaurant
     const { data: restaurant } = await supabase
@@ -139,7 +143,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       status: isCash ? 'accepted' : 'pending',
       payment_status: isCash ? 'confirmed' : 'pending',
       payment_method: isCash ? 'cash' : 'razorpay',
-      order_type: 'in_store',
+      order_type: finalOrderType,
       subtotal,
       delivery_fee: 0,
       tax_amount: taxAmount,
@@ -148,8 +152,8 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       customer_name: finalCustomerName,
       customer_phone: finalCustomerPhone,
       customer_email: finalCustomerEmail,
-      delivery_address: { address: 'In Store Counter Checkout' },
-      delivery_notes: notes?.trim() || 'In Store counter order',
+      delivery_address: { address: isTakeaway ? 'In Store Take Away' : 'In Store Counter Checkout' },
+      delivery_notes: notes?.trim() || (isTakeaway ? 'In Store Take Away order' : 'In Store counter order'),
       accepted_at: isCash ? new Date().toISOString() : null,
     };
 
@@ -198,7 +202,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
         table_name: 'orders',
         record_id: order.id,
         action: 'create_in_store_order',
-        new_data: { total, payment_method: 'cash', tracking_code: order.tracking_code },
+        new_data: { total, payment_method: 'cash', tracking_code: order.tracking_code, order_type: finalOrderType },
         changed_by: adminUser.id,
       });
 
@@ -225,14 +229,18 @@ export async function getInStoreOrdersAndStats(filter: InStoreFilter = {}) {
     if (!supabase) return { success: false, error: 'Service client not configured' };
 
     const today = new Date().toISOString().slice(0, 10);
-    const { search, paymentMethod, fromDate, toDate, page = 1, pageSize = 20 } = filter;
+    const { search, paymentMethod, orderType, fromDate, toDate, page = 1, pageSize = 20 } = filter;
 
-    // Fetch stats for in_store orders matching date filter if provided
+    // Fetch stats for in-store orders (including in-store takeaways) matching date filter if provided
     let statsQuery = supabase
       .from('orders')
-      .select('id, total, payment_method, payment_status, created_at')
-      .eq('order_type', 'in_store')
+      .select('id, total, payment_method, payment_status, created_at, order_type, delivery_address')
+      .or('order_type.eq.in_store,delivery_address->>address.ilike.In Store%')
       .is('deleted_at', null);
+
+    if (orderType && orderType !== 'all') {
+      statsQuery = statsQuery.eq('order_type', orderType);
+    }
 
     if (fromDate) statsQuery = statsQuery.gte('created_at', fromDate);
     if (toDate) statsQuery = statsQuery.lte('created_at', toDate);
@@ -262,11 +270,15 @@ export async function getInStoreOrdersAndStats(filter: InStoreFilter = {}) {
     let listQuery = supabase
       .from('orders')
       .select('*, order_items(*)', { count: 'exact' })
-      .eq('order_type', 'in_store')
+      .or('order_type.eq.in_store,delivery_address->>address.ilike.In Store%')
       .is('deleted_at', null);
 
     if (paymentMethod && paymentMethod !== 'all') {
       listQuery = listQuery.eq('payment_method', paymentMethod);
+    }
+
+    if (orderType && orderType !== 'all') {
+      listQuery = listQuery.eq('order_type', orderType);
     }
 
     if (search) {
@@ -330,9 +342,14 @@ async function sendInStoreNotification(orderId: string) {
     const { sendTelegramMessageWithButtons } = await import('@/lib/telegram');
     const { getStatusButtons } = await import('@/lib/notifications');
     const buttons = getStatusButtons(data.id, data.status);
+    const isTakeaway = data.order_type === 'takeaway';
+    const headerTitle = isTakeaway ? '🥡 New In-Store Take Away Order!' : '🏪 New In-Store Counter Order!';
+    const typeBadge = isTakeaway ? '🥡 Take Away' : '🏪 In Store (Counter)';
+
     const msg =
-      `<b>🏪 New In-Store Counter Order!</b>\n` +
+      `<b>${headerTitle}</b>\n` +
       `📦 <b>#${data.tracking_code}</b>\n` +
+      `🏷️ Order Type: <b>${typeBadge}</b>\n` +
       (data.customer_name ? `👤 ${data.customer_name}\n` : '') +
       (data.customer_phone ? `📞 ${data.customer_phone}\n` : '') +
       `💳 CASH (In Store Counter)\n` +
