@@ -30,7 +30,7 @@ const basePaymentMethods = [
 export default function CheckoutPage() {
   const router = useRouter();
   const store = useCartStore();
-  const { items, subtotal, deliveryFee, maintenanceFee, total, clearCart } = store;
+  const { items, subtotal, deliveryFee, maintenanceFee, packagingCharge, total, clearCart } = store;
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const [orderType, setOrderType] = useState<OrderType | null>(() => useCartStore.getState().orderType);
   const [paymentMethod, setPaymentMethod] = useState('wallet');
@@ -80,8 +80,12 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    useCartStore.getState().setPricing({ deliveryFee: publicSettings.deliveryFee, maintenanceFee: publicSettings.maintenanceFee });
-  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee]);
+    useCartStore.getState().setPricing({
+      deliveryFee: publicSettings.deliveryFee,
+      maintenanceFee: publicSettings.maintenanceFee,
+      packagingCharge: publicSettings.packagingCharge,
+    });
+  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee, publicSettings.packagingCharge]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -146,6 +150,7 @@ export default function CheckoutPage() {
       subtotal: subtotal(),
       deliveryFee: deliveryFee(),
       maintenanceFee: maintenanceFee(),
+      packagingCharge: packagingCharge(),
       total: total(),
       paymentMethod: pm,
       address,
@@ -699,6 +704,9 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-ztext-light"><span>Delivery fee</span><span className="font-medium text-ztext">{deliveryFee() > 0 ? `₹${deliveryFee()}` : 'Free'}</span></div>
                   )}
                   <div className="flex justify-between text-ztext-light"><span>Maintenance fee</span><span className="font-medium text-ztext">₹{maintenanceFee()}</span></div>
+                  {packagingCharge() > 0 && (
+                    <div className="flex justify-between text-ztext-light"><span>Packaging charge</span><span className="font-medium text-ztext">₹{packagingCharge()}</span></div>
+                  )}
                   <div className="border-t border-zborder pt-2.5 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
                 </div>
                 {error && <p className="text-xs mt-2 flex items-center gap-1 text-zred"><span className="w-1.5 h-1.5 rounded-full bg-zred" />{error}</p>}

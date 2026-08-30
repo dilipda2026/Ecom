@@ -567,11 +567,33 @@ export async function processRefund(paymentId: string, amount: number, reason: s
   }
 }
 
+const DEFAULT_SYSTEM_SETTINGS = [
+  { key: 'packaging_charge', value: '0', type: 'number', description: 'Packaging charge (₹) applied per customer order at checkout' },
+  { key: 'packaging_charge_enabled', value: 'true', type: 'boolean', description: 'Enable or disable dynamic packaging charge' },
+];
+
 export async function getSystemSettings() {
   try {
     await authorizeAdmin();
     const raw = await adminRepository.getSystemSettings();
-    const data = raw.map((s) => ({ ...s, has_value: !!s.value }));
+    const keysPresent = new Set(raw.map((s) => s.key));
+    const merged = [...raw];
+    for (const def of DEFAULT_SYSTEM_SETTINGS) {
+      if (!keysPresent.has(def.key)) {
+        merged.push({
+          id: def.key,
+          key: def.key,
+          value: def.value,
+          type: def.type,
+          is_secret: false,
+          description: def.description,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any);
+      }
+    }
+    const data = merged.map((s) => ({ ...s, has_value: !!s.value }));
     return { success: true, data };
   } catch (e) {
     return { success: false, error: (e as Error).message, data: null };

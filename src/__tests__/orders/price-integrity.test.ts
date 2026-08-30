@@ -22,6 +22,7 @@ vi.mock('@/lib/settings', () => ({
   getNumericSetting: vi.fn(async (key: string, def: number) => {
     if (key === 'delivery_fee') return 20;
     if (key === 'maintenance_fee') return 1;
+    if (key === 'packaging_charge') return 5;
     return def;
   }),
   getBooleanSetting: vi.fn(async () => false),
@@ -180,9 +181,31 @@ describe('Authoritative Price Integrity Tests', () => {
       expect(quote.data.subtotal).toBe(240);
       expect(quote.data.deliveryFee).toBe(0); // Takeaway = free delivery
       expect(quote.data.maintenanceFee).toBe(1);
-      expect(quote.data.total).toBe(241); // 240 + 0 + 1
+      expect(quote.data.packagingCharge).toBe(5);
+      expect(quote.data.total).toBe(246); // 240 + 0 + 1 + 5
       expect(quote.data.priceChanged).toBe(true);
     }
+  });
+
+  it('calculates total with packagingCharge in useCartStore', () => {
+    const store = useCartStore.getState();
+    store.clearCart();
+    store.setPricing({ deliveryFee: 15, maintenanceFee: 2, packagingCharge: 10 });
+    store.setOrderType('room_delivery');
+
+    store.addItem({
+      id: 'prod-102',
+      name: 'Paneer Butter Masala',
+      price: 150,
+      veg: true,
+      image: '/paneer.jpg',
+    }, 1);
+
+    expect(store.subtotal()).toBe(150);
+    expect(store.deliveryFee()).toBe(15);
+    expect(store.maintenanceFee()).toBe(2);
+    expect(store.packagingCharge()).toBe(10);
+    expect(store.total()).toBe(177); // 150 + 15 + 2 + 10
   });
 
   it('Zustand cart syncPrices updates stored cart items when fresh menu prices are received', () => {

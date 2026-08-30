@@ -29,6 +29,7 @@ export interface PublicStoreSettings {
   deliveryLocations: string[];
   deliveryFee: number;
   maintenanceFee: number;
+  packagingCharge: number;
   cancellationWindowMinutes: number;
   deliveryEmails: string[];
   adminEmails: string[];
@@ -93,6 +94,7 @@ export async function getPublicSettings(): Promise<PublicStoreSettings> {
     ]),
     deliveryFee: await getNumericSetting('delivery_fee', 10),
     maintenanceFee: await getNumericSetting('maintenance_fee', 1),
+    packagingCharge: (await getSetting('packaging_charge_enabled')) === 'false' ? 0 : await getNumericSetting('packaging_charge', 0),
     cancellationWindowMinutes: await getNumericSetting('cancellation_window_minutes', 2),
     deliveryEmails: await getDeliveryEmails(),
     adminEmails: await getAdminEmails(),

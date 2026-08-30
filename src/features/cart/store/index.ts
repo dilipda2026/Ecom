@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, CartStore } from '@/features/cart/types';
 
-const defaultPricing = { deliveryFee: 10, maintenanceFee: 1 };
+const defaultPricing = { deliveryFee: 10, maintenanceFee: 1, packagingCharge: 0 };
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -70,7 +70,8 @@ export const useCartStore = create<CartStore>()(
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
       deliveryFee: () => get().items.length > 0 && get().orderType !== 'takeaway' ? get().pricing.deliveryFee : 0,
       maintenanceFee: () => get().items.length > 0 ? get().pricing.maintenanceFee : 0,
-      total: () => get().subtotal() + get().deliveryFee() + get().maintenanceFee(),
+      packagingCharge: () => get().items.length > 0 ? (get().pricing.packagingCharge || 0) : 0,
+      total: () => get().subtotal() + get().deliveryFee() + get().maintenanceFee() + get().packagingCharge(),
     }),
     { name: 'dilipda-cart', partialize: (state) => ({ items: state.items, lastAddedAt: state.lastAddedAt, lastViewedAt: state.lastViewedAt, orderType: state.orderType }) },
   ),

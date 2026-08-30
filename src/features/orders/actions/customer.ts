@@ -185,6 +185,7 @@ export async function validateAndQuoteOrder(input: {
     subtotal: number;
     deliveryFee: number;
     maintenanceFee: number;
+    packagingCharge: number;
     total: number;
     priceChanged: boolean;
   };
@@ -198,10 +199,13 @@ export async function validateAndQuoteOrder(input: {
   const isTakeaway = orderType === 'takeaway' || orderType === 'dine_in' || orderType === 'in_store';
   const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
   const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
+  const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
+  const packagingChargeSetting = packagingChargeEnabled ? await getNumericSetting('packaging_charge', 0) : 0;
 
   const deliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
   const maintenanceFee = maintenanceFeeSetting;
-  const total = resolution.subtotal + deliveryFee + maintenanceFee;
+  const packagingCharge = packagingChargeSetting;
+  const total = resolution.subtotal + deliveryFee + maintenanceFee + packagingCharge;
 
   return {
     success: true,
@@ -210,6 +214,7 @@ export async function validateAndQuoteOrder(input: {
       subtotal: resolution.subtotal,
       deliveryFee,
       maintenanceFee,
+      packagingCharge,
       total,
       priceChanged: resolution.priceChanged,
     },
@@ -221,6 +226,7 @@ interface CreateOrderParams {
   subtotal?: number;
   deliveryFee?: number;
   maintenanceFee?: number;
+  packagingCharge?: number;
   total?: number;
   paymentMethod: string;
   address: string;
@@ -333,11 +339,14 @@ export async function createOrder(params: CreateOrderParams) {
   const isTakeaway = orderType === 'takeaway' || orderType === 'dine_in' || orderType === 'in_store';
   const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
   const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
+  const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
+  const packagingChargeSetting = packagingChargeEnabled ? await getNumericSetting('packaging_charge', 0) : 0;
 
   const calculatedSubtotal = priceResolution.subtotal;
   const effectiveDeliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
   const effectiveMaintenanceFee = maintenanceFeeSetting;
-  const effectiveTotal = calculatedSubtotal + effectiveDeliveryFee + effectiveMaintenanceFee;
+  const effectivePackagingCharge = packagingChargeSetting;
+  const effectiveTotal = calculatedSubtotal + effectiveDeliveryFee + effectiveMaintenanceFee + effectivePackagingCharge;
 
   const availability = await getPaymentMethodAvailability();
   const avail = availability.find((a) => a.id === paymentMethod);
@@ -403,7 +412,7 @@ export async function createOrder(params: CreateOrderParams) {
     payment_method: paymentMethodDb,
     subtotal: calculatedSubtotal,
     delivery_fee: effectiveDeliveryFee,
-    tax_amount: effectiveMaintenanceFee,
+    tax_amount: effectiveMaintenanceFee + effectivePackagingCharge,
     discount_amount: 0,
     total: effectiveTotal,
     customer_name: customerName || user?.fullName || null,

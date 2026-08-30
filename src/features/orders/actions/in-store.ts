@@ -11,7 +11,7 @@ interface InStoreOrderParams {
   taxAmount: number;
   discountAmount?: number;
   total: number;
-  paymentMethod: 'cash' | 'razorpay';
+  paymentMethod: 'cash' | 'razorpay' | 'upi';
   customerPhone?: string;
   customerName?: string;
   customerEmail?: string;
@@ -136,6 +136,8 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     }
 
     const isCash = paymentMethod === 'cash';
+    const isUpi = paymentMethod === 'upi';
+    const isInstantSettled = isCash || isUpi;
 
     // Query DB for authoritative line items and prices
     const { resolveAuthoritativeLineItems } = await import('@/features/orders/actions/customer');
@@ -153,9 +155,9 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     const orderPayload = {
       user_id: matchedUserId,
       restaurant_id: restaurant.id,
-      status: isCash ? 'delivered' : 'pending',
-      payment_status: isCash ? 'confirmed' : 'pending',
-      payment_method: isCash ? 'cash' : 'razorpay',
+      status: isInstantSettled ? 'delivered' : 'pending',
+      payment_status: isInstantSettled ? 'confirmed' : 'pending',
+      payment_method: paymentMethod,
       order_type: finalOrderType,
       subtotal: calculatedSubtotal,
       delivery_fee: 0,
@@ -167,8 +169,8 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       customer_email: finalCustomerEmail,
       delivery_address: { address: isTakeaway ? 'In Store Take Away' : 'In Store Counter Checkout' },
       delivery_notes: notes?.trim() || (isTakeaway ? 'In Store Take Away order' : 'In Store counter order'),
-      accepted_at: isCash ? nowIso : null,
-      delivered_at: isCash ? nowIso : null,
+      accepted_at: isInstantSettled ? nowIso : null,
+      delivered_at: isInstantSettled ? nowIso : null,
     };
 
     const { data: order, error: orderError } = await supabase
@@ -200,15 +202,15 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       return { success: false, error: 'Failed to save order line items' };
     }
 
-    if (isCash) {
-      // Record cash payment
+    if (isInstantSettled) {
+      // Record payment (cash or upi)
       await supabase.from('payments').insert({
         order_id: order.id,
         user_id: matchedUserId,
         amount: finalTotal,
         currency: 'INR',
-        payment_method: 'cash',
-        gateway: 'manual',
+        payment_method: paymentMethod,
+        gateway: isUpi ? 'upi' : 'manual',
         status: 'confirmed',
       });
 
@@ -217,7 +219,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
         table_name: 'orders',
         record_id: order.id,
         action: 'create_in_store_order',
-        new_data: { total: finalTotal, payment_method: 'cash', tracking_code: order.tracking_code, order_type: finalOrderType },
+        new_data: { total: finalTotal, payment_method: paymentMethod, tracking_code: order.tracking_code, order_type: finalOrderType },
         changed_by: adminUser.id,
       });
 
@@ -364,13 +366,18 @@ async function sendInStoreNotification(orderId: string) {
 
     const itemsList = items.map((i: { name: string; quantity: number; price: number }) => `  • ${i.name} ×${i.quantity} — ₹${i.price * i.quantity}`).join('\n');
 
+    const paymentLabel =
+      data.payment_method === 'upi' ? 'UPI (In Store Counter)'
+      : data.payment_method === 'razorpay' ? 'ONLINE / RAZORPAY (In Store Counter)'
+      : 'CASH (In Store Counter)';
+
     const msg =
       `<b>${headerTitle}</b>\n` +
       `📦 <b>#${data.tracking_code}</b>\n` +
       `🏷️ Order Type: <b>${typeBadge}</b>\n` +
       (data.customer_name ? `👤 ${data.customer_name}\n` : '') +
       (data.customer_phone ? `📞 ${data.customer_phone}\n` : '') +
-      `💳 CASH (In Store Counter)\n` +
+      `💳 <b>${paymentLabel}</b>\n` +
       `💰 <b>₹${data.total}</b>\n\n` +
       `<b>Items:</b>\n` +
       itemsList;

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   CreditCard, Phone, Send, Mail, IndianRupee, SlidersHorizontal, Bike,
-  RefreshCw, Loader2, Save, Pencil, ShieldCheck, UserCog, Clock,
+  RefreshCw, Loader2, Save, Pencil, ShieldCheck, UserCog, Clock, Package,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast, LoadingSkeleton } from '@/components/ui/data-table';
@@ -20,6 +20,8 @@ const LABELS: Record<string, string> = {
   payment_method_gpay_enabled: 'Google Pay',
   payment_method_cod_enabled: 'Cash on Delivery',
   maintenance_fee: 'Maintenance fee (₹)',
+  packaging_charge: 'Packaging Charge (₹)',
+  packaging_charge_enabled: 'Enable Packaging Charge',
   telegram_show_qr: 'Send pickup QR in Telegram',
   dilip_da_email: "Owner's email (Dilip Da)",
   store_temp_close_until: 'Temporarily close until (HH:MM)',
@@ -417,6 +419,14 @@ export default function AdminSettingsPage() {
           subtitle: 'Applied to cart at checkout and wallet overdraft.',
           toggleKey: 'pricing_enabled',
           keys: ['delivery_fee', 'maintenance_fee', 'wallet_credit_limit'],
+        })}
+
+        {renderCard({
+          icon: Package,
+          title: 'Packaging Charge',
+          subtitle: 'Configure dynamic packaging fee applied per customer order at checkout.',
+          toggleKey: 'packaging_charge_enabled',
+          keys: ['packaging_charge'],
         })}
 
         {renderCard({

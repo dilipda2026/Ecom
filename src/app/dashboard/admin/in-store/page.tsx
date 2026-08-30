@@ -7,6 +7,7 @@ import {
   CreditCard, CheckCircle2, AlertCircle, ShoppingBag, Loader2,
   RefreshCw, Store, Sparkles, Check, DollarSign, Printer, History,
   TrendingUp, Calendar, FileText, ChevronRight, Filter, UserPlus, X, Clock,
+  QrCode,
 } from 'lucide-react';
 import {
   getInStoreCatalog,
@@ -33,7 +34,7 @@ interface OrderSuccessData {
   taxAmount: number;
   paymentMethod: string;
   items: CartItem[];
-  createdAt?: string;
+  createdAt: string;
 }
 
 interface InStoreOrderRecord {
@@ -42,10 +43,13 @@ interface InStoreOrderRecord {
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
-  order_type?: string | null;
-  total: number;
+  order_type: string | null;
+  delivery_address: { address?: string } | null;
+  delivery_notes: string | null;
   subtotal: number;
   tax_amount: number;
+  discount_amount: number;
+  total: number;
   payment_method: string | null;
   payment_status: string;
   status: string;
@@ -95,7 +99,7 @@ export default function InStorePage() {
   const [orderNotes, setOrderNotes] = useState('');
 
   // Payment & Checkout state
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay' | 'upi'>('cash');
   const [cashTendered, setCashTendered] = useState<string>('');
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,6 +355,43 @@ export default function InStorePage() {
         });
       } else {
         setError(res.error || 'Failed to complete cash checkout.');
+      }
+      return;
+    }
+
+    // UPI Direct flow
+    if (paymentMethod === 'upi') {
+      const res = await createInStoreOrder({
+        items: cart,
+        subtotal,
+        taxAmount: maintenanceFee,
+        total,
+        paymentMethod: 'upi',
+        customerPhone: customerPhone.trim() || undefined,
+        customerName: customerName.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
+        notes: orderNotes,
+        orderType: currentOrderType,
+      });
+
+      setPlacing(false);
+      if (res.success && res.data) {
+        setSuccessData({
+          orderId: res.data.orderId,
+          trackingCode: res.data.trackingCode,
+          customerName: displayName,
+          customerPhone: displayPhone,
+          customerEmail: customerEmail.trim() || undefined,
+          orderType: currentOrderType,
+          total,
+          subtotal,
+          taxAmount: maintenanceFee,
+          paymentMethod: 'UPI',
+          items: [...cart],
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        setError(res.error || 'Failed to complete UPI checkout.');
       }
       return;
     }
@@ -698,67 +739,45 @@ export default function InStorePage() {
 
             {/* Cart & Billing Summary */}
             <div className="bg-zcard p-4 rounded-xl border border-zborder shadow-z space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-zborder">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-ztext-light flex items-center gap-1.5">
-                  <ShoppingBag size={14} className="text-zred" /> Counter Bill ({cart.length} items)
+              <div className="flex items-center justify-between pb-2.5 border-b border-zborder gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-ztext-light flex items-center gap-1.5 min-w-0 truncate">
+                  <ShoppingBag size={14} className="text-zred shrink-0" />
+                  <span className="truncate">Counter Bill ({cart.length})</span>
                 </h2>
-                {cart.length > 0 && (
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Take Away Toggle Button */}
                   <button
-                    onClick={clearCart}
-                    className="text-[11px] font-medium text-red-400 hover:underline flex items-center gap-1"
-                  >
-                    <Trash2 size={12} /> Clear Bag
-                  </button>
-                )}
-              </div>
-
-              {/* Take Away Toggle Option */}
-              <div className="bg-zgray/80 p-3 rounded-xl border border-zborder flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
-                    isTakeaway
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                  }`}>
-                    {isTakeaway ? '🥡' : '🏪'}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-bold text-ztext">
-                        {isTakeaway ? 'Take Away Order' : 'In-Store Order'}
-                      </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${
-                        isTakeaway
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                          : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                      }`}>
-                        {isTakeaway ? 'Take Away' : 'Normal / Dine-In'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ztext-light truncate">
-                      {isTakeaway ? 'Order will be packed for takeaway' : 'Standard counter / dine-in flow'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Toggle Switch Button */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isTakeaway}
-                  onClick={() => setIsTakeaway((prev) => !prev)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    isTakeaway ? 'bg-amber-500' : 'bg-zborder hover:bg-zborder/80'
-                  }`}
-                  title={isTakeaway ? 'Take away enabled (click to disable)' : 'Take away disabled (click to enable)'}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      isTakeaway ? 'translate-x-5' : 'translate-x-0'
+                    type="button"
+                    role="switch"
+                    aria-checked={isTakeaway}
+                    onClick={() => setIsTakeaway((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                      isTakeaway
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-sm'
+                        : 'bg-zgray border-zborder text-ztext-light hover:text-ztext'
                     }`}
-                  />
-                </button>
+                    title={isTakeaway ? 'Take Away mode enabled (click to disable)' : 'Take Away mode disabled (click to enable)'}
+                  >
+                    <span className="text-xs">{isTakeaway ? '🥡' : '🏪'}</span>
+                    <span>Take Away</span>
+                    <span
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        isTakeaway ? 'bg-amber-400' : 'bg-zborder'
+                      }`}
+                    />
+                  </button>
+
+                  {/* Clear Bag Button */}
+                  {cart.length > 0 && (
+                    <button
+                      onClick={clearCart}
+                      className="text-[11px] font-medium text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 shrink-0 py-1"
+                    >
+                      <Trash2 size={12} /> Clear Bag
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Line Items */}
@@ -816,32 +835,46 @@ export default function InStorePage() {
               </div>
 
               {/* Payment Method Selector */}
-              <div className="pt-2">
-                <label className="text-[10px] font-semibold text-ztext-light uppercase tracking-wide mb-1.5 block">
+              <div className="pt-1">
+                <label className="text-[10px] font-semibold text-ztext-light uppercase tracking-wide mb-1 block">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
-                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                    className={`py-1.5 px-1.5 sm:px-2 rounded-lg border text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
                       paymentMethod === 'cash'
-                        ? 'border-zred bg-red-500/10 text-zred shadow-z'
+                        ? 'border-zred bg-red-500/10 text-zred shadow-sm'
                         : 'border-zborder bg-zgray text-ztext-light hover:text-ztext'
                     }`}
                   >
-                    <Banknote size={16} /> Cash Payment
+                    <Banknote size={13} className="shrink-0" />
+                    <span className="truncate">Cash<span className="hidden sm:inline"> Payment</span></span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('razorpay')}
-                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                    className={`py-1.5 px-1.5 sm:px-2 rounded-lg border text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
                       paymentMethod === 'razorpay'
-                        ? 'border-zred bg-red-500/10 text-zred shadow-z'
+                        ? 'border-zred bg-red-500/10 text-zred shadow-sm'
                         : 'border-zborder bg-zgray text-ztext-light hover:text-ztext'
                     }`}
                   >
-                    <CreditCard size={16} /> Online / Razorpay
+                    <CreditCard size={13} className="shrink-0" />
+                    <span className="truncate">Online<span className="hidden sm:inline"> / Razorpay</span></span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('upi')}
+                    className={`py-1.5 px-1.5 sm:px-2 rounded-lg border text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
+                      paymentMethod === 'upi'
+                        ? 'border-zred bg-red-500/10 text-zred shadow-sm'
+                        : 'border-zborder bg-zgray text-ztext-light hover:text-ztext'
+                    }`}
+                  >
+                    <QrCode size={13} className="shrink-0" />
+                    <span>UPI</span>
                   </button>
                 </div>
               </div>
@@ -972,6 +1005,7 @@ export default function InStorePage() {
                       <option value="all">All Payment Methods</option>
                       <option value="cash">Cash Only</option>
                       <option value="razorpay">Razorpay / Online Only</option>
+                      <option value="upi">UPI Only</option>
                     </select>
                   </div>
 
@@ -1148,6 +1182,8 @@ export default function InStorePage() {
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               order.payment_method === 'cash'
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : order.payment_method === 'upi'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                 : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             }`}
                           >
