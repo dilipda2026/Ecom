@@ -57,6 +57,11 @@ export interface AdminStudent {
     status: string;
     verification_status: string;
   } | null;
+  wallet: {
+    id: string;
+    balance: number;
+    status: string;
+  } | null;
 }
 
 export interface AdminMerchant {

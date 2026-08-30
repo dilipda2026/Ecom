@@ -152,16 +152,20 @@ export default function AdminStudentsPage() {
         {s.is_active ? 'Active' : 'Suspended'}
       </span>
     )},
-    { key: 'credit', header: 'Credit', render: (s: AdminStudent) => (
-      <span className="text-xs text-ztext-light">
-        {s.credit_account ? `₹${Number(s.credit_account.credit_limit).toLocaleString('en-IN')}` : 'No account'}
-      </span>
-    ), hideOnMobile: true },
-    { key: 'verification', header: 'Verification', render: (s: AdminStudent) => {
-      const v = s.credit_account?.verification_status;
-      const color = v === 'verified' ? 'text-emerald-400 bg-emerald-500/10' : v === 'pending' ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10';
+    { key: 'credit', header: 'Credit', render: (s: AdminStudent) => {
+      const w = Array.isArray(s.wallet) ? s.wallet[0] : s.wallet;
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
+      <span className="text-xs text-ztext-light">
+        {w ? `₹${Number(w.balance).toLocaleString('en-IN')}` : 'No account'}
+      </span>
+      );
+    }, hideOnMobile: true },
+    { key: 'verification', header: 'Verification', render: (s: AdminStudent) => {
+      const w = Array.isArray(s.wallet) ? s.wallet[0] : s.wallet;
+      const v = w?.status;
+      const color = v === 'active' ? 'text-emerald-400 bg-emerald-500/10' : v === 'pending' ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10';
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color} capitalize`}>
           {v ?? 'N/A'}
         </span>
       );
@@ -183,12 +187,12 @@ export default function AdminStudentsPage() {
             <Shield size={14} />
           </button>
         )}
-        {s.credit_account && s.credit_account.verification_status !== 'verified' && (
+        {(Array.isArray(s.wallet) ? s.wallet[0]?.status : s.wallet?.status) !== 'active' && (
           <button onClick={() => handleVerify(s.id)} className="p-1.5 hover:bg-blue-500/10 rounded-lg text-ztext-muted hover:text-blue-600 transition-colors" title="Verify">
             <CheckCircle size={14} />
           </button>
         )}
-        {s.credit_account && s.credit_account.verification_status === 'verified' && (
+        {(Array.isArray(s.wallet) ? s.wallet[0]?.status : s.wallet?.status) === 'active' && (
           <button onClick={() => setConfirmAction({ type: 'reset_verification', id: s.id })} className="p-1.5 hover:bg-amber-500/10 rounded-lg text-ztext-muted hover:text-amber-400 transition-colors" title="Reset verification">
             <Clock size={14} />
           </button>
@@ -198,18 +202,21 @@ export default function AdminStudentsPage() {
   ];
 
   const exportRows = useMemo(() => {
-    return students.map((s) => [
-      s.full_name || 'N/A',
-      s.email || 'N/A',
-      s.phone || 'N/A',
-      s.is_active ? 'Active' : 'Suspended',
-      s.credit_account?.credit_limit ?? 0,
-      s.credit_account?.available_credit ?? 0,
-      s.credit_account?.outstanding ?? 0,
-      s.credit_account?.status ?? 'No Account',
-      s.credit_account?.verification_status ?? 'N/A',
-      new Date(s.created_at).toLocaleString('en-IN'),
-    ]);
+    return students.map((s) => {
+      const w = Array.isArray(s.wallet) ? s.wallet[0] : s.wallet;
+      return [
+        s.full_name || 'N/A',
+        s.email || 'N/A',
+        s.phone || 'N/A',
+        s.is_active ? 'Active' : 'Suspended',
+        w ? w.balance : 0,
+        0, // available_credit not applicable for wallet
+        0, // outstanding not applicable for wallet
+        w ? w.status : 'No Account',
+        w ? w.status : 'N/A',
+        new Date(s.created_at).toLocaleString('en-IN'),
+      ];
+    });
   }, [students]);
 
   return (

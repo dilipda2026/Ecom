@@ -125,14 +125,20 @@ export async function verifyStudent(id: string) {
     const { user } = await authorizeAdmin();
     const student = await adminRepository.getStudentById(id);
     if (!student) return { success: false, error: 'Student not found' };
-    if (!student.credit_account) return { success: false, error: 'No credit account' };
-    await adminRepository.updateCreditStatus(student.credit_account.id, 'active');
+    const w = Array.isArray(student.wallet) ? student.wallet[0] : student.wallet;
+    if (!w) return { success: false, error: 'No wallet account' };
+    
+    const { createAdminClient } = await import('@/infrastructure/supabase/admin');
+    const admin = createAdminClient();
+    const { error } = await admin.from('wallets').update({ status: 'active' }).eq('id', w.id);
+    if (error) throw new Error(error.message);
+
     await adminRepository.createAuditLog({
-      table_name: 'credit_accounts',
-      record_id: student.credit_account.id,
+      table_name: 'wallets',
+      record_id: w.id,
       action: 'verify',
-      new_data: { verification_status: 'verified' },
-      old_data: { verification_status: student.credit_account.verification_status },
+      new_data: { status: 'active' },
+      old_data: { status: w.status },
       changed_by: user.id,
     });
     return { success: true };
@@ -144,12 +150,16 @@ export async function verifyStudent(id: string) {
 export async function resetStudentVerification(id: string, reason: string) {
   try {
     const { user } = await authorizeAdmin();
-    await adminRepository.resetStudentVerification(id);
+    const { createAdminClient } = await import('@/infrastructure/supabase/admin');
+    const admin = createAdminClient();
+    const { error } = await admin.from('wallets').update({ status: 'pending' }).eq('user_id', id);
+    if (error) throw new Error(error.message);
+
     await adminRepository.createAuditLog({
-      table_name: 'credit_accounts',
+      table_name: 'wallets',
       record_id: id,
       action: 'reset_verification',
-      new_data: { verification_status: 'pending', reason },
+      new_data: { status: 'pending', reason },
       changed_by: user.id,
     });
     return { success: true };

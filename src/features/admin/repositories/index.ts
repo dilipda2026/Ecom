@@ -152,8 +152,19 @@ export class AdminRepository {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     const { data, count } = await query.range(from, to);
+    const students = (data ?? []) as unknown as AdminStudent[];
+    if (students.length > 0) {
+      const userIds = students.map(s => s.id);
+      const { data: walletsData } = await admin.from('wallets').select('*').in('user_id', userIds);
+      if (walletsData) {
+        students.forEach(s => {
+          s.wallet = walletsData.find(w => w.user_id === s.id) || null;
+        });
+      }
+    }
+
     return {
-      data: (data ?? []) as unknown as AdminStudent[],
+      data: students,
       total: count ?? 0,
       page,
       pageSize,
@@ -197,7 +208,14 @@ export class AdminRepository {
       .eq('id', id)
       .is('deleted_at', null)
       .single();
-    return data as unknown as AdminStudent | null;
+    
+    const student = data as unknown as AdminStudent | null;
+    if (student) {
+      const { data: walletData } = await admin.from('wallets').select('*').eq('user_id', id).maybeSingle();
+      student.wallet = (walletData as any) || null;
+    }
+
+    return student;
   }
 
   async updateStudentStatus(id: string, isActive: boolean): Promise<void> {
