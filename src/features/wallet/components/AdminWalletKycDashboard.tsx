@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ShieldCheck, CheckCircle, XCircle, Search, Eye, AlertCircle, RefreshCw, X, Filter } from 'lucide-react';
-import { getAllWallets, approveWalletKyc, rejectWalletKyc, updateWalletStatus } from '../actions';
-import type { Wallet } from '../types';
+import { useState, useEffect, Fragment } from 'react';
+import { ShieldCheck, CheckCircle, XCircle, Search, Eye, AlertCircle, RefreshCw, X, Filter, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { getAllWallets, approveWalletKyc, rejectWalletKyc, updateWalletStatus, getAdminWalletTransactions } from '../actions';
+import type { Wallet, WalletTransaction } from '../types';
 
 export default function AdminWalletKycDashboard() {
   const [kycs, setKycs] = useState<Wallet[]>([]);
@@ -17,6 +17,11 @@ export default function AdminWalletKycDashboard() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
+  // History Modal State
+  const [selectedHistoryWallet, setSelectedHistoryWallet] = useState<Wallet | null>(null);
+  const [historyTransactions, setHistoryTransactions] = useState<WalletTransaction[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const fetchKycs = async () => {
     setLoading(true);
     const res = await getAllWallets();
@@ -29,6 +34,18 @@ export default function AdminWalletKycDashboard() {
   useEffect(() => {
     fetchKycs();
   }, []);
+
+  const handleViewHistory = async (wallet: Wallet) => {
+    setSelectedHistoryWallet(wallet);
+    setLoadingHistory(true);
+    setHistoryTransactions([]);
+    
+    const res = await getAdminWalletTransactions(wallet.id);
+    if (res.success && res.data) {
+      setHistoryTransactions(res.data);
+    }
+    setLoadingHistory(false);
+  };
 
   const handleApprove = async () => {
     if (!selectedKyc) return;
@@ -168,33 +185,86 @@ export default function AdminWalletKycDashboard() {
               </thead>
               <tbody className="divide-y divide-zborder">
                 {filteredKycs.map((kyc) => (
-                  <tr key={kyc.id} className="hover:bg-zgray/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-ztext">{kyc.kyc_name || 'N/A'}</div>
-                      <div className="text-xs text-ztext-light mt-0.5">{kyc.kyc_email || 'No email provided'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
-                        kyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
-                        kyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
-                        kyc.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
-                        'bg-zgray border border-zborder text-ztext-muted'
-                      }`}>
-                        {kyc.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-ztext-light">
-                      {kyc.kyc_submitted_at ? new Date(kyc.kyc_submitted_at).toLocaleString('en-IN') : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setError(''); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
-                      >
-                        <Eye size={14} /> View
-                      </button>
-                    </td>
-                  </tr>
+                  <Fragment key={kyc.id}>
+                    <tr className="hover:bg-zgray/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-ztext">{kyc.kyc_name || 'N/A'}</div>
+                        <div className="text-xs text-ztext-light mt-0.5">{kyc.kyc_email || 'No email provided'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
+                          kyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
+                          kyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                          kyc.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                          'bg-zgray border border-zborder text-ztext-muted'
+                        }`}>
+                          {kyc.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-ztext-light">
+                        {kyc.kyc_submitted_at ? new Date(kyc.kyc_submitted_at).toLocaleString('en-IN') : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-right flex justify-end gap-2">
+                        <button
+                          onClick={() => selectedHistoryWallet?.id === kyc.id ? setSelectedHistoryWallet(null) : handleViewHistory(kyc)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
+                        >
+                          {selectedHistoryWallet?.id === kyc.id ? (
+                            <><ChevronUp size={14} /> History</>
+                          ) : (
+                            <><ChevronDown size={14} /> History</>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setError(''); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
+                        >
+                          <Eye size={14} /> View
+                        </button>
+                      </td>
+                    </tr>
+                    
+                    {selectedHistoryWallet?.id === kyc.id && (
+                      <tr className="bg-zcard/50">
+                        <td colSpan={4} className="p-0 border-b border-zborder">
+                          <div className="px-6 py-4 bg-zgray/20 shadow-inner">
+                            {loadingHistory ? (
+                              <div className="p-4 text-center flex flex-col items-center justify-center gap-2 text-ztext-light">
+                                <RefreshCw className="animate-spin text-ztext-muted" size={20} />
+                                <p className="text-xs">Loading transactions...</p>
+                              </div>
+                            ) : historyTransactions.length === 0 ? (
+                              <div className="p-4 text-center text-ztext-light bg-zgray/50 rounded-xl border border-zborder text-sm">
+                                No transactions found for this wallet.
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                {historyTransactions.map((tx) => (
+                                  <div key={tx.id} className="p-3 bg-zcard rounded-lg border border-zborder flex items-center justify-between">
+                                    <div>
+                                      <p className="font-bold text-ztext text-sm">{tx.description || (tx.type === 'credit' ? 'Credited' : 'Debited')}</p>
+                                      <p className="text-xs text-ztext-light mt-1">
+                                        {new Date(tx.created_at).toLocaleString('en-IN')}
+                                      </p>
+                                      {(tx as any).reference_id && <p className="text-[10px] text-ztext-muted mt-1 font-mono">Ref: {(tx as any).reference_id}</p>}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className={`font-black text-sm ${tx.type === 'credit' ? 'text-emerald-500' : 'text-ztext'}`}>
+                                        {tx.type === 'credit' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+                                      </p>
+                                      <p className="text-[10px] text-ztext-muted font-bold mt-0.5">
+                                        Bal: ₹{tx.balance_after.toLocaleString('en-IN')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -312,6 +382,7 @@ export default function AdminWalletKycDashboard() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

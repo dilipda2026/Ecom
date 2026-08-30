@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Shield, ShieldOff, CheckCircle, Clock, Wallet, Loader2 } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
 import { getAdminStudents, suspendStudent, unsuspendStudent, verifyStudent, resetStudentVerification, bulkSuspendStudents, bulkUnsuspendStudents } from '@/features/admin/actions';
-import { adminCreditWallet } from '@/features/wallet/actions';
+import { adminCreditWallet, getAdminUserWalletBalance } from '@/features/wallet/actions';
 import type { AdminStudent } from '@/features/admin/types';
 
 export default function AdminStudentsPage() {
@@ -23,7 +23,25 @@ export default function AdminStudentsPage() {
   const [walletAmount, setWalletAmount] = useState('');
   const [walletNote, setWalletNote] = useState('');
   const [walletCrediting, setWalletCrediting] = useState(false);
+  const [walletCurrentBalance, setWalletCurrentBalance] = useState<number | null>(null);
+  const [walletStatus, setWalletStatus] = useState<string | null>(null);
+  const [fetchingWalletBalance, setFetchingWalletBalance] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
+
+  useEffect(() => {
+    if (walletModal) {
+      setFetchingWalletBalance(true);
+      setWalletCurrentBalance(null);
+      setWalletStatus(null);
+      getAdminUserWalletBalance(walletModal.id).then(res => {
+        if (res.success && typeof res.balance === 'number') {
+          setWalletCurrentBalance(res.balance);
+          setWalletStatus(res.status || 'unverified');
+        }
+        setFetchingWalletBalance(false);
+      });
+    }
+  }, [walletModal]);
 
   const fetchStudents = useCallback(async (p?: number) => {
     setLoading(true);
@@ -217,17 +235,42 @@ export default function AdminStudentsPage() {
       {walletModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setWalletModal(null)}>
           <div className="bg-zcard rounded-2xl p-6 max-w-sm w-full shadow-z-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-bold text-ztext">Credit Wallet</h3>
-            <p className="text-xs text-ztext-lighter mt-1">Add points to <span className="font-medium text-ztext">{walletModal.name}</span></p>
-            <input type="number" min="1" value={walletAmount} onChange={(e) => setWalletAmount(e.target.value)} placeholder="Amount (₹)" className="input-z w-full mt-4 text-sm" autoFocus />
-            <input value={walletNote} onChange={(e) => setWalletNote(e.target.value)} placeholder="Note (optional)" className="input-z w-full mt-3 text-sm" />
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => { setWalletModal(null); setWalletAmount(''); setWalletNote(''); }} className="flex-1 px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Cancel</button>
-              <button onClick={handleCreditWallet} disabled={walletCrediting || !walletAmount} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-zred rounded-xl hover:bg-zred-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {walletCrediting ? <Loader2 size={14} className="animate-spin" /> : null}
-                {walletCrediting ? 'Crediting...' : 'Credit'}
-              </button>
-            </div>
+            <h3 className="text-sm font-bold text-ztext">Credit Bonus to Wallet</h3>
+            <p className="text-xs text-ztext-lighter mt-1">Add bonus points to <span className="font-medium text-ztext">{walletModal.name}</span></p>
+            
+            {fetchingWalletBalance ? (
+              <div className="flex justify-center my-8">
+                <Loader2 size={24} className="animate-spin text-ztext-muted" />
+              </div>
+            ) : walletStatus === 'active' ? (
+              <>
+                <div className="mt-4 p-3 bg-zgray/30 rounded-xl border border-zborder flex justify-between items-center">
+                  <span className="text-xs font-medium text-ztext-light">Current Balance</span>
+                  <span className="font-black text-sm text-ztext">₹{walletCurrentBalance?.toLocaleString('en-IN') || 0}</span>
+                </div>
+
+                <input type="number" min="1" value={walletAmount} onChange={(e) => setWalletAmount(e.target.value)} placeholder="Bonus Amount (₹)" className="input-z w-full mt-4 text-sm" autoFocus />
+                <input value={walletNote} onChange={(e) => setWalletNote(e.target.value)} placeholder="Bonus Note (optional)" className="input-z w-full mt-3 text-sm" />
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => { setWalletModal(null); setWalletAmount(''); setWalletNote(''); }} className="flex-1 px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Cancel</button>
+                  <button onClick={handleCreditWallet} disabled={walletCrediting || !walletAmount} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-zred rounded-xl hover:bg-zred-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {walletCrediting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {walletCrediting ? 'Crediting...' : 'Credit'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-6 text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-100 text-orange-500 mb-3">
+                  <ShieldOff size={24} />
+                </div>
+                <h4 className="text-sm font-bold text-ztext mb-1">Wallet Not Active</h4>
+                <p className="text-xs text-ztext-muted mb-6">
+                  This user&apos;s wallet is currently {walletStatus === 'unverified' ? 'not set up' : walletStatus}. They need an active wallet to receive bonuses.
+                </p>
+                <button onClick={() => setWalletModal(null)} className="w-full px-4 py-2 text-sm font-medium text-ztext-light bg-zgray rounded-xl hover:bg-zsurface transition-colors">Close</button>
+              </div>
+            )}
           </div>
         </div>
       )}

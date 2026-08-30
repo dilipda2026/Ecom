@@ -380,14 +380,15 @@ export async function adminCreditWallet(userId: string, amount: number, note: st
     .eq('id', userId)
     .maybeSingle();
 
-  const balanceBefore = Number(userProfile?.wallet_balance) || 0;
+  const { data: w } = await supabase.from('wallets').select('id, balance, total_credit').eq('user_id', userId).maybeSingle();
+  
+  const balanceBefore = w ? (Number(w.balance) || 0) : (Number(userProfile?.wallet_balance) || 0);
   const balanceAfter = balanceBefore + amount;
 
   await supabase.from('profiles').update({ wallet_balance: balanceAfter }).eq('id', userId);
 
   let walletId: string | null = null;
   try {
-    const { data: w } = await supabase.from('wallets').select('id, total_credit').eq('user_id', userId).maybeSingle();
     if (w) {
       walletId = w.id;
       await supabase.from('wallets').update({
@@ -395,37 +396,68 @@ export async function adminCreditWallet(userId: string, amount: number, note: st
         total_credit: (Number(w.total_credit) || 0) + amount,
         updated_at: new Date().toISOString(),
       }).eq('id', w.id);
+    } else {
+      // Create a wallet so transactions have a valid wallet_id
+      const { data: newW, error: createErr } = await supabase.from('wallets').insert({
+        user_id: userId,
+        balance: balanceAfter,
+        total_credit: amount,
+        total_debit: 0,
+        status: 'active'
+      }).select('id').single();
+      
+      if (!createErr && newW) {
+        walletId = newW.id;
+      }
     }
-  } catch {
-    // Ignored
+  } catch (err) {
+    console.error('Wallet update/create error:', err);
   }
 
   const txnRef = `admin:${admin.id}`;
-  const noteText = note || 'Credited by admin';
+  const noteText = note ? `Bonus: ${note}` : 'Bonus credited by admin';
 
   const { error: fullInsertErr } = await supabase.from('wallet_transactions').insert({
-    user_id: userId,
     wallet_id: walletId,
     amount,
     type: 'credit',
-    balance_before: balanceBefore,
     balance_after: balanceAfter,
     description: noteText,
-    note: noteText,
-    reference: txnRef,
+    reference_id: txnRef,
   });
 
   if (fullInsertErr) {
-    await supabase.from('wallet_transactions').insert({
-      user_id: userId,
-      amount,
-      type: 'credit',
-      reference: txnRef,
-      note: noteText,
-    });
+    console.error('Failed full insert:', fullInsertErr);
+    return { success: false, error: 'Failed to record transaction: ' + fullInsertErr.message };
   }
 
   return { success: true, balance: balanceAfter };
+}
+
+export async function getAdminUserWalletBalance(userId: string): Promise<{ success: boolean; balance?: number; status?: string; error?: string }> {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  const { user: admin } = await getServerSession();
+  if (!admin) return { success: false, error: 'Not authenticated' };
+
+  try {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    const { data: wallet } = await supabase.from('wallets').select('balance, status').eq('user_id', userId).maybeSingle();
+    
+    if (!wallet) {
+      return { success: true, balance: 0, status: 'unverified' };
+    }
+
+    return { success: true, balance: Number(wallet.balance) || 0, status: wallet.status };
+  } catch (err: unknown) {
+    console.error('getAdminUserWalletBalance error:', err);
+    return { success: false, error: 'Failed to fetch balance' };
+  }
 }
 
 /**
@@ -602,6 +634,44 @@ export async function getAllWallets(): Promise<{ success: boolean; data?: Wallet
   } catch (err: unknown) {
     console.error('getAllWallets error:', err);
     return { success: false, error: 'Failed to fetch all wallets' };
+  }
+}
+
+export async function getAdminWalletTransactions(walletId: string): Promise<{ success: boolean; data?: WalletTransaction[]; error?: string }> {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  const { user: admin } = await getServerSession();
+  if (!admin) return { success: false, error: 'Not authenticated' };
+
+  try {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', admin.id).maybeSingle();
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    const { data: txData, error } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('wallet_id', walletId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    // Normalize transactions similar to getWalletDetails
+    const transactions = txData.map(tx => {
+      const isCreditType = ['credit', 'topup'].includes(tx.type) || Number(tx.amount) > 0;
+      return {
+        ...tx,
+        type: isCreditType ? 'credit' : 'debit',
+        amount: Math.abs(Number(tx.amount) || 0)
+      };
+    }) as WalletTransaction[];
+
+    return { success: true, data: transactions };
+  } catch (err: unknown) {
+    console.error('getAdminWalletTransactions error:', err);
+    return { success: false, error: 'Failed to fetch transactions' };
   }
 }
 

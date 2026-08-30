@@ -35,6 +35,7 @@ export default function CheckoutPage() {
   const [orderType, setOrderType] = useState<OrderType | null>(() => useCartStore.getState().orderType);
   const [paymentMethod, setPaymentMethod] = useState('wallet');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletStatus, setWalletStatus] = useState<string | null>(null);
   const [address, setAddress] = useState('');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
@@ -59,7 +60,9 @@ export default function CheckoutPage() {
   }, [publicSettings.deliverySlots, slotData.nextAvailableSlot, selectedSlotId]);
   const paymentMethods = basePaymentMethods.filter((pm) => {
     const avail = availableMethods.find((a) => a.id === pm.id);
-    return avail ? avail.enabled && avail.configured : false;
+    if (!avail || !avail.enabled || !avail.configured) return false;
+    if (pm.id === 'wallet' && walletStatus !== null && walletStatus !== 'active') return false;
+    return true;
   });
   const selectedMethod = paymentMethods.some((pm) => pm.id === paymentMethod) ? paymentMethod : (paymentMethods[0]?.id ?? paymentMethod);
   const deliveryLocations = publicSettings.deliveryLocations.map((loc) => ({ value: loc, label: loc.split(',')[0] }));
@@ -91,6 +94,9 @@ export default function CheckoutPage() {
       getWalletDetails().then((res) => {
         if (res.success && res.data) {
           setWalletBalance(res.data.balance);
+          setWalletStatus(res.data.wallet?.status ?? 'unverified');
+        } else {
+          setWalletStatus('unverified');
         }
       });
     }
