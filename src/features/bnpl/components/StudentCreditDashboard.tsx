@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
  Wallet,
  CreditCard,
@@ -12,6 +13,8 @@ import {
  Clock,
  CheckCircle2,
  XCircle,
+ Eye,
+ EyeOff,
 } from 'lucide-react';
 import { getCreditDashboard, getAuditLogs } from '../actions';
 import { formatCurrency } from '@/lib/utils';
@@ -33,6 +36,7 @@ function statusBadge(status: string) {
 }
 
 export default function StudentCreditDashboard() {
+ const [showTransactions, setShowTransactions] = useState<boolean>(false);
  const { data: dashboard, isLoading, error } = useServerAction(getCreditDashboard);
  const { data: auditData } = useServerAction(getAuditLogs);
 
@@ -212,48 +216,71 @@ export default function StudentCreditDashboard() {
  </div>
 
  {/* Recent Transactions */}
- <div className="bg-zcard rounded-xl shadow-z p-6">
- <h2 className="font-bold text-ztext mb-4">Recent Transactions</h2>
- {recentTransactions.length === 0 ? (
- <div className="text-center py-8">
- <p className="text-sm text-ztext-light">No transactions yet</p>
- </div>
- ) : (
- <div className="space-y-2">
- {recentTransactions.map((tx) => (
- <div key={tx.id} className="flex items-center justify-between py-2.5 border-b border-zborder last:border-0">
- <div className="flex items-center gap-3">
- <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
- tx.type === 'purchase' ? 'bg-red-500/20 ' :
- tx.type === 'repayment' ? 'bg-green-500/20 ' :
- tx.type === 'fee' ? 'bg-yellow-100 ' :
- 'bg-blue-100 '
- }`}>
- {tx.type === 'purchase' ? <ArrowRight className="w-4 h-4 text-zred" /> :
- tx.type === 'repayment' ? <CheckCircle2 className="w-4 h-4 text-zgreen" /> :
- tx.type === 'fee' ? <AlertTriangle className="w-4 h-4 text-yellow-600" /> :
- <IndianRupee className="w-4 h-4 text-blue-600" />}
- </div>
- <div>
- <p className="text-sm font-medium text-ztext capitalize">{tx.type}</p>
- <p className="text-xs text-ztext-light">{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
- </div>
- </div>
- <div className="text-right">
- <p className={`text-sm font-semibold ${
- tx.type === 'purchase' || tx.type === 'fee' ? 'text-zred' : 'text-zgreen'
- }`}>
- {tx.type === 'purchase' || tx.type === 'fee' ? '-' : '+'}{formatCurrency(tx.amount)}
- </p>
- {tx.description && (
- <p className="text-xs text-ztext-lighter">{tx.description}</p>
- )}
- </div>
- </div>
- ))}
- </div>
- )}
- </div>
+  <div className="bg-zcard rounded-xl shadow-z p-6">
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="font-bold text-ztext">Recent Transactions</h2>
+      <button
+        onClick={() => setShowTransactions((prev) => !prev)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zgray hover:bg-zborder text-xs font-bold text-ztext transition-colors"
+      >
+        {showTransactions ? (
+          <>
+            <EyeOff size={14} className="text-ztext-muted" />
+            <span>Hide</span>
+          </>
+        ) : (
+          <>
+            <Eye size={14} className="text-zred" />
+            <span>Show</span>
+          </>
+        )}
+      </button>
+    </div>
+
+    {showTransactions && (
+      <>
+        {recentTransactions.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-ztext-light">No transactions yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentTransactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between py-2.5 border-b border-zborder last:border-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    tx.type === 'purchase' ? 'bg-red-500/20 ' :
+                    tx.type === 'repayment' ? 'bg-green-500/20 ' :
+                    tx.type === 'fee' ? 'bg-yellow-100 ' :
+                    'bg-blue-100 '
+                  }`}>
+                    {tx.type === 'purchase' ? <ArrowRight className="w-4 h-4 text-zred" /> :
+                    tx.type === 'repayment' ? <CheckCircle2 className="w-4 h-4 text-zgreen" /> :
+                    tx.type === 'fee' ? <AlertTriangle className="w-4 h-4 text-yellow-600" /> :
+                    <IndianRupee className="w-4 h-4 text-blue-600" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-ztext capitalize">{tx.type}</p>
+                    <p className="text-xs text-ztext-light">{new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-semibold ${
+                    tx.type === 'purchase' || tx.type === 'fee' ? 'text-zred' : 'text-zgreen'
+                  }`}>
+                    {tx.type === 'purchase' || tx.type === 'fee' ? '-' : '+'}{formatCurrency(tx.amount)}
+                  </p>
+                  {tx.description && (
+                    <p className="text-xs text-ztext-lighter">{tx.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )}
+  </div>
 
  {/* Audit Trail */}
  {auditData && auditData.length > 0 && (

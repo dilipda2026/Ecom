@@ -16,7 +16,9 @@ import {
   QrCode,
   Sparkles,
   ShieldCheck,
-  ArrowLeft
+  ArrowLeft,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { getWalletDetails, topupWallet, verifyAndTopupWalletWithRazorpay, submitWalletKyc } from '../actions';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -28,6 +30,7 @@ export default function StudentWalletDashboard() {
   const router = useRouter();
   const [summary, setSummary] = useState<WalletSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
   const [search, setSearch] = useState('');
@@ -354,140 +357,184 @@ export default function StudentWalletDashboard() {
       <div className="bg-zcard rounded-2xl border border-zborder overflow-hidden shadow-z">
         {/* Header & Controls */}
         <div className="p-4 sm:p-5 border-b border-zborder flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-ztext flex items-center gap-2">
-              <ShieldCheck size={17} className="text-zred" /> Transaction History
-            </h3>
-            <p className="text-[11px] sm:text-xs text-ztext-light mt-0.5">
-              Showing all credit top-ups and debit purchases
-            </p>
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-ztext flex items-center gap-2">
+                <ShieldCheck size={17} className="text-zred" /> Transaction History
+              </h3>
+              <p className="text-[11px] sm:text-xs text-ztext-light mt-0.5">
+                Showing all credit top-ups and debit purchases
+              </p>
+            </div>
+
+            {/* Show / Hide Toggle on Mobile */}
+            <button
+              onClick={() => setShowHistory((prev) => !prev)}
+              className="sm:hidden inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zgray hover:bg-zborder text-xs font-bold text-ztext transition-colors"
+            >
+              {showHistory ? (
+                <>
+                  <EyeOff size={13} className="text-ztext-muted" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <Eye size={13} className="text-zred" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Filters & Search */}
-          <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-44">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search txns..."
-                className="input-z pl-8 py-1.5 text-xs w-full"
-              />
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center justify-between bg-zgray p-1 rounded-xl border border-zborder text-xs font-semibold">
-              <button
-                onClick={() => setFilter('all')}
-                className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
-                  filter === 'all' ? 'bg-zcard text-ztext shadow-sm' : 'text-ztext-lighter hover:text-ztext'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter('credit')}
-                className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
-                  filter === 'credit' ? 'bg-emerald-500/20 text-emerald-400 shadow-sm' : 'text-ztext-lighter hover:text-ztext'
-                }`}
-              >
-                Credit (+)
-              </button>
-              <button
-                onClick={() => setFilter('debit')}
-                className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
-                  filter === 'debit' ? 'bg-red-500/20 text-red-400 shadow-sm' : 'text-ztext-lighter hover:text-ztext'
-                }`}
-              >
-                Debit (-)
-              </button>
-            </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {/* Show / Hide Toggle on Desktop */}
+            <button
+              onClick={() => setShowHistory((prev) => !prev)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zgray hover:bg-zborder text-xs font-bold text-ztext transition-colors"
+            >
+              {showHistory ? (
+                <>
+                  <EyeOff size={14} className="text-ztext-muted" />
+                  <span>Hide</span>
+                </>
+              ) : (
+                <>
+                  <Eye size={14} className="text-zred" />
+                  <span>Show</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Transactions List */}
-        {filteredTransactions.length === 0 ? (
-          <div className="p-8 sm:p-12 text-center">
-            <div className="w-11 h-11 rounded-full bg-zgray flex items-center justify-center mx-auto mb-3 text-ztext-muted">
-              <WalletIcon size={22} />
-            </div>
-            <p className="font-semibold text-ztext text-xs sm:text-sm">No transactions found</p>
-            <p className="text-[11px] sm:text-xs text-ztext-light mt-1">
-              {search ? 'Try clearing your search terms.' : 'Top up your wallet to start using instant one-click payments.'}
-            </p>
-            {!search && (
-              <button
-                onClick={() => setShowTopupModal(true)}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-zred/10 text-zred border border-zred/20 rounded-xl text-xs font-bold hover:bg-zred hover:text-white transition-all"
-              >
-                <PlusCircle size={14} /> Top Up Now
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="divide-y divide-zborder">
-            {filteredTransactions.map((tx) => {
-              const isCredit = tx.type === 'credit';
-              const dateStr = new Date(tx.created_at).toLocaleString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+        {showHistory && (
+          <>
+            {/* Filters & Search */}
+            <div className="p-4 bg-zgray/30 border-b border-zborder flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
+              <div className="relative flex-1 sm:w-44">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search txns..."
+                  className="input-z pl-8 py-1.5 text-xs w-full"
+                />
+              </div>
 
-              const descriptionText = formatTxDescription(tx);
-
-              return (
-                <div
-                  key={tx.id}
-                  className="p-3.5 sm:px-6 flex items-center justify-between gap-3 sm:gap-4 hover:bg-zgray/30 transition-colors"
+              {/* Filter Tabs */}
+              <div className="flex items-center justify-between bg-zgray p-1 rounded-xl border border-zborder text-xs font-semibold">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
+                    filter === 'all' ? 'bg-zcard text-ztext shadow-sm' : 'text-ztext-lighter hover:text-ztext'
+                  }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                        isCredit
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                          : 'bg-red-500/10 border-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {isCredit ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
-                    </div>
+                  All
+                </button>
+                <button
+                  onClick={() => setFilter('credit')}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
+                    filter === 'credit' ? 'bg-emerald-500/20 text-emerald-400 shadow-sm' : 'text-ztext-lighter hover:text-ztext'
+                  }`}
+                >
+                  Credit (+)
+                </button>
+                <button
+                  onClick={() => setFilter('debit')}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg transition-all text-center ${
+                    filter === 'debit' ? 'bg-red-500/20 text-red-400 shadow-sm' : 'text-ztext-lighter hover:text-ztext'
+                  }`}
+                >
+                  Debit (-)
+                </button>
+              </div>
+            </div>
 
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-ztext text-xs sm:text-sm leading-snug truncate">
-                        {descriptionText}
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ztext-lighter mt-0.5">
-                        <span>{dateStr}</span>
-                        {tx.payment_reference && (
-                          <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded border border-zborder max-w-[120px] sm:max-w-none truncate">
-                            {tx.payment_reference}
-                          </span>
+            {/* Transactions List */}
+            {filteredTransactions.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center">
+                <div className="w-11 h-11 rounded-full bg-zgray flex items-center justify-center mx-auto mb-3 text-ztext-muted">
+                  <WalletIcon size={22} />
+                </div>
+                <p className="font-semibold text-ztext text-xs sm:text-sm">No transactions found</p>
+                <p className="text-[11px] sm:text-xs text-ztext-light mt-1">
+                  {search ? 'Try clearing your search terms.' : 'Top up your wallet to start using instant one-click payments.'}
+                </p>
+                {!search && (
+                  <button
+                    onClick={() => setShowTopupModal(true)}
+                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-zred/10 text-zred border border-zred/20 rounded-xl text-xs font-bold hover:bg-zred hover:text-white transition-all"
+                  >
+                    <PlusCircle size={14} /> Top Up Now
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-zborder">
+                {filteredTransactions.map((tx) => {
+                  const isCredit = tx.type === 'credit';
+                  const dateStr = new Date(tx.created_at).toLocaleString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+
+                  const descriptionText = formatTxDescription(tx);
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="p-3.5 sm:px-6 flex items-center justify-between gap-3 sm:gap-4 hover:bg-zgray/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                            isCredit
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                              : 'bg-red-500/10 border-red-500/20 text-red-400'
+                          }`}
+                        >
+                          {isCredit ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                        </div>
+
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-ztext text-xs sm:text-sm leading-snug truncate">
+                            {descriptionText}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ztext-lighter mt-0.5">
+                            <span>{dateStr}</span>
+                            {tx.payment_reference && (
+                              <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded border border-zborder max-w-[120px] sm:max-w-none truncate">
+                                {tx.payment_reference}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`font-extrabold text-sm sm:text-base ${
+                            isCredit ? 'text-emerald-400' : 'text-ztext'
+                          }`}
+                        >
+                          {isCredit ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </p>
+                        {tx.balance_after > 0 && (
+                          <p className="text-[10px] sm:text-[11px] text-ztext-lighter mt-0.5">
+                            Bal: ₹{tx.balance_after.toLocaleString('en-IN')}
+                          </p>
                         )}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <p
-                      className={`font-extrabold text-sm sm:text-base ${
-                        isCredit ? 'text-emerald-400' : 'text-ztext'
-                      }`}
-                    >
-                      {isCredit ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </p>
-                    {tx.balance_after > 0 && (
-                      <p className="text-[10px] sm:text-[11px] text-ztext-lighter mt-0.5">
-                        Bal: ₹{tx.balance_after.toLocaleString('en-IN')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 

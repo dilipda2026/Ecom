@@ -7,10 +7,10 @@ import type { ExpenseType } from '@/features/expenses/types';
 
 describe('Expense Tracker Schemas Validation', () => {
   describe('expenseTransactionSchema', () => {
-    it('validates a correct income transaction', () => {
+    it('validates a correct income transaction with free-text category', () => {
       const result = expenseTransactionSchema.safeParse({
         transaction_date: '2026-08-24',
-        description: 'Freelance Payment',
+        description: 'Custom Free-Text Income Category',
         amount: 1000,
         type: 'income',
         note: 'Project milestone 1',
@@ -18,10 +18,10 @@ describe('Expense Tracker Schemas Validation', () => {
       expect(result.success).toBe(true);
     });
 
-    it('validates a correct expense transaction', () => {
+    it('validates a correct expense transaction with free-text category', () => {
       const result = expenseTransactionSchema.safeParse({
         transaction_date: '2026-08-24',
-        description: 'Food',
+        description: 'Office Snacks & Supplies',
         amount: 150,
         type: 'expense',
       });
@@ -114,29 +114,30 @@ describe('Balance & Running Balance Calculations', () => {
     expect(startingBalance + totalIncome - totalExpenses).toBe(5800);
   });
 
-  it('calculates exact running balance for each transaction in sequence', () => {
-    const startingBalance = 5000;
-    const rawTx: { id: string; amount: number; type: ExpenseType; date: string }[] = [
-      { id: '1', amount: 150, type: 'expense', date: '2026-08-24' },
-      { id: '2', amount: 50, type: 'expense', date: '2026-08-24' },
-      { id: '3', amount: 1000, type: 'income', date: '2026-08-24' },
-      { id: '4', amount: 300, type: 'expense', date: '2026-08-25' },
-    ];
+  it('formats positive and negative available balances with explicit signs (+ vs −)', () => {
+    const formatBalanceDisplay = (val: number) => {
+      const isPositive = val >= 0;
+      const sign = isPositive ? '+' : '−';
+      const absVal = Math.abs(val).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+      return {
+        isPositive,
+        sign,
+        fullText: `${sign} ₹${absVal}`,
+      };
+    };
 
-    let running = startingBalance;
-    const calculated = rawTx.map((tx) => {
-      if (tx.type === 'income') {
-        running += tx.amount;
-      } else {
-        running -= tx.amount;
-      }
-      return { ...tx, running_balance: running };
-    });
+    const positiveRes = formatBalanceDisplay(1500);
+    expect(positiveRes.isPositive).toBe(true);
+    expect(positiveRes.sign).toBe('+');
+    expect(positiveRes.fullText).toBe('+ ₹1,500');
 
-    expect(calculated[0].running_balance).toBe(4850);
-    expect(calculated[1].running_balance).toBe(4800);
-    expect(calculated[2].running_balance).toBe(5800);
-    expect(calculated[3].running_balance).toBe(5500);
+    const negativeRes = formatBalanceDisplay(-450);
+    expect(negativeRes.isPositive).toBe(false);
+    expect(negativeRes.sign).toBe('−');
+    expect(negativeRes.fullText).toBe('− ₹450');
   });
 
   it('filters transactions by date range correctly without mutating running balances', () => {

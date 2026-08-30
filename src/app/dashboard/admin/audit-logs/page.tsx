@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Download, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshCw, Eye } from 'lucide-react';
 import { DataTable, SearchInput, PageHeader, ToastContainer, useToast } from '@/components/ui/data-table';
+import ExportDropdown from '@/components/admin/ExportDropdown';
 import { getAuditLogs } from '@/features/admin/actions';
 import type { AuditEntry } from '@/features/admin/types';
+
+const AUDIT_EXPORT_HEADERS = ['Timestamp', 'Action', 'Entity / Table', 'Record ID', 'Changed By', 'IP Address'];
 
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
@@ -40,18 +43,16 @@ export default function AdminAuditLogsPage() {
     fetchLogs(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleExport = () => {
-    const csv = [
-      ['Timestamp', 'Action', 'Table', 'Record ID', 'Changed By', 'IP Address'].join(','),
-      ...logs.map((l) => [l.created_at, l.action, l.table_name, l.record_id ?? '', l.changed_by_name ?? l.changed_by ?? '', l.ip_address ?? ''].join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const exportRows = useMemo(() => {
+    return logs.map((l) => [
+      new Date(l.created_at).toLocaleString('en-IN'),
+      l.action,
+      l.table_name,
+      l.record_id ?? 'N/A',
+      l.changed_by_name ?? l.changed_by ?? 'System',
+      l.ip_address ?? 'N/A',
+    ]);
+  }, [logs]);
 
   const columns = [
     { key: 'timestamp', header: 'Timestamp', sortable: true, render: (l: AuditEntry) => (
@@ -95,9 +96,13 @@ export default function AdminAuditLogsPage() {
   return (
     <div>
       <PageHeader title="Audit Logs" description={`${total} recorded event${total !== 1 ? 's' : ''}`}>
-        <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-zcard border border-zborder rounded-xl hover:bg-zgray transition-colors">
-          <Download size={14} /> Export CSV
-        </button>
+        <ExportDropdown
+          title="Audit Logs Report"
+          filenamePrefix="audit-logs-export"
+          headers={AUDIT_EXPORT_HEADERS}
+          rows={exportRows}
+          disabled={logs.length === 0}
+        />
       </PageHeader>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">

@@ -156,8 +156,20 @@ export interface PaymentAdmin {
   failure_reason: string | null;
   refund_amount: number | null;
   created_at: string;
-  updated_at: string;
-  order?: { tracking_code: string; status: string } | null;
+  order?: {
+    tracking_code: string;
+    status: string;
+    customer_name?: string | null;
+    customer_phone?: string | null;
+    customer_email?: string | null;
+    user_id?: string | null;
+  } | null;
+  user?: {
+    full_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
+  wallet_info?: string | null;
 }
 
 export interface DeliveryPartnerAdmin {

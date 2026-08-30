@@ -474,16 +474,29 @@ export default function InStorePage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-ztext flex items-center gap-2">
-                In Store Counter POS
+                In Store Counter
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                   Active Counter
                 </span>
               </h1>
-              <p className="text-xs text-ztext-light">Fast counter billing, optional customer info, printable receipts & revenue history</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* History Button (Repositioned to the left of + Customer Info in the same row) */}
+            <button
+              onClick={() => setActiveTab(activeTab === 'history' ? 'pos' : 'history')}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-colors text-xs font-semibold ${
+                activeTab === 'history'
+                  ? 'bg-zred text-white border-zred'
+                  : 'bg-zgray text-ztext hover:bg-zborder border-zborder'
+              }`}
+            >
+              <History size={14} />
+              <span>History</span>
+            </button>
+
+            {/* + Customer Info Button */}
             <button
               onClick={() => setShowCustomerModal(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zred/10 text-zred hover:bg-zred/20 border border-zred/20 transition-colors text-xs font-semibold"
@@ -496,6 +509,7 @@ export default function InStorePage() {
               </span>
             </button>
 
+            {/* Refresh Button */}
             <button
               onClick={() => {
                 if (activeTab === 'pos') fetchCatalog();
@@ -508,35 +522,6 @@ export default function InStorePage() {
               <span>Refresh</span>
             </button>
           </div>
-        </div>
-
-        {/* Navigation Tabs: POS Counter vs Saved Orders & Revenue History */}
-        <div className="flex border-b border-zborder gap-6">
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`pb-3 text-xs font-bold flex items-center gap-2 transition-all relative ${
-              activeTab === 'pos' ? 'text-zred' : 'text-ztext-light hover:text-ztext'
-            }`}
-          >
-            <ShoppingBag size={16} />
-            <span>Counter POS (New Order)</span>
-            {activeTab === 'pos' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-zred rounded-full" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`pb-3 text-xs font-bold flex items-center gap-2 transition-all relative ${
-              activeTab === 'history' ? 'text-zred' : 'text-ztext-light hover:text-ztext'
-            }`}
-          >
-            <History size={16} />
-            <span>In-Store Orders & Revenue History</span>
-            {activeTab === 'history' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-zred rounded-full" />
-            )}
-          </button>
         </div>
       </div>
 

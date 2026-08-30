@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Eye, Snowflake, Thermometer, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { RefreshCw, Eye, EyeOff, Snowflake, Thermometer, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
 import { getAdminCreditAccounts, getAdminCreditAccountById, getCreditTransactions, increaseCreditLimit, reduceCreditLimit, freezeCredit, unfreezeCredit } from '@/features/admin/actions';
 import type { CreditAccountAdmin } from '@/features/admin/types';
@@ -24,6 +24,7 @@ export default function AdminBNPLPage() {
   const [limitModal, setLimitModal] = useState<{ id: string; action: 'increase' | 'reduce'; current: number } | null>(null);
   const [limitValue, setLimitValue] = useState('');
   const [reasonValue, setReasonValue] = useState('');
+  const [showModalTransactions, setShowModalTransactions] = useState<boolean>(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const fetchAccounts = useCallback(async (p?: number) => {
@@ -237,27 +238,50 @@ export default function AdminBNPLPage() {
               ) : null}
             </div>
 
-            <h4 className="text-sm font-semibold text-ztext mb-3">Recent Transactions</h4>
-            <div className="max-h-60 overflow-y-auto space-y-1">
-              {transactions.length === 0 ? (
-                <p className="text-xs text-ztext-lighter text-center py-4">No transactions</p>
-              ) : transactions.map((tx: Record<string, unknown>) => (
-                <div key={tx.id as string} className="flex items-center justify-between py-2 border-b border-zborder last:border-0">
-                  <div>
-                    <p className="text-sm text-ztext-light capitalize">{(tx.type as string).replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-ztext-muted">{new Date(tx.created_at as string).toLocaleString()}</p>
-                  </div>
-                  <span className={`font-medium text-sm ${(tx.amount as number) > 0 && tx.type === 'repayment' ? 'text-emerald-600' : (tx.amount as number) > 0 ? 'text-red-400' : 'text-ztext-light'}`}>
-                    {(tx.type as string) === 'repayment' ? '-' : '+'}₹{Number(tx.amount).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-ztext">Recent Transactions</h4>
+              <button
+                onClick={() => setShowModalTransactions((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zgray hover:bg-zborder text-xs font-bold text-ztext transition-colors"
+              >
+                {showModalTransactions ? (
+                  <>
+                    <EyeOff size={13} className="text-ztext-muted" />
+                    <span>Hide</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye size={13} className="text-zred" />
+                    <span>Show</span>
+                  </>
+                )}
+              </button>
             </div>
-            {txTotal > 20 && (
-              <div className="flex justify-center gap-2 mt-3">
-                <button onClick={() => loadTransactions(selectedAccount.id, txPage - 1)} disabled={txPage <= 1} className="text-xs text-ztext-lighter hover:text-ztext-light disabled:opacity-30">Prev</button>
-                <button onClick={() => loadTransactions(selectedAccount.id, txPage + 1)} disabled={txPage * 20 >= txTotal} className="text-xs text-ztext-lighter hover:text-ztext-light disabled:opacity-30">Next</button>
-              </div>
+
+            {showModalTransactions && (
+              <>
+                <div className="max-h-60 overflow-y-auto space-y-1">
+                  {transactions.length === 0 ? (
+                    <p className="text-xs text-ztext-lighter text-center py-4">No transactions</p>
+                  ) : transactions.map((tx: Record<string, unknown>) => (
+                    <div key={tx.id as string} className="flex items-center justify-between py-2 border-b border-zborder last:border-0">
+                      <div>
+                        <p className="text-sm text-ztext-light capitalize">{(tx.type as string).replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-ztext-muted">{new Date(tx.created_at as string).toLocaleString()}</p>
+                      </div>
+                      <span className={`font-medium text-sm ${(tx.amount as number) > 0 && tx.type === 'repayment' ? 'text-emerald-600' : (tx.amount as number) > 0 ? 'text-red-400' : 'text-ztext-light'}`}>
+                        {(tx.type as string) === 'repayment' ? '-' : '+'}₹{Number(tx.amount).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {txTotal > 20 && (
+                  <div className="flex justify-center gap-2 mt-3">
+                    <button onClick={() => loadTransactions(selectedAccount.id, txPage - 1)} disabled={txPage <= 1} className="text-xs text-ztext-lighter hover:text-ztext-light disabled:opacity-30">Prev</button>
+                    <button onClick={() => loadTransactions(selectedAccount.id, txPage + 1)} disabled={txPage * 20 >= txTotal} className="text-xs text-ztext-lighter hover:text-ztext-light disabled:opacity-30">Next</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

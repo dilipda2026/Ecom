@@ -571,7 +571,7 @@ export class AdminRepository {
     const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate } = filter;
     let query = admin
       .from('payments')
-      .select('*, order:orders!order_id!inner(tracking_code, status)', { count: 'exact' })
+      .select('*, order:orders!order_id!inner(tracking_code, status, customer_name, customer_phone, customer_email, user_id)', { count: 'exact' })
       .neq('order.status', 'cancelled');
     if (status && status !== 'all') query = query.eq('status', status);
     if (search) {
@@ -585,8 +585,45 @@ export class AdminRepository {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     const { data, count } = await query.range(from, to);
+
+    // Fetch user profiles & credit account references for payments that have user_id
+    const userIds = Array.from(new Set((data ?? []).map((p) => p.user_id || p.order?.user_id).filter(Boolean))) as string[];
+    let userMap = new Map<string, { full_name: string; email: string; phone: string | null }>();
+    let creditMap = new Map<string, { available_credit: number; credit_limit: number }>();
+
+    if (userIds.length > 0) {
+      const [{ data: profiles }, { data: credits }] = await Promise.all([
+        admin.from('profiles').select('id, full_name, email, phone').in('id', userIds),
+        admin.from('credit_accounts').select('user_id, available_credit, credit_limit').in('user_id', userIds),
+      ]);
+
+      if (profiles) {
+        userMap = new Map(profiles.map((u) => [u.id, { full_name: u.full_name, email: u.email, phone: u.phone ?? null }]));
+      }
+      if (credits) {
+        creditMap = new Map(credits.map((c) => [c.user_id, { available_credit: Number(c.available_credit), credit_limit: Number(c.credit_limit) }]));
+      }
+    }
+
+    const paymentsWithDetails = (data ?? []).map((p) => {
+      const uid = p.user_id || p.order?.user_id;
+      const userProfile = uid ? userMap.get(uid) : undefined;
+      const creditAcc = uid ? creditMap.get(uid) : undefined;
+      const walletRef = creditAcc
+        ? `BNPL Credit (Avail: ₹${creditAcc.available_credit.toLocaleString('en-IN')})`
+        : p.user_id
+          ? `User Wallet (${p.user_id.slice(0, 8)})`
+          : 'N/A';
+
+      return {
+        ...p,
+        user: userProfile ? { full_name: userProfile.full_name, email: userProfile.email, phone: userProfile.phone } : null,
+        wallet_info: walletRef,
+      };
+    });
+
     return {
-      data: (data ?? []) as unknown as PaymentAdmin[],
+      data: paymentsWithDetails as unknown as PaymentAdmin[],
       total: count ?? 0,
       page,
       pageSize,

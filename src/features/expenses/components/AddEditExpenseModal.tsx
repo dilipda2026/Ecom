@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, IndianRupee, PlusCircle, Pencil } from 'lucide-react';
+import { X, Loader2, IndianRupee, Pencil, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { addExpenseTransaction, updateExpenseTransaction } from '../actions';
 import { showToast } from '@/components/shared/Toast';
 import type { ExpenseTransaction, ExpenseType } from '../types';
@@ -10,15 +10,15 @@ interface AddEditExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   transaction?: ExpenseTransaction | null;
+  initialType?: ExpenseType;
   onSuccess: () => void;
 }
-
-const COMMON_SUGGESTIONS = ['Food', 'Travel', 'Shopping', 'College', 'Utilities', 'Freelance Payment', 'Rent', 'Supplies'];
 
 export default function AddEditExpenseModal({
   isOpen,
   onClose,
   transaction,
+  initialType = 'expense',
   onSuccess,
 }: AddEditExpenseModalProps) {
   const isEditing = Boolean(transaction);
@@ -32,7 +32,7 @@ export default function AddEditExpenseModal({
   };
 
   const [date, setDate] = useState<string>(getTodayISO());
-  const [type, setType] = useState<ExpenseType>('expense');
+  const [type, setType] = useState<ExpenseType>(initialType);
   const [description, setDescription] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [note, setNote] = useState<string>('');
@@ -50,13 +50,13 @@ export default function AddEditExpenseModal({
       setNote(transaction.note || '');
     } else {
       setDate(getTodayISO());
-      setType('expense');
+      setType(initialType);
       setDescription('');
       setAmount('');
       setNote('');
     }
     setError(null);
-  }, [transaction, isOpen]);
+  }, [transaction, isOpen, initialType]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
@@ -72,7 +72,7 @@ export default function AddEditExpenseModal({
     }
 
     if (!description.trim()) {
-      setError('Please enter a description');
+      setError('Please enter a category or description');
       return;
     }
 
@@ -90,7 +90,7 @@ export default function AddEditExpenseModal({
       setSubmitting(false);
 
       if (!res.success) {
-        setError(res.error || 'Failed to update transaction');
+        setError(res.error || 'Failed to update entry');
       } else {
         showToast('Transaction updated');
         onSuccess();
@@ -108,28 +108,41 @@ export default function AddEditExpenseModal({
       setSubmitting(false);
 
       if (!res.success) {
-        setError(res.error || 'Failed to add transaction');
+        setError(res.error || 'Failed to add entry');
       } else {
-        showToast('Transaction added');
+        showToast(type === 'income' ? 'Money added successfully' : 'Expense added successfully');
         onSuccess();
         onClose();
       }
     }
   }
 
+  const getModalTitle = () => {
+    if (isEditing) return 'Edit Entry';
+    return type === 'income' ? 'Add Money' : 'Add Expense';
+  };
+
+  const getSubmitLabel = () => {
+    if (submitting) return 'Saving...';
+    if (isEditing) return 'Update Entry';
+    return type === 'income' ? 'Add Money' : 'Add Expense';
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-2xl border border-zborder bg-zcard p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border border-zborder bg-zcard p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zborder pb-3">
           <div className="flex items-center gap-2">
             {isEditing ? (
               <Pencil size={20} className="text-zred" />
+            ) : type === 'income' ? (
+              <ArrowDownLeft size={20} className="text-emerald-500" />
             ) : (
-              <PlusCircle size={20} className="text-zred" />
+              <ArrowUpRight size={20} className="text-zred" />
             )}
             <h2 className="text-lg font-bold text-ztext">
-              {isEditing ? 'Edit Transaction' : 'Add Transaction'}
+              {getModalTitle()}
             </h2>
           </div>
           <button
@@ -147,37 +160,6 @@ export default function AddEditExpenseModal({
               {error}
             </div>
           )}
-
-          {/* Transaction Type Selector (Expense vs Income) */}
-          <div>
-            <label className="block text-xs font-semibold text-ztext-light mb-1.5">
-              Type
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setType('expense')}
-                className={`py-2.5 px-4 rounded-xl font-bold text-sm border transition-all flex items-center justify-center gap-1.5 ${
-                  type === 'expense'
-                    ? 'bg-red-500/15 border-red-500 text-red-500 shadow-sm'
-                    : 'bg-zgray/50 border-zborder text-ztext-muted hover:border-ztext-muted'
-                }`}
-              >
-                <span className="text-lg leading-none">-</span> Expense
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('income')}
-                className={`py-2.5 px-4 rounded-xl font-bold text-sm border transition-all flex items-center justify-center gap-1.5 ${
-                  type === 'income'
-                    ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500 shadow-sm'
-                    : 'bg-zgray/50 border-zborder text-ztext-muted hover:border-ztext-muted'
-                }`}
-              >
-                <span className="text-lg leading-none">+</span> Income
-              </button>
-            </div>
-          </div>
 
           {/* Amount & Date row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -219,34 +201,24 @@ export default function AddEditExpenseModal({
             </div>
           </div>
 
-          {/* Description */}
+          {/* Free-Text Category / Description Input */}
           <div>
             <label className="block text-xs font-semibold text-ztext-light mb-1">
-              Description / Where spent *
+              {type === 'income' ? 'Source / Income Description *' : 'Category / Expense Description *'}
             </label>
             <input
               type="text"
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Food, Travel, Shopping, College"
+              placeholder={
+                type === 'income'
+                  ? 'e.g. Sales Revenue, Freelance Payment, Capital Add'
+                  : 'e.g. Food, Supplies, Utility, Rent'
+              }
               className="input-z w-full text-sm"
               disabled={submitting}
             />
-
-            {/* Quick Suggestions */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {COMMON_SUGGESTIONS.map((sug) => (
-                <button
-                  key={sug}
-                  type="button"
-                  onClick={() => setDescription(sug)}
-                  className="text-[11px] font-medium px-2 py-1 rounded-md bg-zgray text-ztext-light hover:bg-zborder transition-colors"
-                >
-                  {sug}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Optional Note */}
@@ -257,7 +229,7 @@ export default function AddEditExpenseModal({
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Additional details, invoice reference, etc."
+              placeholder="Additional details, reference, etc."
               rows={2}
               className="input-z w-full text-sm resize-none"
               disabled={submitting}
@@ -277,16 +249,16 @@ export default function AddEditExpenseModal({
             <button
               type="submit"
               disabled={submitting}
-              className="button-z button-z-primary text-sm px-5 inline-flex items-center justify-center gap-1.5"
+              className={`button-z text-sm px-5 inline-flex items-center justify-center gap-1.5 text-white font-bold ${
+                type === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'button-z-primary'
+              }`}
             >
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" /> Saving...
                 </>
-              ) : isEditing ? (
-                'Update Transaction'
               ) : (
-                'Add Transaction'
+                getSubmitLabel()
               )}
             </button>
           </div>

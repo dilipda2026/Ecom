@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw, Download, Search, Banknote, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { RefreshCw, Download, Search, Banknote, ShieldCheck, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { PageHeader, ToastContainer, useToast } from '@/components/ui/data-table';
 import DateFilter, { type DateFilterValue } from '@/components/ui/date-filter';
 import { getAdminPayments, processRefund } from '@/features/admin/actions';
@@ -44,6 +44,24 @@ function paymentTitle(method: string): string {
   return 'Online Payment';
 }
 
+import ExportDropdown from '@/components/admin/ExportDropdown';
+
+const PAYMENT_EXPORT_HEADERS = [
+  'Customer Name',
+  'Wallet / Credit Ref',
+  'Phone Number',
+  'Email',
+  'Payment ID',
+  'Order Tracking Code',
+  'Amount (₹)',
+  'Payment Method',
+  'Gateway',
+  'Gateway Payment ID',
+  'Status',
+  'Refund Amount',
+  'Date',
+];
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentAdmin[]>([]);
   const [total, setTotal] = useState(0);
@@ -53,6 +71,7 @@ export default function AdminPaymentsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [dateRange, setDateRange] = useState<DateFilterValue>({});
+  const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const sortBy = 'created_at';
   const sortOrder: 'asc' | 'desc' = 'desc';
   const [refundModal, setRefundModal] = useState<{ id: string; amount: number; currentRefunded: number } | null>(null);
@@ -114,25 +133,50 @@ export default function AdminPaymentsPage() {
     else addToast(res.error ?? 'Failed', 'error');
   };
 
-  const handleExport = () => {
-    const csv = [
-      ['ID', 'Order', 'Amount', 'Method', 'Gateway', 'Gateway ID', 'Status', 'Refunded', 'Date'].join(','),
-      ...payments.map((p) => [p.id, p.order?.tracking_code ?? '', p.amount, p.payment_method, p.gateway, p.gateway_payment_id ?? '', p.status, p.refund_amount ?? 0, p.created_at].join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const exportRows = useMemo(() => {
+    return payments.map((p) => [
+      p.order?.customer_name || p.user?.full_name || 'Walk-in / Guest',
+      p.wallet_info || 'N/A',
+      p.order?.customer_phone || p.user?.phone || 'N/A',
+      p.order?.customer_email || p.user?.email || 'N/A',
+      p.id,
+      p.order?.tracking_code || 'N/A',
+      p.amount,
+      paymentTitle(p.payment_method),
+      p.gateway,
+      p.gateway_payment_id || 'N/A',
+      STATUS_LABEL[p.status] || p.status,
+      p.refund_amount ?? 0,
+      new Date(p.created_at).toLocaleString('en-IN'),
+    ]);
+  }, [payments]);
 
   return (
     <div>
       <PageHeader title="Payments & Billing" description={`${total} transaction${total !== 1 ? 's' : ''}`}>
-        <button onClick={handleExport} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-zcard border border-zborder rounded-xl hover:bg-zgray transition-colors">
-          <Download size={14} /> Export CSV
+        <button
+          onClick={() => setShowTransactions((prev) => !prev)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-zcard text-ztext border border-zborder rounded-xl hover:bg-zgray transition-colors"
+        >
+          {showTransactions ? (
+            <>
+              <EyeOff size={14} className="text-ztext-muted" />
+              <span>Hide</span>
+            </>
+          ) : (
+            <>
+              <Eye size={14} className="text-zred" />
+              <span>Show</span>
+            </>
+          )}
         </button>
+        <ExportDropdown
+          title="Payments & Billing Report"
+          filenamePrefix="payments-export"
+          headers={PAYMENT_EXPORT_HEADERS}
+          rows={exportRows}
+          disabled={payments.length === 0}
+        />
         <button onClick={() => fetchPayments()} aria-label="Refresh payments" className="p-2.5 rounded-xl hover:bg-zgray text-ztext-lighter transition-colors">
           <RefreshCw size={18} />
         </button>
@@ -154,110 +198,131 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-3">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ztext-muted" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Search by gateway ID or order..."
-          className="w-full pl-9 pr-3 py-2.5 text-sm border border-zborder rounded-xl bg-zcard focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred placeholder-ztext-muted transition-all"
-        />
-      </div>
-
-      {/* Status filter pills */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {[
-          { value: 'all', label: `All (${total})` },
-          { value: 'confirmed', label: 'Success' },
-          { value: 'pending', label: 'Pending' },
-          { value: 'refunded', label: 'Refunds' },
-          { value: 'failed', label: 'Failed' },
-        ].map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => { setStatus(opt.value); setPage(1); }}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
-              status === opt.value
-                ? 'bg-ztext text-zbg border-ztext'
-                : 'bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Date filter */}
-      <div className="mb-4">
-        <DateFilter onChange={(v) => { setDateRange(v); setPage(1); }} />
-      </div>
-
-      {/* Transaction list */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16 bg-zcard border border-zborder rounded-2xl">
-          <Loader2 className="w-6 h-6 animate-spin text-ztext-muted" />
-        </div>
-      ) : payments.length === 0 ? (
-        <div className="text-center py-16 bg-zcard border border-zborder rounded-2xl">
-          <div className="w-12 h-12 rounded-xl bg-zgray flex items-center justify-center mx-auto mb-3">
-            <AlertCircle size={24} className="text-ztext-muted" />
+      {/* Transaction list & controls */}
+      {!showTransactions ? (
+        <div className="text-center py-12 bg-zcard border border-zborder rounded-2xl p-6">
+          <div className="w-12 h-12 rounded-xl bg-zgray flex items-center justify-center mx-auto mb-3 text-ztext-muted">
+            <Eye size={22} className="text-zred" />
           </div>
-          <p className="text-sm font-semibold text-ztext">No payments found</p>
-          <p className="text-xs text-ztext-lighter mt-1">Payments will appear here once orders are confirmed.</p>
+          <p className="text-sm font-semibold text-ztext">Payment records are hidden</p>
+          <p className="text-xs text-ztext-lighter mt-1">Click the Show button above to view all payments and filters.</p>
+          <button
+            onClick={() => setShowTransactions(true)}
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-zred/10 text-zred border border-zred/20 rounded-xl text-xs font-bold hover:bg-zred hover:text-white transition-all"
+          >
+            <Eye size={14} /> Show Payments
+          </button>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {payments.map((p) => {
-            const m = p.payment_method;
-            return (
-              <div key={p.id} className="bg-zcard border border-zborder rounded-2xl px-4 py-3 flex items-center justify-between gap-3 hover:border-ztext/20 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder flex items-center justify-center shrink-0">
-                    <Banknote size={18} className="text-ztext-light" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-ztext truncate">{paymentTitle(m)}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ztext-muted">
-                      <span>{formatDate(p.created_at)}</span>
-                      <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded border border-zborder">
-                        {p.order?.tracking_code ?? p.id.slice(0, 6)}
-                      </span>
+        <>
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ztext-muted" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search by gateway ID or order..."
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-zborder rounded-xl bg-zcard focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred placeholder-ztext-muted transition-all"
+            />
+          </div>
+
+          {/* Status filter pills */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 [scrollbar-width:none]">
+            {[
+              { value: 'all', label: `All (${total})` },
+              { value: 'confirmed', label: 'Success' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'refunded', label: 'Refunds' },
+              { value: 'failed', label: 'Failed' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setStatus(opt.value); setPage(1); }}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
+                  status === opt.value
+                    ? 'bg-ztext text-zbg border-ztext'
+                    : 'bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date filter */}
+          <div className="mb-4">
+            <DateFilter onChange={(v) => { setDateRange(v); setPage(1); }} />
+          </div>
+
+          {/* Transaction list */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16 bg-zcard border border-zborder rounded-2xl">
+              <Loader2 className="w-6 h-6 animate-spin text-ztext-muted" />
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="text-center py-16 bg-zcard border border-zborder rounded-2xl">
+              <div className="w-12 h-12 rounded-xl bg-zgray flex items-center justify-center mx-auto mb-3">
+                <AlertCircle size={24} className="text-ztext-muted" />
+              </div>
+              <p className="text-sm font-semibold text-ztext">No payments found</p>
+              <p className="text-xs text-ztext-lighter mt-1">Payments will appear here once orders are confirmed.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {payments.map((p) => {
+                const m = p.payment_method;
+                return (
+                  <div key={p.id} className="bg-zcard border border-zborder rounded-2xl px-4 py-3 flex items-center justify-between gap-3 hover:border-ztext/20 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder flex items-center justify-center shrink-0">
+                        <Banknote size={18} className="text-ztext-light" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-ztext truncate">{paymentTitle(m)}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ztext-muted">
+                          <span>{formatDate(p.created_at)}</span>
+                          {p.gateway_payment_id && (
+                            <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded text-ztext-lighter truncate max-w-[120px]">{p.gateway_payment_id}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-ztext">{formatCurrency(p.amount)}</p>
+                        <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full mt-0.5 ${STATUS_COLORS[p.status] ?? 'bg-zgray text-ztext-light'}`}>
+                          {STATUS_LABEL[p.status] ?? p.status}
+                        </span>
+                      </div>
+                      {p.status === 'confirmed' && (p.refund_amount ?? 0) < p.amount && (
+                        <button
+                          onClick={() => setRefundModal({ id: p.id, amount: p.amount, currentRefunded: p.refund_amount ?? 0 })}
+                          className="px-2.5 py-1 text-xs font-semibold text-ztext-light hover:text-ztext bg-zgray border border-zborder rounded-xl transition-colors"
+                        >
+                          Refund
+                        </button>
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
-                  <p className="text-sm font-bold text-ztext">{formatCurrency(p.amount)}</p>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${STATUS_COLORS[p.status] ?? 'bg-zgray text-ztext-light'}`}>
-                    {STATUS_LABEL[p.status] ?? p.status.replace(/_/g, ' ')}
-                  </span>
-                  {p.status === 'confirmed' && (
-                    <button
-                      onClick={() => { setRefundModal({ id: p.id, amount: p.amount, currentRefunded: p.refund_amount ?? 0 }); setRefundAmount(''); setRefundReason(''); }}
-                      className="text-[10px] font-semibold text-blue-500 hover:text-blue-600 transition-colors"
-                    >
-                      Refund
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 bg-zcard border border-zborder rounded-2xl">
-              <p className="text-xs text-ztext-lighter">
-                Showing {(page - 1) * 50 + 1}-{Math.min(page * 50, total)} of {total}
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => fetchPayments(page - 1)} disabled={page <= 1} aria-label="Previous page" className="px-3 py-1.5 rounded-lg text-sm hover:bg-zgray disabled:opacity-30 transition-colors">Previous</button>
-                <button onClick={() => fetchPayments(page + 1)} disabled={page >= totalPages} aria-label="Next page" className="px-3 py-1.5 rounded-lg text-sm hover:bg-zgray disabled:opacity-30 transition-colors">Next</button>
-              </div>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 bg-zcard border border-zborder rounded-2xl">
+                  <p className="text-xs text-ztext-lighter">
+                    Showing {(page - 1) * 50 + 1}-{Math.min(page * 50, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => fetchPayments(page - 1)} disabled={page <= 1} aria-label="Previous page" className="px-3 py-1.5 rounded-lg text-sm hover:bg-zgray disabled:opacity-30 transition-colors">Previous</button>
+                    <button onClick={() => fetchPayments(page + 1)} disabled={page >= totalPages} aria-label="Next page" className="px-3 py-1.5 rounded-lg text-sm hover:bg-zgray disabled:opacity-30 transition-colors">Next</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Refund modal */}
