@@ -1,13 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+
 import { RefreshCw, Shield, ShieldOff, CheckCircle, Clock, Wallet, Loader2 } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader, ConfirmDialog, ToastContainer, useToast } from '@/components/ui/data-table';
+import ExportDropdown from '@/components/admin/ExportDropdown';
 import { getAdminStudents, suspendStudent, unsuspendStudent, verifyStudent, resetStudentVerification, bulkSuspendStudents, bulkUnsuspendStudents } from '@/features/admin/actions';
 import { adminCreditWallet, getAdminUserWalletBalance } from '@/features/wallet/actions';
 import type { AdminStudent } from '@/features/admin/types';
 
+const STUDENT_EXPORT_HEADERS = [
+  'Student Name',
+  'Email',
+  'Phone Number',
+  'Account Status',
+  'Credit Limit (₹)',
+  'Available Credit (₹)',
+  'Outstanding (₹)',
+  'BNPL Status',
+  'Verification Status',
+  'Joined Date',
+];
+
 export default function AdminStudentsPage() {
+
   const [students, setStudents] = useState<AdminStudent[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -181,9 +197,31 @@ export default function AdminStudentsPage() {
     )},
   ];
 
+  const exportRows = useMemo(() => {
+    return students.map((s) => [
+      s.full_name || 'N/A',
+      s.email || 'N/A',
+      s.phone || 'N/A',
+      s.is_active ? 'Active' : 'Suspended',
+      s.credit_account?.credit_limit ?? 0,
+      s.credit_account?.available_credit ?? 0,
+      s.credit_account?.outstanding ?? 0,
+      s.credit_account?.status ?? 'No Account',
+      s.credit_account?.verification_status ?? 'N/A',
+      new Date(s.created_at).toLocaleString('en-IN'),
+    ]);
+  }, [students]);
+
   return (
     <div>
       <PageHeader title="Students" description={`${total} registered student${total !== 1 ? 's' : ''}`}>
+        <ExportDropdown
+          title="Students Directory Report"
+          filenamePrefix="students-export"
+          headers={STUDENT_EXPORT_HEADERS}
+          rows={exportRows}
+          disabled={students.length === 0}
+        />
         {selectedIds.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-ztext-lighter">{selectedIds.length} selected</span>

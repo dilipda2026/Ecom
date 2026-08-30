@@ -153,8 +153,32 @@ Route guards (client-side, no middleware):
 
 ---
 
+## 6. UI & Loading State Architecture
+
+- **Global Page Transitions & Fallbacks (`src/app/loading.tsx`)**
+  - Uses `HamsterLoader` (`src/components/ui/HamsterLoader.tsx`), an ultra-lightweight, pure CSS keyframe animated hamster wheel spinner inspired by Uiverse (`wet-mayfly-23`).
+  - Implements multi-tier responsive font-size scaling (`8.5px` base on desktop, scaled down 35% on `< 640px` and 45% on `< 480px` screens) to provide an engaging, zero-layout-shift loading experience.
+  - Used in root `loading.tsx`, admin layout session checks, and available throughout the app for asynchronous suspense states.
+
+---
+
+## 7. Data Export Architecture
+
+- **Multi-Format Export Engine (`src/components/admin/ExportDropdown.tsx` + `src/lib/exportUtils.ts`)**
+  - Supports on-the-fly client generation of:
+    - **Excel spreadsheets (`.xlsx`)** via `xlsx`
+    - **Printable PDFs (`.pdf`)** with auto-table styling via `jspdf` & `jspdf-autotable`
+    - **CSV files (`.csv`)** with UTF-8 BOM encoding for seamless spreadsheet opening
+  - Standardized across admin domains:
+    - **Students Directory** (`/dashboard/admin/students`): Student profile, account status, credit limit, available credit, balance, BNPL status, verification status, and registration date.
+    - **Payments & Billing** (`/dashboard/admin/payments`): Customer info, amount, payment method, gateway IDs, refund details, and timestamps.
+    - **Audit Logs** (`/dashboard/admin/audit-logs`): Action type, entity, changed by, IP address, and change records.
+
+---
+
 ## Deployment at a glance
 
 - Git integration: push to `main` → GitHub Actions CI (lint/typecheck/test/e2e/build) + Vercel auto production deploy → `https://dilip-da-ecom-mu.vercel.app`.
 - `vercel --prod` deploys the local working tree and uploads local `.env.local` values — git builds only read env vars set in the Vercel dashboard.
 - Full details: **DEPLOYMENT.md** · One-time setup: **SETUP.md**
+

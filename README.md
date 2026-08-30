@@ -21,12 +21,15 @@ A food-ordering platform for the CIT Kokrajhar campus ("Dilip Da" homestyle kitc
 - **Ordering** — Browse menu, search, favorites (persisted wishlist), persisted cart with fly-to-cart animation, delivery fee + tax calculation
 - **Order types** — 🚚 **Hostel Delivery** (address + Cash on Delivery allowed) or 🥡 **Take Away** (pickup at restaurant, prepaid only)
 - **Checkout** — Razorpay (cards/UPI/NetBanking + PhonePe & Google Pay quick buttons) or Cash on Delivery
+- **Animated Loading UX** — Custom pure CSS animated Hamster Wheel loader with responsive mobile scaling for global page transitions (`loading.tsx`) and admin dashboard sessions
 - **OTP signup** — 3-step signup with email OTP (SHA-256 hashed, 10 min expiry, rate limited); login restricted to CIT (`@cit.ac.in`) accounts
 - **Order tracking** — Live status timeline, 2-minute cancellation window after placing, tracking code (`DD-XXXXXXX`), order detail auto-refreshes every 15s
 - **Telegram management** — New orders sent to the owner's Telegram chat with inline buttons (Accept / Preparing / Reject / Ready / Out for Delivery / Delivered / Complete); the message updates in place with the next set of buttons
 - **Auto-refresh** — Order lists and dashboards silently refresh every 30s (15s on order detail) without reloading the page
-- **Role dashboards** — Student (orders), Merchant (analytics, products, categories, inventory, orders, settings), Admin (users, students, merchants, orders, payments, audit logs, settings)
+- **Role dashboards** — Student (orders, wallet, credit), Merchant (analytics, products, categories, inventory, orders, settings), Delivery (claims, pickups), Admin (users, students, merchants, in-store POS, bumper offers, orders, payments, audit logs, wallet, settings)
+- **Admin Exports** — 1-click multi-format data export (**Excel `.xlsx`**, **PDF `.pdf`**, **CSV `.csv`**) for Students, Payments & Billing, and Audit Logs
 - **Admin overview** — 19-query dashboard stats (users, merchants, orders, revenue today/weekly/monthly, recent activity)
+
 
 ## Tech Stack
 

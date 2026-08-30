@@ -97,21 +97,36 @@ src/app/
     │   └── dev-callback/route.ts  # GET — dev-only status tester (?action=&orderId=)
 ```
 
+## src/components — UI & Presentation
+
+| Folder / File | Purpose |
+|---|---|
+| `ui/HamsterLoader.tsx` | Reusable pure CSS animated Hamster Wheel loader (presets `xs`-`xl`, responsive mobile scaling) |
+| `ui/HamsterLoader.module.css` | Scoped CSS animation module with all hamster & wheel `@keyframes` |
+| `ui/data-table.tsx` | Reusable generic data table with search, status filtering, pagination & modal dialogs |
+| `ui/date-filter.tsx` | Date range selector component for reporting & analytics |
+| `ui/index.tsx` | Common UI exports (Skeleton, StatCard, DashboardCard, StatusBadge, EmptyState, HamsterLoader) |
+| `admin/ExportDropdown.tsx` | Multi-format data export dropdown (Excel `.xlsx`, PDF `.pdf`, CSV `.csv`) with click-outside listener |
+| `shared/` | Layout & global components: `Navbar`, `Footer`, `BottomNav`, `FlyingBird`, `LoadingSkeleton`, `Toast`, `MaintenanceGate`, `ThemeToggle`, `FoodDetailModal` |
+| `landing/` | Landing page cards & FloatingCartBar |
+
 ## src/features — Feature Slices
 
 | Folder | Purpose |
 |---|---|
 | `auth/` | Session store (Zustand), AuthProvider, login/signup/onboarding/forgot forms, server session actions, OTP auth service |
-| `admin/` | 44 super-admin actions + `AdminRepository` (dashboard stats, users, merchants, orders, refunds, audit, settings) |
+| `admin/` | 44 super-admin actions + `AdminRepository` (dashboard stats, users, students, merchants, orders, refunds, audit, settings) |
 | `cart/` | Zustand persisted cart store (fee ₹10, 5% tax, fly animation) |
 | `cit-student/` | CIT college verification: send/verify OTP, signup OTP flow, status checks |
-| `delivery/` | Empty scaffold (not implemented) |
+| `delivery/` | Delivery partner claim order, active order tracking, pickup/delivery confirmation |
 | `favorites/` | Zustand persisted wishlist store |
 | `notifications/` | In-app notifications table (list, mark read, unread count) |
 | `orders/` | Customer actions (`customer.ts`), merchant actions, order repository, types (state machine, order types) |
 | `payments/` | Razorpay client service + `createRazorpayOrder` server action |
 | `products/` | Product/category CRUD, stock, low-stock, reorder |
 | `restaurants/` | Restaurant settings, open/close toggle, merchant dashboard via RPC |
+| `bnpl/` | Student credit / BNPL dashboard & repayment components |
+| `wallet/` | Wallet actions (credit wallet, balance lookup, KYC status) |
 
 Each slice follows `actions/` (server actions) → `repositories/` (Supabase queries) → `services/` (business logic) → `types/`.
 
@@ -119,6 +134,7 @@ Each slice follows `actions/` (server actions) → `repositories/` (Supabase que
 
 | File | Purpose |
 |---|---|
+| `exportUtils.ts` | Multi-format data export utility (`exportToCSV`, `exportToExcel`, `exportToPDF` via jspdf-autotable) |
 | `telegram.ts` | Telegram Bot API helpers (send message, buttons, edit message, answer callback) |
 | `email.ts` | Nodemailer SMTP (OTP email + order notification email) |
 | `notifications.ts` | `notifyNewOrder` — Telegram message + buttons + email; `STATUS_ACTIONS` button map |
@@ -128,6 +144,7 @@ Each slice follows `actions/` (server actions) → `repositories/` (Supabase que
 | `logger.ts` | JSON/pretty logger with secret redaction |
 | `utils.ts` | `cn`, `formatCurrency`, `slugify`, `generateId` |
 | `useServerAction.ts` | Client hook wrapper for server actions |
+
 
 ## src/infrastructure — Supabase Clients
 
