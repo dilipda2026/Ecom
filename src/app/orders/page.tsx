@@ -228,7 +228,7 @@ export default function OrdersPage() {
   }, [activeTab, page, isAuthenticated]);
 
   useEffect(() => {
-    loadOrders(); // eslint-disable-line react-hooks/set-state-in-effect
+    loadOrders();  
   }, [loadOrders]);
 
   usePolling(loadOrders, POLL_INTERVAL_MS, activeTab === 'orders' && isAuthenticated);

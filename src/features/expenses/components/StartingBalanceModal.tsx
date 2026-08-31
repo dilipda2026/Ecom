@@ -22,12 +22,12 @@ export default function StartingBalanceModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect -- sync form with latest balance when reopened */
+   
   useEffect(() => {
     setAmount(String(currentBalance));
     setError(null);
   }, [currentBalance, isOpen]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+   
 
   if (!isOpen) return null;
 

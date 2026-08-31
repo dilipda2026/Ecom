@@ -20,7 +20,7 @@ export default function OwnerDeliveryPage() {
   }, [dateRange]);
 
   useEffect(() => {
-    fetchPartners(); // eslint-disable-line react-hooks/set-state-in-effect
+    fetchPartners();  
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filterKey = useMemo(() => JSON.stringify(dateRange), [dateRange]);

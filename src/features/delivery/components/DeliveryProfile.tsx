@@ -25,7 +25,7 @@ export default function DeliveryProfile() {
   }, []);
 
   useEffect(() => {
-    load(); // eslint-disable-line react-hooks/set-state-in-effect
+    load();  
   }, [load]);
 
   async function handleSave() {

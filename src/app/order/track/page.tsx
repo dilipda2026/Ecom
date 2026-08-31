@@ -66,7 +66,7 @@ function TrackContent() {
   }, [code]);
 
   useEffect(() => {
-    if (code) lookup(); // eslint-disable-line react-hooks/set-state-in-effect
+    if (code) lookup();  
   }, [code, lookup]);
 
   usePolling(() => lookup(true), POLL_INTERVAL_MS, !!code && !!data);

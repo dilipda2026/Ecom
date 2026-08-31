@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
-export type ColumnRenderFn = (item: any) => React.ReactNode; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type ColumnRenderFn = (item: any) => React.ReactNode;  
 
 export interface Column {
   key: string;
@@ -17,7 +17,7 @@ export interface Column {
 
 interface DataTableProps {
   columns: Column[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   data: any[];
   total: number;
   page: number;
@@ -28,7 +28,7 @@ interface DataTableProps {
   onSort?: (key: string, order: 'asc' | 'desc') => void;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   keyExtractor: (item: any) => string;
   emptyMessage?: string;
   onRowClick?: (item: Record<string, unknown>) => void;

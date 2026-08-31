@@ -209,7 +209,7 @@ export default function InStorePage() {
 
   useEffect(() => {
     if (activeTab === 'history') {
-      fetchHistory(1); // eslint-disable-line react-hooks/set-state-in-effect
+      fetchHistory(1);  
     }
   }, [activeTab, fetchHistory]);
 

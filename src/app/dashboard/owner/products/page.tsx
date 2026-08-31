@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import {
-  Search, UtensilsCrossed, Leaf, Lock, RefreshCw, Eye, Package,
-  Layers, AlertCircle, Clock, Sparkles,
+  Search, UtensilsCrossed, Leaf, Lock, RefreshCw, Package,
+  Clock,
 } from 'lucide-react';
 import { getOwnerProducts, getOwnerCategories } from '@/features/owner/actions';
 import type { Product, Category } from '@/features/products/types';

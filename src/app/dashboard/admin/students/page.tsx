@@ -49,7 +49,7 @@ export default function AdminStudentsPage() {
 
   useEffect(() => {
     if (walletModal) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setFetchingWalletBalance(true);
       setWalletCurrentBalance(null);
       setWalletStatus(null);

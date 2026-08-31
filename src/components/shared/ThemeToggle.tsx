@@ -8,7 +8,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
   const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setMounted(true);
     setIsLight(document.documentElement.classList.contains('light-mode'));
   }, []);

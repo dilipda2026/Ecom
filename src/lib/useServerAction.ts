@@ -33,7 +33,7 @@ export function useServerAction<T>(
 
   useEffect(() => {
     if (options.enabled !== false) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       execute();
     }
   }, [execute, options.enabled]);

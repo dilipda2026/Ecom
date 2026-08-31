@@ -44,7 +44,7 @@ export default function OwnerOverviewPage() {
   }, []);
 
   useEffect(() => {
-    load(); // eslint-disable-line react-hooks/set-state-in-effect
+    load();  
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePolling(() => { load(true); }, POLL_INTERVAL_MS);

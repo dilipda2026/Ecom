@@ -121,7 +121,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       loadAddress();
       loadRecentOrders();
       loadWallet();

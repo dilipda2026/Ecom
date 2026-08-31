@@ -40,7 +40,7 @@ export default function AddEditExpenseModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect -- reset form when modal opens or edited row changes */
+   
   useEffect(() => {
     if (transaction) {
       setDate(transaction.transaction_date);
@@ -57,7 +57,7 @@ export default function AddEditExpenseModal({
     }
     setError(null);
   }, [transaction, isOpen, initialType]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+   
 
   if (!isOpen) return null;
 

@@ -82,7 +82,7 @@ export default function ExpenseTracker({ readOnly = false }: { readOnly?: boolea
   }, [activeFilter, customStart, customEnd]);
 
   useEffect(() => {
-    loadData(); // eslint-disable-line react-hooks/set-state-in-effect
+    loadData();  
   }, [loadData]);
 
   const handleOpenAddExpense = () => {

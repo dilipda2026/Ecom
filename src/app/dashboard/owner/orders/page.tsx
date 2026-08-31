@@ -61,7 +61,7 @@ export default function OwnerOrdersPage() {
   usePolling(() => { fetchOrders(undefined, true); }, POLL_INTERVAL_MS);
 
   useEffect(() => {
-    fetchOrders(1); // eslint-disable-line react-hooks/set-state-in-effect
+    fetchOrders(1);  
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filterKey = useMemo(

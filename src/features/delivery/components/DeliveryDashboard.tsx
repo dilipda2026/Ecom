@@ -118,7 +118,7 @@ export default function DeliveryDashboard() {
   }, []);
 
   useEffect(() => {
-    load(); // eslint-disable-line react-hooks/set-state-in-effect
+    load();  
   }, [load]);
 
   usePolling(() => { load(true); }, POLL_INTERVAL_MS);

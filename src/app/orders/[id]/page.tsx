@@ -57,7 +57,7 @@ export default function OrderDetailPage() {
   }, [id, cancellationWindowMs]);
 
   useEffect(() => {
-    loadOrder(); // eslint-disable-line react-hooks/set-state-in-effect
+    loadOrder();  
   }, [loadOrder]);
 
   useEffect(() => {

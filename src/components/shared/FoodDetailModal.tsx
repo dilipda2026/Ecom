@@ -26,7 +26,7 @@ export default function FoodDetailModal({ dish, isOpen, onClose }: FoodDetailMod
   const headingId = useId();
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setMounted(true);
   }, []);
 
@@ -34,7 +34,7 @@ export default function FoodDetailModal({ dish, isOpen, onClose }: FoodDetailMod
   useEffect(() => {
     if (dish && isOpen) {
       const existingInCart = cartItems.find((i) => i.id === dish.id);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setModalQty(existingInCart ? existingInCart.quantity : 1);
       setAddedAnimation(false);
       setImgError(false);

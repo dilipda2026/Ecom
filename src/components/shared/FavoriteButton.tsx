@@ -22,7 +22,7 @@ export default function FavoriteButton({ item, className = '' }: FavoriteButtonP
   const [mounted, setMounted] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);  
 
   const favorited = mounted ? isFavorite(item.id) : false;
 

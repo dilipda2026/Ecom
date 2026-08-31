@@ -134,7 +134,7 @@ export function useCamera(options: UseCameraOptions = {}) {
 
       const videoEl = targetVideoElement || videoRef.current;
       if (videoEl && stream) {
-        // eslint-disable-next-line react-hooks/immutability
+         
         videoEl.srcObject = stream;
         videoEl.setAttribute('playsinline', 'true');
         videoEl.setAttribute('autoplay', 'true');

@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useCartStore } from '@/features/cart/store';
 
 describe('Dynamic Packaging Charge Tests', () => {

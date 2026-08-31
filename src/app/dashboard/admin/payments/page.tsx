@@ -100,7 +100,7 @@ export default function AdminPaymentsPage() {
   }, [search, status, dateRange, sortBy, sortOrder, page]);
 
   useEffect(() => {
-    fetchPayments(1); // eslint-disable-line react-hooks/set-state-in-effect
+    fetchPayments(1);  
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filterKey = useMemo(

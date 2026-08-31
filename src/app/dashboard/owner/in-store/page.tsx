@@ -1,9 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Store, Search, Banknote, RefreshCw, Calendar, TrendingUp,
-  FileText, X, Check, Lock, ChevronLeft, ChevronRight, Eye,
+  Store, Search, RefreshCw,
+  X, Lock, ChevronLeft, ChevronRight, Eye,
 } from 'lucide-react';
 import { getOwnerInStoreOrdersAndStats } from '@/features/owner/actions';
 
@@ -148,7 +148,7 @@ export default function OwnerInStorePage() {
           <div className="text-xl sm:text-2xl font-black text-emerald-500 mt-1">₹{stats.totalRevenue.toLocaleString('en-IN')}</div>
         </div>
         <div className="bg-zcard p-4 rounded-2xl border border-zborder shadow-sm">
-          <span className="text-[11px] font-semibold text-ztext-muted uppercase tracking-wider">Today's Revenue</span>
+          <span className="text-[11px] font-semibold text-ztext-muted uppercase tracking-wider">Today&apos;s Revenue</span>
           <div className="text-xl sm:text-2xl font-black text-zred mt-1">₹{stats.todayRevenue.toLocaleString('en-IN')}</div>
         </div>
         <div className="bg-zcard p-4 rounded-2xl border border-zborder shadow-sm">
