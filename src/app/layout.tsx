@@ -11,6 +11,8 @@ const FloatingCartBar = dynamic(() => import('@/components/landing/FloatingCartB
 const Toast = dynamic(() => import('@/components/shared/Toast'));
 const FlyingBird = dynamic(() => import('@/components/shared/FlyingBird'));
 const FavoritesSync = dynamic(() => import('@/components/shared/FavoritesSync'));
+const PageLoader = dynamic(() => import('@/components/shared/PageLoader'));
+
 
 export const metadata: Metadata = {
   title: {
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning className="min-h-screen bg-zbg font-sans antialiased overflow-x-hidden w-full max-w-full">
         <Providers>
+          <PageLoader />
           <NavbarWrapper />
           <main className="min-h-[calc(100vh-4rem)] has-bottom-nav overflow-x-hidden w-full max-w-full">
             <MaintenanceGate>{children}</MaintenanceGate>
