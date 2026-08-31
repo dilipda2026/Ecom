@@ -58,6 +58,56 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
   }
 }
 
+export async function sendPasswordResetLinkEmail(to: string, resetLink: string): Promise<boolean> {
+  if (!to || !resetLink) return false;
+  const t = await getTransporter();
+  if (!t) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV EMAIL] Password reset link for ${to}: ${resetLink}`);
+      return true;
+    }
+    return false;
+  }
+
+  try {
+    const cfg = await smtpConfig();
+    await t.sendMail({
+      from: cfg?.from || 'noreply@dilipda.com',
+      to,
+      subject: 'Reset your Dilip Da password',
+      text: `We received a request to reset your password for your Dilip Da account.\n\nClick the link below to set a new password:\n${resetLink}\n\nThis link will expire in 24 hours. If you did not request a password reset, you can safely ignore this email.\n\n- Dilip Da Team`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #ffffff; border-radius: 12px; border: 1px solid #eaeaea;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #EF4444; font-size: 24px; margin: 0; font-weight: 800;">Dilip Da</h1>
+          </div>
+          <h2 style="color: #111827; font-size: 18px; margin-bottom: 12px;">Reset your password</h2>
+          <p style="color: #4B5563; font-size: 14px; line-height: 1.5; margin-bottom: 20px;">
+            We received a request to reset the password for your Dilip Da account (<strong>${to}</strong>). Click the button below to choose a new password:
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${resetLink}" style="background-color: #EF4444; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #6B7280; font-size: 12px; line-height: 1.4; margin-bottom: 12px;">
+            If the button doesn't work, copy and paste this link into your browser:<br/>
+            <a href="${resetLink}" style="color: #EF4444; word-break: break-all;">${resetLink}</a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+          <p style="color: #9CA3AF; font-size: 11px; margin: 0;">
+            This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    });
+    return true;
+  } catch (err) {
+    console.error('Failed to send password reset email via SMTP:', err);
+    return false;
+  }
+}
+
 export async function sendDeliveryOtpEmail(to: string, otp: string, trackingCode: string): Promise<boolean> {
   if (!to) return false;
   const t = await getTransporter();

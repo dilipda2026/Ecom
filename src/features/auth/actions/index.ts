@@ -314,15 +314,81 @@ export async function createUserAccount(input: {
   return { user: data.user ? { id: data.user.id } : null, error: null };
 }
 
+import { sendPasswordResetLinkEmail } from '@/lib/email';
+
+async function resolveSiteUrl(): Promise<string> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, '');
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
+  }
+  try {
+    const { headers } = await import('next/headers');
+    const headerList = await headers();
+    const host = headerList.get('x-forwarded-host') || headerList.get('host');
+    const proto = headerList.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
+    if (host) {
+      return `${proto}://${host}`.replace(/\/+$/, '');
+    }
+  } catch {
+    // headers() might not be available in all execution contexts
+  }
+  return 'https://www.dilipda.in';
+}
+
 export async function sendPasswordResetEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { error: 'Please enter a valid email address' };
+  }
+
+  const { registered } = await isEmailRegistered(normalizedEmail);
+  if (!registered) {
+    return { error: 'No account found with this email address' };
+  }
+
+  const siteUrl = await resolveSiteUrl();
+  const redirectTo = `${siteUrl}/auth/reset-password`;
+
+  // 1. Try generating recovery link via admin client (bypasses Supabase built-in email rate limit)
+  try {
+    const admin = createAdminClient();
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: normalizedEmail,
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (!linkError && linkData?.properties?.action_link) {
+      const sent = await sendPasswordResetLinkEmail(normalizedEmail, linkData.properties.action_link);
+      if (sent) {
+        return { error: null };
+      }
+    }
+  } catch (err) {
+    console.warn('generateLink fallback to standard resetPasswordForEmail:', err);
+  }
+
+  // 2. Fallback to Supabase built-in resetPasswordForEmail
   const supabase = await createServerSupabaseClient();
   if (!supabase) return { error: 'Service not configured' };
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/reset-password`,
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.message?.toLowerCase().includes('rate limit')) {
+      return {
+        error: 'Email rate limit exceeded by Supabase. Please wait a few minutes or configure custom SMTP in dashboard settings.',
+      };
+    }
+    return { error: error.message };
+  }
+
   return { error: null };
 }
 

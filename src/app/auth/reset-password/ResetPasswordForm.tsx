@@ -16,11 +16,25 @@ export default function ResetPasswordForm() {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setReady(true);
       }
     });
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get('code');
+
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: codeErr }) => {
+        if (!codeErr) {
+          setReady(true);
+        } else {
+          setError('Invalid or expired reset link. Please request a new one.');
+        }
+      });
+      return () => { subscription.unsubscribe(); };
+    }
 
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
@@ -39,6 +53,8 @@ export default function ResetPasswordForm() {
         else setError('Invalid or expired reset link. Please request a new one.');
       });
     }
+
+    return () => { subscription.unsubscribe(); };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
