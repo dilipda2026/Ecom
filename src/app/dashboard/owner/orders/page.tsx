@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Eye, X, Lock } from 'lucide-react';
 import { DataTable, SearchInput, StatusFilter, PageHeader } from '@/components/ui/data-table';
 import DateFilter, { type DateFilterValue } from '@/components/ui/date-filter';
 import { getOwnerOrders } from '@/features/owner/actions';
@@ -36,6 +36,7 @@ export default function OwnerOrdersPage() {
   const [dateRange, setDateRange] = useState<DateFilterValue>({});
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
 
   const fetchOrders = useCallback(async (p?: number, silent = false) => {
     if (!silent) setLoading(true);
@@ -119,11 +120,29 @@ export default function OwnerOrdersPage() {
     { key: 'date', header: 'Date', sortable: true, render: (o: AdminOrder) => (
       <span className="text-xs text-ztext-lighter">{new Date(o.created_at).toLocaleString()}</span>
     ), hideOnMobile: true},
+    { key: 'actions', header: 'Details', render: (o: AdminOrder) => (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedOrder(o);
+        }}
+        className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+        title="View Details"
+      >
+        <Eye size={15} />
+      </button>
+    )},
   ];
 
   return (
     <div>
-      <PageHeader title="Orders" description={`${total} total order${total !== 1 ? 's' : ''}`} />
+      <div className="flex items-center justify-between mb-4">
+        <PageHeader title="Orders" description={`${total} total order${total !== 1 ? 's' : ''} (Read-only)`} />
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ztext-muted bg-zcard rounded-xl border border-zborder">
+          <Lock size={13} />
+          Read-only
+        </span>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1">
@@ -159,6 +178,104 @@ export default function OwnerOrdersPage() {
           emptyMessage="No orders found"
         />
       </div>
+
+      {/* Read-Only Order Details Modal */}
+      {selectedOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div
+            className="bg-zcard rounded-2xl max-w-md w-full border border-zborder shadow-z-modal p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zborder pb-3">
+              <div>
+                <h3 className="text-base font-bold text-ztext">Order #{selectedOrder.tracking_code}</h3>
+                <p className="text-xs text-ztext-lighter">
+                  {new Date(selectedOrder.created_at).toLocaleString('en-IN')}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="p-1 rounded-lg text-ztext-lighter hover:text-ztext hover:bg-zgray transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-zborder/40">
+                <span className="text-ztext-lighter">Customer:</span>
+                <span className="font-semibold text-ztext">
+                  {selectedOrder.user?.full_name ?? selectedOrder.customer_name ?? 'Guest'}
+                </span>
+              </div>
+              {selectedOrder.customer_phone && (
+                <div className="flex justify-between py-1 border-b border-zborder/40">
+                  <span className="text-ztext-lighter">Phone:</span>
+                  <span className="font-semibold text-ztext">
+                    {selectedOrder.customer_phone}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between py-1 border-b border-zborder/40">
+                <span className="text-ztext-lighter">Order Type:</span>
+                <span className="font-semibold text-ztext capitalize">
+                  {selectedOrder.order_type ? orderTypeLabel(selectedOrder.order_type) : 'Delivery'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-zborder/40">
+                <span className="text-ztext-lighter">Payment:</span>
+                <span className="font-semibold text-ztext capitalize">
+                  {selectedOrder.payment_method} ({selectedOrder.payment_status})
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-zborder/40">
+                <span className="text-ztext-lighter">Status:</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_COLORS[selectedOrder.status] ?? 'bg-zgray text-ztext-light'}`}>
+                  {selectedOrder.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+              {Boolean((selectedOrder.delivery_address as { address?: string } | null)?.address) && (
+                <div className="py-1 border-b border-zborder/40">
+                  <span className="text-ztext-lighter block mb-0.5">Delivery Address:</span>
+                  <span className="font-medium text-ztext leading-relaxed">
+                    {(selectedOrder.delivery_address as { address?: string })?.address}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Line items */}
+            {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
+              <div className="pt-2">
+                <h4 className="text-xs font-bold text-ztext mb-2 uppercase tracking-wider">Ordered Items</h4>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {selectedOrder.order_items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-xs py-1 border-b border-zborder/30">
+                      <span className="text-ztext">{item.quantity} × {item.product_name}</span>
+                      <span className="font-semibold text-ztext">₹{item.subtotal}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-zborder flex justify-between items-center text-sm font-bold text-ztext">
+              <span>Total Amount</span>
+              <span className="text-base text-emerald-500">₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span>
+            </div>
+
+            <button
+              onClick={() => setSelectedOrder(null)}
+              className="button-z button-z-secondary w-full text-xs font-semibold py-2.5"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,8 +2,8 @@
 
 import { createServiceClient } from '@/infrastructure/supabase/service';
 import { getServerSession } from '@/features/auth/actions';
-import { getAdminEmails } from '@/lib/settings';
-import { isAdminEmail } from '@/config/auth-access';
+import { getAdminEmails, getOwnerEmail } from '@/lib/settings';
+import { isAdminEmail, isOwnerEmail } from '@/config/auth-access';
 import {
   expenseTransactionSchema,
   updateExpenseTransactionSchema,
@@ -45,6 +45,41 @@ async function authorizeAdmin() {
   }
 
   return { authorized: true, userId: user.id, supabase };
+}
+
+async function authorizeAdminOrOwner() {
+  const { user } = await getServerSession();
+  if (!user) return { authorized: false, error: 'Not authenticated', userId: null, isOwner: false };
+
+  const supabase = createServiceClient();
+  if (!supabase) return { authorized: false, error: 'Database service unavailable', userId: null, isOwner: false };
+
+  const [adminEmails, ownerEmail] = await Promise.all([
+    getAdminEmails(),
+    getOwnerEmail(),
+  ]);
+
+  const isAdminByEmail = isAdminEmail(user.email, adminEmails);
+  const isOwner = isOwnerEmail(user.email, ownerEmail);
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const isUserAdmin =
+    user.role === 'admin' ||
+    user.role === 'super_admin' ||
+    profile?.role === 'admin' ||
+    profile?.role === 'super_admin' ||
+    isAdminByEmail;
+
+  if (!isUserAdmin && !isOwner) {
+    return { authorized: false, error: 'Forbidden. Access required.', userId: null, isOwner: false };
+  }
+
+  return { authorized: true, userId: user.id, supabase, isOwner };
 }
 
 function formatExpenseError(err: unknown, defaultMessage: string): string {
@@ -113,21 +148,21 @@ export async function getExpenseSummary(
   customStart?: string,
   customEnd?: string
 ): Promise<{ success: boolean; data?: ExpenseSummary; error?: string }> {
-  const auth = await authorizeAdmin();
+  const auth = await authorizeAdminOrOwner();
   if (!auth.authorized || !auth.supabase || !auth.userId) {
     return { success: false, error: auth.error };
   }
-  const { supabase, userId } = auth;
+  const { supabase, userId, isOwner } = auth;
 
   try {
     // 1. Fetch starting balance
     let startingBalance = 0;
     try {
-      const { data: settingsData } = await supabase
-        .from('expense_settings')
-        .select('starting_balance')
-        .eq('user_id', userId)
-        .maybeSingle();
+      let settingsQuery = supabase.from('expense_settings').select('starting_balance');
+      if (!isOwner) {
+        settingsQuery = settingsQuery.eq('user_id', userId);
+      }
+      const { data: settingsData } = await settingsQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
 
       if (settingsData) {
         startingBalance = Number(settingsData.starting_balance) || 0;
@@ -137,10 +172,11 @@ export async function getExpenseSummary(
     }
 
     // 2. Fetch ALL transactions sorted chronologically (ASC) to calculate running balance
-    const { data: allRaw, error: fetchErr } = await supabase
-      .from('expense_transactions')
-      .select('*')
-      .eq('user_id', userId)
+    let txQuery = supabase.from('expense_transactions').select('*');
+    if (!isOwner) {
+      txQuery = txQuery.eq('user_id', userId);
+    }
+    const { data: allRaw, error: fetchErr } = await txQuery
       .order('transaction_date', { ascending: true })
       .order('created_at', { ascending: true });
 

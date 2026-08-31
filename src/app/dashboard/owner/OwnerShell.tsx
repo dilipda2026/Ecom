@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, LogOut, Menu, X, Lock, ShoppingBag, Banknote, Bike,
+  Store, UtensilsCrossed, Wallet,
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -15,7 +16,10 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/dashboard/owner', icon: LayoutDashboard },
+  { label: 'In-Store History', href: '/dashboard/owner/in-store', icon: Store },
+  { label: 'Products', href: '/dashboard/owner/products', icon: UtensilsCrossed },
   { label: 'Orders', href: '/dashboard/owner/orders', icon: ShoppingBag },
+  { label: 'Expenses', href: '/dashboard/owner/expenses', icon: Wallet },
   { label: 'Payments', href: '/dashboard/owner/payments', icon: Banknote },
   { label: 'Delivery Persons', href: '/dashboard/owner/delivery', icon: Bike },
 ];

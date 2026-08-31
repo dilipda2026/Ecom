@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Eye,
   EyeOff,
+  Lock,
 } from 'lucide-react';
 import { getExpenseSummary, deleteExpenseTransaction } from '../actions';
 import { showToast } from '@/components/shared/Toast';
@@ -38,7 +39,7 @@ function getPastWeekRange(): { startDate: string; endDate: string } {
   return { startDate: format(start), endDate: format(end) };
 }
 
-export default function ExpenseTracker() {
+export default function ExpenseTracker({ readOnly = false }: { readOnly?: boolean }) {
   const defaultRange = getPastWeekRange();
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
@@ -186,26 +187,33 @@ export default function ExpenseTracker() {
           </h1>
         </div>
 
-        {/* Task 2 & Task 3: Button Row [Add Money] [Add Expense] */}
-        <div className="flex flex-row items-center gap-2.5 w-full sm:w-auto shrink-0">
-          {/* Add Money Button */}
-          <button
-            onClick={handleOpenAddMoney}
-            className="flex-1 sm:flex-initial min-h-[44px] button-z bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-5 py-2.5 shadow-md flex items-center justify-center gap-2 font-bold transition-all active:scale-[0.98]"
-          >
-            <ArrowDownLeft size={18} strokeWidth={2.5} />
-            <span>Add Money</span>
-          </button>
+        {/* Button Row [Add Money] [Add Expense] or Read-Only Badge */}
+        {readOnly ? (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ztext-muted bg-zcard rounded-xl border border-zborder shrink-0">
+            <Lock size={13} />
+            <span>Read-only view</span>
+          </div>
+        ) : (
+          <div className="flex flex-row items-center gap-2.5 w-full sm:w-auto shrink-0">
+            {/* Add Money Button */}
+            <button
+              onClick={handleOpenAddMoney}
+              className="flex-1 sm:flex-initial min-h-[44px] button-z bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-5 py-2.5 shadow-md flex items-center justify-center gap-2 font-bold transition-all active:scale-[0.98]"
+            >
+              <ArrowDownLeft size={18} strokeWidth={2.5} />
+              <span>Add Money</span>
+            </button>
 
-          {/* Add Expense Button */}
-          <button
-            onClick={handleOpenAddExpense}
-            className="flex-1 sm:flex-initial min-h-[44px] button-z button-z-primary text-sm px-5 py-2.5 shadow-md flex items-center justify-center gap-2 font-bold transition-all active:scale-[0.98]"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>Add Expense</span>
-          </button>
-        </div>
+            {/* Add Expense Button */}
+            <button
+              onClick={handleOpenAddExpense}
+              className="flex-1 sm:flex-initial min-h-[44px] button-z button-z-primary text-sm px-5 py-2.5 shadow-md flex items-center justify-center gap-2 font-bold transition-all active:scale-[0.98]"
+            >
+              <Plus size={18} strokeWidth={2.5} />
+              <span>Add Expense</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Task A1: Filter Transactions Control Section (Start Date | End Date | Reset in ONE SINGLE ROW) */}
@@ -317,12 +325,14 @@ export default function ExpenseTracker() {
             <span className="text-ztext-light font-medium truncate">
               Starting: {formatCurrency(summary?.startingBalance ?? 0)}
             </span>
-            <button
-              onClick={() => setIsStartingBalanceOpen(true)}
-              className="text-zred font-bold hover:underline flex items-center gap-1 shrink-0"
-            >
-              <Pencil size={11} /> Edit
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setIsStartingBalanceOpen(true)}
+                className="text-zred font-bold hover:underline flex items-center gap-1 shrink-0"
+              >
+                <Pencil size={11} /> Edit
+              </button>
+            )}
           </div>
         </div>
 
@@ -502,28 +512,34 @@ export default function ExpenseTracker() {
                       </div>
 
                       {/* Actions */}
-                      <div className="md:col-span-2 flex items-center justify-end md:justify-center gap-1 pt-1 md:pt-0">
-                        <button
-                          onClick={() => handleOpenEdit(tx)}
-                          disabled={isDeleting}
-                          title="Edit Entry"
-                          className="p-1.5 rounded-lg text-ztext-muted hover:bg-zgray hover:text-ztext transition-colors"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(tx.id)}
-                          disabled={isDeleting}
-                          title="Delete Entry"
-                          className="p-1.5 rounded-lg text-ztext-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                        >
-                          {isDeleting ? (
-                            <Loader2 size={14} className="animate-spin text-red-500" />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                        </button>
-                      </div>
+                      {!readOnly ? (
+                        <div className="md:col-span-2 flex items-center justify-end md:justify-center gap-1 pt-1 md:pt-0">
+                          <button
+                            onClick={() => handleOpenEdit(tx)}
+                            disabled={isDeleting}
+                            title="Edit Entry"
+                            className="p-1.5 rounded-lg text-ztext-muted hover:bg-zgray hover:text-ztext transition-colors"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(tx.id)}
+                            disabled={isDeleting}
+                            title="Delete Entry"
+                            className="p-1.5 rounded-lg text-ztext-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                          >
+                            {isDeleting ? (
+                              <Loader2 size={14} className="animate-spin text-red-500" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="hidden md:flex md:col-span-2 items-center justify-center text-xs text-ztext-muted">
+                          —
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -533,25 +549,28 @@ export default function ExpenseTracker() {
         )}
       </div>
 
-      {/* Starting Balance Modal */}
-      <StartingBalanceModal
-        isOpen={isStartingBalanceOpen}
-        onClose={() => setIsStartingBalanceOpen(false)}
-        currentBalance={summary?.startingBalance ?? 0}
-        onSuccess={loadData}
-      />
+      {/* Modals only mounted for editable admin mode */}
+      {!readOnly && (
+        <>
+          <StartingBalanceModal
+            isOpen={isStartingBalanceOpen}
+            onClose={() => setIsStartingBalanceOpen(false)}
+            currentBalance={summary?.startingBalance ?? 0}
+            onSuccess={loadData}
+          />
 
-      {/* Add / Edit Expense & Money Modal */}
-      <AddEditExpenseModal
-        isOpen={isAddEditOpen}
-        onClose={() => {
-          setIsAddEditOpen(false);
-          setEditingTransaction(null);
-        }}
-        initialType={modalInitialType}
-        transaction={editingTransaction}
-        onSuccess={loadData}
-      />
+          <AddEditExpenseModal
+            isOpen={isAddEditOpen}
+            onClose={() => {
+              setIsAddEditOpen(false);
+              setEditingTransaction(null);
+            }}
+            initialType={modalInitialType}
+            transaction={editingTransaction}
+            onSuccess={loadData}
+          />
+        </>
+      )}
     </div>
   );
 }
