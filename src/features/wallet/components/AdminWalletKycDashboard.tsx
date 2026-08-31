@@ -162,33 +162,33 @@ export default function AdminWalletKycDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-ztext flex items-center gap-2">
-            <ShieldCheck className="text-amber-500" /> Wallet Management
+            <ShieldCheck className="text-amber-500 shrink-0" /> Wallet Management
           </h1>
           <p className="text-sm text-ztext-light mt-1">Review KYC submissions and manage student wallets.</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial w-full sm:w-64">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ztext-muted" />
             <input
               type="text"
               placeholder="Search name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-z pl-9 text-sm w-full sm:w-64"
+              className="input-z pl-9 text-sm w-full"
             />
           </div>
           <button 
             onClick={handleRunPenaltyCheck}
             disabled={processingPenalties}
-            className="px-4 py-2.5 bg-rose-500/10 text-rose-500 font-bold border border-rose-500/20 rounded-xl hover:bg-rose-500 hover:text-white transition-colors disabled:opacity-50 text-sm flex items-center gap-2"
+            className="flex-1 sm:flex-initial px-4 py-2.5 bg-rose-500/10 text-rose-500 font-bold border border-rose-500/20 rounded-xl hover:bg-rose-500 hover:text-white transition-colors disabled:opacity-50 text-sm flex items-center justify-center gap-2 whitespace-nowrap"
           >
-            {processingPenalties ? <RefreshCw size={16} className="animate-spin" /> : <AlertCircle size={16} />}
+            {processingPenalties ? <RefreshCw size={16} className="animate-spin shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
             Run Penalty Check
           </button>
           <button 
             onClick={fetchKycs}
-            className="p-2.5 bg-zgray text-ztext border border-zborder rounded-xl hover:bg-zcard transition-colors"
+            className="p-2.5 bg-zgray text-ztext border border-zborder rounded-xl hover:bg-zcard transition-colors shrink-0"
           >
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -196,28 +196,28 @@ export default function AdminWalletKycDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-zcard border border-zborder rounded-xl w-fit flex-wrap">
+      <div className="flex items-center gap-2 p-1 bg-zcard border border-zborder rounded-xl w-full sm:w-fit overflow-x-auto max-w-full">
         <button
           onClick={() => setFilterStatus('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filterStatus === 'all' ? 'bg-zgray text-ztext' : 'text-ztext-light hover:text-ztext'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${filterStatus === 'all' ? 'bg-zgray text-ztext' : 'text-ztext-light hover:text-ztext'}`}
         >
           All Requests ({kycs.length})
         </button>
         <button
           onClick={() => setFilterStatus('active')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filterStatus === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'text-ztext-light hover:text-ztext'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${filterStatus === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'text-ztext-light hover:text-ztext'}`}
         >
           Active
         </button>
         <button
           onClick={() => setFilterStatus('pending')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${filterStatus === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'text-ztext-light hover:text-ztext'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-2 ${filterStatus === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'text-ztext-light hover:text-ztext'}`}
         >
           Pending {pendingCount > 0 && <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px]">{pendingCount}</span>}
         </button>
         <button
           onClick={() => setFilterStatus('rejected')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${filterStatus === 'rejected' ? 'bg-red-500/10 text-red-500' : 'text-ztext-light hover:text-ztext'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${filterStatus === 'rejected' ? 'bg-red-500/10 text-red-500' : 'text-ztext-light hover:text-ztext'}`}
         >
           Rejected / Deactivated
         </button>
@@ -242,7 +242,7 @@ export default function AdminWalletKycDashboard() {
                   <th className="px-6 py-4">Fine</th>
                   <th className="px-6 py-4">Credit Used Date</th>
                   <th className="px-6 py-4">Submitted At</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zborder">
@@ -281,32 +281,34 @@ export default function AdminWalletKycDashboard() {
                       <td className="px-6 py-4 text-sm text-ztext-light">
                         {kyc.kyc_submitted_at ? new Date(kyc.kyc_submitted_at).toLocaleString('en-IN') : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-right flex justify-end gap-2">
-                        <button
-                          onClick={() => selectedHistoryWallet?.id === kyc.id ? setSelectedHistoryWallet(null) : handleViewHistory(kyc)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
-                        >
-                          {selectedHistoryWallet?.id === kyc.id ? (
-                            <><ChevronUp size={14} /> History</>
-                          ) : (
-                            <><ChevronDown size={14} /> History</>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setUpdateLimitModal({ id: kyc.id, name: kyc.kyc_name || 'User', currentLimit: Number(kyc.credit_limit) || 0 });
-                            setUpdateLimitValue((kyc.credit_limit || 0).toString());
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-colors"
-                        >
-                          Update Limit
-                        </button>
-                        <button
-                          onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setCreditLimit(''); setError(''); }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors"
-                        >
-                          <Eye size={14} /> View
-                        </button>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => selectedHistoryWallet?.id === kyc.id ? setSelectedHistoryWallet(null) : handleViewHistory(kyc)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors shrink-0"
+                          >
+                            {selectedHistoryWallet?.id === kyc.id ? (
+                              <><ChevronUp size={14} /> History</>
+                            ) : (
+                              <><ChevronDown size={14} /> History</>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setUpdateLimitModal({ id: kyc.id, name: kyc.kyc_name || 'User', currentLimit: Number(kyc.credit_limit) || 0 });
+                              setUpdateLimitValue((kyc.credit_limit || 0).toString());
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30 transition-colors shrink-0"
+                          >
+                            Update Limit
+                          </button>
+                          <button
+                            onClick={() => { setSelectedKyc(kyc); setRejectReason(''); setCreditLimit(''); setError(''); }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zgray text-ztext border border-zborder rounded-lg text-xs font-bold hover:bg-zcard hover:border-ztext-muted transition-colors shrink-0"
+                          >
+                            <Eye size={14} /> View
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     
@@ -360,70 +362,72 @@ export default function AdminWalletKycDashboard() {
 
       {/* Review Modal */}
       {selectedKyc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-zcard border border-zborder rounded-2xl max-w-2xl w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-            <div className="flex items-center justify-between pb-4 border-b border-zborder mb-4">
-              <h2 className="text-lg font-bold text-ztext flex items-center gap-2">
-                Wallet Details: {selectedKyc.kyc_name || 'User'}
-                <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
-                        selectedKyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
-                        selectedKyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
-                        selectedKyc.status === 'unverified' ? 'bg-blue-500/10 text-blue-500' :
-                        'bg-red-500/10 text-red-500'
-                      }`}>
-                        {selectedKyc.status}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-zcard border border-zborder rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex items-start sm:items-center justify-between pb-4 border-b border-zborder mb-4 gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-ztext break-words">
+                  Wallet Details: {selectedKyc.kyc_name || 'User'}
+                </h2>
+                <span className={`px-2 py-0.5 sm:py-1 rounded-md text-[10px] font-black uppercase shrink-0 ${
+                  selectedKyc.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
+                  selectedKyc.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                  selectedKyc.status === 'unverified' ? 'bg-blue-500/10 text-blue-500' :
+                  'bg-red-500/10 text-red-500'
+                }`}>
+                  {selectedKyc.status}
                 </span>
-              </h2>
+              </div>
               <button 
                 onClick={() => setSelectedKyc(null)}
-                className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+                className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors shrink-0"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="mb-6 grid grid-cols-2 gap-4 bg-zgray/30 p-4 rounded-xl border border-zborder text-sm">
-              <div>
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-zgray/30 p-3 sm:p-4 rounded-xl border border-zborder text-sm">
+              <div className="break-words">
                 <p className="text-xs font-bold text-ztext-light mb-1">KYC Email</p>
-                <p className="font-medium">{selectedKyc.kyc_email || 'N/A'}</p>
+                <p className="font-medium text-xs sm:text-sm">{selectedKyc.kyc_email || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-bold text-ztext-light mb-1">Document Type</p>
-                <p className="font-medium">{selectedKyc.document_type || 'N/A'}</p>
+                <p className="font-medium text-xs sm:text-sm">{selectedKyc.document_type || 'N/A'}</p>
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
               <div>
                 <label className="block text-xs font-semibold text-ztext-lighter mb-2">Live Photo / Selfie</label>
                 {selectedKyc.kyc_photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selectedKyc.kyc_photo_url} alt="Selfie" className="w-full h-48 object-cover rounded-xl border border-zborder bg-zgray" />
+                  <img src={selectedKyc.kyc_photo_url} alt="Selfie" className="w-full h-44 sm:h-48 object-cover rounded-xl border border-zborder bg-zgray" />
                 ) : (
-                  <div className="w-full h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Image</div>
+                  <div className="w-full h-44 sm:h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Image</div>
                 )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-ztext-lighter mb-2">Document Proof</label>
                 {selectedKyc.pan_card_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selectedKyc.pan_card_url} alt="ID Document" className="w-full h-48 object-contain rounded-xl border border-zborder bg-zgray" />
+                  <img src={selectedKyc.pan_card_url} alt="ID Document" className="w-full h-44 sm:h-48 object-contain rounded-xl border border-zborder bg-zgray" />
                 ) : (
-                  <div className="w-full h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Document</div>
+                  <div className="w-full h-44 sm:h-48 bg-zgray rounded-xl border border-zborder flex items-center justify-center text-xs text-ztext-muted">No Document</div>
                 )}
               </div>
             </div>
 
             {error && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 flex items-center gap-2">
-                <AlertCircle size={15} /> {error}
+                <AlertCircle size={15} className="shrink-0" /> <span>{error}</span>
               </div>
             )}
 
             {selectedKyc.status === 'active' ? (
               <div className="flex flex-col gap-3">
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-500 mt-0.5" />
+                <div className="p-3 sm:p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+                  <AlertCircle size={20} className="text-amber-500 mt-0.5 shrink-0" />
                   <div>
                     <h3 className="text-sm font-bold text-amber-500">Deactivate Wallet</h3>
                     <p className="text-xs text-ztext-light mt-1">If you deactivate this wallet, the user will no longer be able to use their balance until re-approved.</p>
@@ -432,15 +436,15 @@ export default function AdminWalletKycDashboard() {
                 <button
                   onClick={handleDeactivate}
                   disabled={processing}
-                  className="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
-                  <XCircle size={18} /> Deactivate Wallet
+                  <XCircle size={18} className="shrink-0" /> Deactivate Wallet
                 </button>
               </div>
             ) : (
               <>
-                <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-zgray/50 border border-zborder rounded-xl p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-zgray/50 border border-zborder rounded-xl p-3 sm:p-4">
                     <label className="block text-xs font-semibold text-ztext-lighter mb-2">Rejection Reason (Optional for Approve)</label>
                     <input
                       type="text"
@@ -451,7 +455,7 @@ export default function AdminWalletKycDashboard() {
                     />
                   </div>
                   
-                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 sm:p-4">
                     <label className="block text-xs font-semibold text-emerald-600 mb-2">Assign BNPL Credit Limit (₹)</label>
                     <input
                       type="number"
@@ -465,20 +469,20 @@ export default function AdminWalletKycDashboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
                   <button
                     onClick={handleReject}
                     disabled={processing}
-                    className="flex-1 py-3 bg-zgray border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full sm:flex-1 py-3 px-4 bg-zgray border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
-                    <XCircle size={18} /> Reject
+                    <XCircle size={18} className="shrink-0" /> Reject
                   </button>
                   <button
                     onClick={handleApprove}
                     disabled={processing}
-                    className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                    className="w-full sm:flex-1 py-3 px-4 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-sm sm:text-base"
                   >
-                    <CheckCircle size={18} /> {selectedKyc.status === 'rejected' ? 'Re-Approve KYC' : 'Approve KYC'}
+                    <CheckCircle size={18} className="shrink-0" /> {selectedKyc.status === 'rejected' ? 'Re-Approve KYC' : 'Approve KYC'}
                   </button>
                 </div>
               </>
@@ -489,13 +493,13 @@ export default function AdminWalletKycDashboard() {
 
       {/* Update Limit Modal */}
       {updateLimitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-zcard border border-zborder rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-zcard border border-zborder rounded-2xl max-w-sm w-full p-4 sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-zborder mb-4">
-              <h2 className="text-lg font-bold text-ztext flex items-center gap-2">Update Limit: {updateLimitModal.name}</h2>
+              <h2 className="text-base sm:text-lg font-bold text-ztext flex items-center gap-2 break-words">Update Limit: {updateLimitModal.name}</h2>
               <button 
                 onClick={() => setUpdateLimitModal(null)}
-                className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors"
+                className="p-1.5 rounded-lg hover:bg-zgray text-ztext-lighter hover:text-ztext transition-colors shrink-0"
               >
                 <X size={20} />
               </button>
@@ -514,18 +518,18 @@ export default function AdminWalletKycDashboard() {
               <p className="text-[10px] text-ztext-muted mt-2">Current Limit: ₹{updateLimitModal.currentLimit}</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={() => setUpdateLimitModal(null)}
                 disabled={updatingLimit}
-                className="flex-1 py-3 bg-zgray text-ztext font-bold rounded-xl hover:bg-zborder transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 py-3 px-4 bg-zgray text-ztext font-bold rounded-xl hover:bg-zborder transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateLimitSubmit}
                 disabled={updatingLimit}
-                className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 py-3 px-4 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 {updatingLimit ? 'Updating...' : 'Update Limit'}
               </button>
