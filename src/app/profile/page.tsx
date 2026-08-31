@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, HelpCircle, Instagram, Facebook, Globe, MessageSquare, ShieldCheck } from 'lucide-react';
+import { User, MapPin, Phone, Mail, LogOut, ClipboardList, ChevronRight, Store, Heart, Pencil, X, Check, Loader2, Clock, BadgeCheck, HelpCircle, Instagram, Facebook, Globe, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store';
@@ -85,7 +85,16 @@ export default function ProfilePage() {
     const res = await getWalletDetails();
     if (res.success && res.data) {
       setWalletCash(res.data.balance);
-      setWalletStatus(res.data.wallet?.status || 'unverified');
+      const status = res.data.wallet?.status;
+      if (status === 'pending' || (res.data.wallet?.kyc_submitted_at && status !== 'active' && status !== 'rejected')) {
+        setWalletStatus('pending');
+      } else if (status === 'active') {
+        setWalletStatus('active');
+      } else if (status === 'rejected') {
+        setWalletStatus('rejected');
+      } else {
+        setWalletStatus('unverified');
+      }
       setFullWalletData(res.data.wallet);
     } else {
       const creditRes = await getCreditAccount();
@@ -272,6 +281,14 @@ export default function ProfilePage() {
                         <span className="text-sm font-extrabold">Reviewing</span>
                       </div>
                       <p className="text-[10px] text-ztext-light mt-0.5">Wallet KYC</p>
+                    </>
+                  ) : walletStatus === 'rejected' ? (
+                    <>
+                      <div className="flex items-center justify-center gap-1.5 text-red-500">
+                        <AlertCircle size={16} />
+                        <span className="text-sm font-extrabold">Rejected</span>
+                      </div>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Re-apply KYC</p>
                     </>
                   ) : (
                     <>

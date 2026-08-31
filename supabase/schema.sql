@@ -1000,6 +1000,90 @@ create policy "expense_transactions_owner_all" on public.expense_transactions
   for all using (auth.uid() = user_id);
 
 -- ============================================================================
+-- 26. Wallets & Wallet Transactions
+-- ============================================================================
+create table if not exists public.wallets (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  balance numeric(12, 2) not null default 0.00,
+  total_credit numeric(12, 2) not null default 0.00,
+  total_debit numeric(12, 2) not null default 0.00,
+  status text not null default 'unverified'::text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  kyc_name text null,
+  kyc_email text null,
+  document_type text null,
+  kyc_photo_url text null,
+  pan_card_url text null,
+  kyc_submitted_at timestamp with time zone null,
+  kyc_approved_at timestamp with time zone null,
+  kyc_rejection_reason text null,
+  credit_limit numeric(12, 2) not null default 0,
+  credit_used_at timestamp with time zone null,
+  late_fee_rate numeric(12, 2) not null default 50,
+  total_penalties numeric(12, 2) not null default 0,
+  constraint wallets_pkey primary key (id),
+  constraint wallets_user_id_key unique (user_id),
+  constraint wallets_user_id_fkey foreign key (user_id) references auth.users (id) on delete cascade
+);
+
+create table if not exists public.wallet_transactions (
+  id uuid not null default gen_random_uuid (),
+  wallet_id uuid not null,
+  type text not null,
+  amount numeric(12, 2) not null,
+  balance_after numeric(12, 2) not null,
+  description text null,
+  reference_id text null,
+  created_at timestamp with time zone not null default now(),
+  constraint wallet_transactions_pkey primary key (id),
+  constraint wallet_transactions_wallet_id_fkey foreign key (wallet_id) references public.wallets (id) on delete cascade,
+  constraint wallet_transactions_type_check check (type in ('credit', 'debit'))
+);
+
+create index if not exists idx_wallets_user_id on public.wallets (user_id);
+create index if not exists idx_wallets_status on public.wallets (status);
+create index if not exists idx_wallet_transactions_wallet_id on public.wallet_transactions (wallet_id, created_at desc);
+
+create or replace function public.update_wallet_timestamp()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_wallets_updated_at on public.wallets;
+create trigger trg_wallets_updated_at
+  before update on public.wallets
+  for each row
+  execute function public.update_wallet_timestamp();
+
+alter table public.wallets enable row level security;
+alter table public.wallet_transactions enable row level security;
+
+drop policy if exists "wallets_owner_select" on public.wallets;
+create policy "wallets_owner_select" on public.wallets
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "wallets_owner_all" on public.wallets;
+create policy "wallets_owner_all" on public.wallets
+  for all using (auth.uid() = user_id);
+
+drop policy if exists "wallet_transactions_owner_select" on public.wallet_transactions;
+create policy "wallet_transactions_owner_select" on public.wallet_transactions
+  for select using (
+    wallet_id in (select id from public.wallets where user_id = auth.uid())
+  );
+
+drop policy if exists "wallet_transactions_owner_all" on public.wallet_transactions;
+create policy "wallet_transactions_owner_all" on public.wallet_transactions
+  for all using (
+    wallet_id in (select id from public.wallets where user_id = auth.uid())
+  );
+
+-- ============================================================================
 -- SEED DATA: Default admin user reference
 -- ============================================================================
 -- To create your first admin, run this AFTER the user has signed up:

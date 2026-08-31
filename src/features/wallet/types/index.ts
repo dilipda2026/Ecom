@@ -6,7 +6,7 @@ export interface Wallet {
   total_credit: number;
   total_debit: number;
   credit_limit: number;
-  credit_used: number;
+  credit_used?: number;
   credit_used_at?: string | null;
   late_fee_rate?: number;
   total_penalties?: number;

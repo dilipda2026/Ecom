@@ -59,20 +59,22 @@ export async function getWalletDetails(): Promise<{
 
     const profileBalance = Number(profile?.wallet_balance) || 0;
 
-    // 2. Fetch or create record in `wallets` table (if table exists)
+    // 2. Fetch record in `wallets` table
     let walletRecord: Wallet | null = null;
     try {
-      const { data: walletData } = await supabase
+      const { data: walletData, error: walletErr } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (walletData) {
+      if (walletErr) {
+        console.error('getWalletDetails error fetching wallets:', walletErr);
+      } else if (walletData) {
         walletRecord = walletData as Wallet;
       }
-    } catch {
-      // Table wallets may not exist yet
+    } catch (wErr) {
+      console.error('getWalletDetails wallets table error:', wErr);
     }
 
     // 3. Fetch transaction history
@@ -516,18 +518,24 @@ export async function submitWalletKyc(data: {
   if (!user) return { success: false, error: 'Not authenticated' };
 
   try {
-    const { data: existingWallet } = await supabase
+    const { data: existingWallet, error: fetchErr } = await supabase
       .from('wallets')
-      .select('*')
+      .select('id, status')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    if (fetchErr) {
+      console.error('submitWalletKyc fetch error:', fetchErr);
+    }
 
     if (existingWallet && existingWallet.status === 'active') {
       return { success: false, error: 'Wallet is already active' };
     }
 
+    const now = new Date().toISOString();
+
     if (existingWallet) {
-      await supabase
+      const { error: updateErr } = await supabase
         .from('wallets')
         .update({
           kyc_name: data.kycName,
@@ -536,32 +544,44 @@ export async function submitWalletKyc(data: {
           kyc_photo_url: data.kycPhotoUrl,
           pan_card_url: data.panCardUrl,
           status: 'pending',
-          kyc_submitted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          kyc_submitted_at: now,
+          updated_at: now,
         })
         .eq('id', existingWallet.id);
+
+      if (updateErr) {
+        console.error('submitWalletKyc update error:', updateErr);
+        return { success: false, error: updateErr.message || 'Failed to update KYC request' };
+      }
     } else {
-      await supabase.from('wallets').insert({
+      const { error: insertErr } = await supabase.from('wallets').insert({
         user_id: user.id,
         balance: 0,
         total_credit: 0,
         total_debit: 0,
         credit_limit: 0,
-        credit_used: 0,
         status: 'pending',
         kyc_name: data.kycName,
         kyc_email: data.kycEmail,
         document_type: data.documentType,
         kyc_photo_url: data.kycPhotoUrl,
         pan_card_url: data.panCardUrl,
-        kyc_submitted_at: new Date().toISOString(),
+        kyc_submitted_at: now,
       });
+
+      if (insertErr) {
+        console.error('submitWalletKyc insert error:', insertErr);
+        return { success: false, error: insertErr.message || 'Failed to submit KYC request' };
+      }
     }
 
     return { success: true };
   } catch (err: unknown) {
     console.error('submitWalletKyc error:', err);
-    return { success: false, error: 'Failed to submit KYC' };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to submit KYC',
+    };
   }
 }
 
@@ -623,7 +643,6 @@ export async function approveWalletKyc(walletId: string, creditLimit: number = 0
         total_credit: 0,
         total_debit: 0,
         credit_limit: creditLimit,
-        credit_used: 0,
         status: 'active',
         kyc_name: profile?.full_name || 'Student',
         kyc_email: profile?.email || '',
@@ -675,7 +694,6 @@ export async function updateWalletCreditLimit(walletId: string, creditLimit: num
         total_credit: 0,
         total_debit: 0,
         credit_limit: creditLimit,
-        credit_used: 0,
         status: 'active',
         kyc_name: profile?.full_name || 'Student',
         kyc_email: profile?.email || '',
@@ -727,7 +745,6 @@ export async function rejectWalletKyc(walletId: string, reason: string): Promise
         total_credit: 0,
         total_debit: 0,
         credit_limit: 0,
-        credit_used: 0,
         status: 'rejected',
         kyc_rejection_reason: reason,
         kyc_name: profile?.full_name || 'Student',
