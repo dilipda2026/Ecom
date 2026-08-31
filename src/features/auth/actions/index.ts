@@ -344,6 +344,20 @@ export async function sendPasswordResetEmail(email: string) {
       return { error: 'Please enter a valid email address' };
     }
 
+    // Check if account exists in database
+    const serviceClient = createServiceClient();
+    if (serviceClient) {
+      const { data: profile } = await serviceClient
+        .from('profiles')
+        .select('id')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+
+      if (!profile) {
+        return { error: 'No account found with this email address. Please sign up first.' };
+      }
+    }
+
     const siteUrl = await resolveSiteUrl();
     const redirectTo = `${siteUrl}/auth/reset-password`;
 
