@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PackageSearch, Bike, MapPin, Loader2, Phone, CheckCircle2, Clock, KeyRound, Search, BadgeCheck } from 'lucide-react';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 import { getOrderTrackingByCode } from '@/features/orders/actions/customer';
 import type { Order, OrderItem } from '@/features/orders/types';
 import { orderTypeLabel } from '@/features/orders/types';
@@ -343,7 +344,7 @@ export default function OrderTrackPage() {
     <Suspense fallback={
       <div className="page-pad">
         <div className="container-z mx-auto max-w-lg text-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter mx-auto" />
+          <HamsterLoader size="lg" text="Loading tracking details..." />
         </div>
       </div>
     }>

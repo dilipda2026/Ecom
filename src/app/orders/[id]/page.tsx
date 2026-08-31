@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Clock, Loader2, ShoppingBag, XCircle, Timer, Bike, KeyRound, BadgeCheck } from 'lucide-react';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 import Link from 'next/link';
 import { getUserOrder, cancelUserOrder } from '@/features/orders/actions/customer';
 import { getCustomerDeliveryInfo } from '@/features/delivery/actions';
@@ -107,7 +108,7 @@ export default function OrderDetailPage() {
   if (loading) {
     return (
       <div className="page-pad flex justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" />
+        <HamsterLoader size="md" text="Loading order..." />
       </div>
     );
   }

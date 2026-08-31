@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Phone, User, CreditCard, Banknote, ArrowLeft, Loader2, ShoppingBag, Shield, Wallet, CheckCircle2, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
 import { loadRazorpayScript, openRazorpayCheckout } from '@/features/payments/services/razorpay';
@@ -121,7 +122,7 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-zgray">
         <div className="page-pad">
           <div className="container-z mx-auto max-w-xl flex items-center justify-center py-24">
-            <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" />
+            <HamsterLoader size="md" text="Redirecting to login..." />
           </div>
         </div>
       </div>

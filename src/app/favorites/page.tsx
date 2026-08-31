@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart, Minus, Plus, Loader2 } from 'lucide-react';
+import { Heart, Minus, Plus } from 'lucide-react';
 import { useFavoritesStore, FavoriteItem } from '@/features/favorites/store';
 import { useAuthStore } from '@/features/auth/store';
 import { useCartStore } from '@/features/cart/store';
@@ -12,6 +12,7 @@ import FavoriteButton from '@/components/shared/FavoriteButton';
 import FoodDetailModal from '@/components/shared/FoodDetailModal';
 import Reveal from '@/components/shared/Reveal';
 import type { MenuItem } from '@/features/menu/data';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 
 export default function FavoritesPage() {
   const { items } = useFavoritesStore();
@@ -30,7 +31,7 @@ export default function FavoritesPage() {
   if (isLoading || !isAuthenticated) {
     return (
       <div className="page-pad flex justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-ztext-lighter" />
+        <HamsterLoader size="md" text="Redirecting..." />
       </div>
     );
   }

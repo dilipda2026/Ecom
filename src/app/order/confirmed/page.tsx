@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, Bike, MapPin, Loader2 } from 'lucide-react';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 import Link from 'next/link';
 import { getUserOrder } from '@/features/orders/actions/customer';
 import type { Order, OrderItem } from '@/features/orders/types';
@@ -130,11 +131,8 @@ export default function OrderConfirmedPage() {
     <div className="page-pad">
       <div className="container-z mx-auto max-w-lg text-center py-12">
         <Suspense fallback={
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-              <Loader2 className="w-8 h-8 animate-spin text-zgreen" />
-            </div>
-            <p className="text-ztext-light">Loading order details...</p>
+          <div className="flex justify-center py-12">
+            <HamsterLoader size="lg" text="Loading order details..." />
           </div>
         }>
           <OrderConfirmedContent />
