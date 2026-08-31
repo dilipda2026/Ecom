@@ -90,10 +90,6 @@ export async function sendPasswordResetLinkEmail(to: string, resetLink: string):
               Reset Password
             </a>
           </div>
-          <p style="color: #6B7280; font-size: 12px; line-height: 1.4; margin-bottom: 12px;">
-            If the button doesn't work, copy and paste this link into your browser:<br/>
-            <a href="${resetLink}" style="color: #EF4444; word-break: break-all;">${resetLink}</a>
-          </p>
           <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
           <p style="color: #9CA3AF; font-size: 11px; margin: 0;">
             This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.

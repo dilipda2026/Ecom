@@ -24,10 +24,22 @@ export default function ResetPasswordForm() {
 
     const searchParams = new URLSearchParams(window.location.search);
     const code = searchParams.get('code');
+    const tokenHash = searchParams.get('token_hash');
 
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(({ error: codeErr }) => {
         if (!codeErr) {
+          setReady(true);
+        } else {
+          setError('Invalid or expired reset link. Please request a new one.');
+        }
+      });
+      return () => { subscription.unsubscribe(); };
+    }
+
+    if (tokenHash) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error: otpErr }) => {
+        if (!otpErr) {
           setReady(true);
         } else {
           setError('Invalid or expired reset link. Please request a new one.');
