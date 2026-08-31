@@ -338,58 +338,61 @@ async function resolveSiteUrl(): Promise<string> {
 }
 
 export async function sendPasswordResetEmail(email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-    return { error: 'Please enter a valid email address' };
-  }
-
-  const { registered } = await isEmailRegistered(normalizedEmail);
-  if (!registered) {
-    return { error: 'No account found with this email address' };
-  }
-
-  const siteUrl = await resolveSiteUrl();
-  const redirectTo = `${siteUrl}/auth/reset-password`;
-
-  // 1. Try generating recovery link via admin client (bypasses Supabase built-in email rate limit)
   try {
-    const admin = createAdminClient();
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: 'recovery',
-      email: normalizedEmail,
-      options: {
-        redirectTo,
-      },
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return { error: 'Please enter a valid email address' };
+    }
 
-    if (!linkError && linkData?.properties?.action_link) {
-      const sent = await sendPasswordResetLinkEmail(normalizedEmail, linkData.properties.action_link);
-      if (sent) {
+    const siteUrl = await resolveSiteUrl();
+    const redirectTo = `${siteUrl}/auth/reset-password`;
+
+    // 1. Try sending via Supabase Auth client directly
+    const supabase = await createServerSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo,
+      });
+
+      if (!error) {
         return { error: null };
       }
+
+      // If Supabase rate limit is hit, try fallback to Admin generateLink + Custom SMTP
+      if (error.message?.toLowerCase().includes('rate limit')) {
+        try {
+          const admin = createAdminClient();
+          const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+            type: 'recovery',
+            email: normalizedEmail,
+            options: { redirectTo },
+          });
+
+          if (!linkError && linkData?.properties?.action_link) {
+            const sent = await sendPasswordResetLinkEmail(normalizedEmail, linkData.properties.action_link);
+            if (sent) {
+              return { error: null };
+            }
+          }
+        } catch (adminErr) {
+          console.warn('generateLink fallback error:', adminErr);
+        }
+
+        return {
+          error: 'Email rate limit reached by Supabase. Please wait a few minutes before requesting another link.',
+        };
+      }
+
+      return { error: error.message };
     }
-  } catch (err) {
-    console.warn('generateLink fallback to standard resetPasswordForEmail:', err);
+
+    return { error: 'Authentication service unavailable. Please try again later.' };
+  } catch (err: unknown) {
+    console.error('sendPasswordResetEmail action exception:', err);
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.',
+    };
   }
-
-  // 2. Fallback to Supabase built-in resetPasswordForEmail
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return { error: 'Service not configured' };
-
-  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-    redirectTo,
-  });
-
-  if (error) {
-    if (error.message?.toLowerCase().includes('rate limit')) {
-      return {
-        error: 'Email rate limit exceeded by Supabase. Please wait a few minutes or configure custom SMTP in dashboard settings.',
-      };
-    }
-    return { error: error.message };
-  }
-
-  return { error: null };
 }
 
 /**

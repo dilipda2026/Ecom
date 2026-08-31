@@ -19,15 +19,18 @@ export default function ForgotPasswordForm({ onBack }: Props) {
     setError('');
     setLoading(true);
 
-    const { error: err } = await sendPasswordResetEmail(email);
-    setLoading(false);
-
-    if (err) {
-      setError(err);
-      return;
+    try {
+      const res = await sendPasswordResetEmail(email);
+      if (res?.error) {
+        setError(res.error);
+      } else {
+        setSent(true);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset link. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setSent(true);
   }
 
   if (sent) {
