@@ -23,7 +23,15 @@ export default function SpecialsShelf() {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
-    addItem({ id: dish.id, name: dish.name, price: dish.price, veg: dish.veg, image: dish.img });
+    addItem({
+      id: dish.id,
+      name: dish.name,
+      price: dish.price,
+      veg: dish.veg,
+      image: dish.img,
+      packagingBigQty: dish.packagingBigQty,
+      packagingSmallQty: dish.packagingSmallQty,
+    });
   }
 
   return (

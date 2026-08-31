@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, CartStore } from '@/features/cart/types';
 
-const defaultPricing = { deliveryFee: 10, maintenanceFee: 1, packagingCharge: 0 };
+const defaultPricing = { deliveryFee: 10, maintenanceFee: 1, packagingCharge: 0, packagingBigPrice: 3, packagingSmallPrice: 2 };
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -20,7 +20,19 @@ export const useCartStore = create<CartStore>()(
         const qtyToAdd = Math.max(1, quantity);
         const existing = get().items.find((i) => i.id === item.id);
         if (existing) {
-          set({ items: get().items.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + qtyToAdd } : i), lastAddedAt: Date.now() });
+          set({
+            items: get().items.map((i) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    quantity: i.quantity + qtyToAdd,
+                    packagingBigQty: item.packagingBigQty ?? i.packagingBigQty,
+                    packagingSmallQty: item.packagingSmallQty ?? i.packagingSmallQty,
+                  }
+                : i
+            ),
+            lastAddedAt: Date.now(),
+          });
         } else {
           set({ items: [...get().items, { ...item, quantity: qtyToAdd }], lastAddedAt: Date.now() });
         }
@@ -41,13 +53,13 @@ export const useCartStore = create<CartStore>()(
 
       markCartViewed: () => set({ lastViewedAt: Date.now() }),
 
-      setPricing: (pricing) => set({ pricing }),
+      setPricing: (pricing) => set({ pricing: { ...defaultPricing, ...pricing } }),
 
       setOrderType: (orderType) => set({ orderType }),
 
       syncPrices: (menuItems) => {
         if (!menuItems || menuItems.length === 0) return;
-        const map = new Map<string, { id: string; name: string; price: number; img?: string; veg?: boolean }>();
+        const map = new Map<string, { id: string; name: string; price: number; img?: string; veg?: boolean; packagingBigQty?: number; packagingSmallQty?: number }>();
         for (const m of menuItems) {
           map.set(m.id, m);
         }
@@ -61,6 +73,8 @@ export const useCartStore = create<CartStore>()(
               price: Number(fresh.price),
               veg: fresh.veg ?? cartItem.veg,
               image: fresh.img || cartItem.image,
+              packagingBigQty: fresh.packagingBigQty ?? cartItem.packagingBigQty,
+              packagingSmallQty: fresh.packagingSmallQty ?? cartItem.packagingSmallQty,
             };
           }),
         });
@@ -70,7 +84,17 @@ export const useCartStore = create<CartStore>()(
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
       deliveryFee: () => get().items.length > 0 && get().orderType !== 'takeaway' ? get().pricing.deliveryFee : 0,
       maintenanceFee: () => get().items.length > 0 ? get().pricing.maintenanceFee : 0,
-      packagingCharge: () => get().items.length > 0 ? (get().pricing.packagingCharge || 0) : 0,
+      packagingCharge: () => {
+        if (get().items.length === 0) return 0;
+        const bigPrice = get().pricing.packagingBigPrice ?? 3;
+        const smallPrice = get().pricing.packagingSmallPrice ?? 2;
+        return get().items.reduce((sum, item) => {
+          const bigQty = item.packagingBigQty ?? 0;
+          const smallQty = item.packagingSmallQty ?? 0;
+          const perUnit = (bigQty * bigPrice) + (smallQty * smallPrice);
+          return sum + (perUnit * item.quantity);
+        }, 0);
+      },
       total: () => get().subtotal() + get().deliveryFee() + get().maintenanceFee() + get().packagingCharge(),
     }),
     { name: 'dilipda-cart', partialize: (state) => ({ items: state.items, lastAddedAt: state.lastAddedAt, lastViewedAt: state.lastViewedAt, orderType: state.orderType }) },

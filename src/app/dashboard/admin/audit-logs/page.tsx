@@ -22,10 +22,11 @@ export default function AdminAuditLogsPage() {
 
   const fetchLogs = useCallback(async (p?: number) => {
     setLoading(true);
+    const targetPage = p ?? page;
     const res = await getAuditLogs({
-      search: search || undefined,
+      search: search.trim() || undefined,
       tableName: tableName || undefined,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 50,
       sortBy: 'created_at',
       sortOrder: 'desc',
@@ -40,8 +41,11 @@ export default function AdminAuditLogsPage() {
   }, [search, tableName, page]);
 
   useEffect(() => {
-    fetchLogs(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => {
+      fetchLogs(page);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search, tableName, page, fetchLogs]);
 
   const exportRows = useMemo(() => {
     return logs.map((l) => [
@@ -127,7 +131,7 @@ export default function AdminAuditLogsPage() {
           pageSize={50}
           totalPages={totalPages}
           loading={loading}
-          onPageChange={(p) => fetchLogs(p)}
+          onPageChange={(p) => setPage(p)}
           keyExtractor={(l) => (l as unknown as AuditEntry).id}
           emptyMessage="No audit logs found"
         />

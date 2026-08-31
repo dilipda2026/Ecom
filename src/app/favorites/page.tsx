@@ -46,7 +46,15 @@ export default function FavoritesPage() {
       const rect = e.currentTarget.getBoundingClientRect();
       setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     }
-    addItem({ id: item.id, name: item.name, price: item.price, veg: item.veg ?? false, image: item.img || item.image! });
+    addItem({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      veg: item.veg ?? false,
+      image: item.img || item.image!,
+      packagingBigQty: item.packagingBigQty,
+      packagingSmallQty: item.packagingSmallQty,
+    });
   }
 
   if (items.length === 0) {

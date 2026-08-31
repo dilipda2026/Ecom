@@ -27,6 +27,8 @@ export interface Product {
   is_available: boolean;
   stock_quantity: number;
   track_inventory: boolean;
+  packaging_big_qty: number;
+  packaging_small_qty: number;
   sort_order: number;
   tags: string[] | null;
   created_at: string;
@@ -58,6 +60,8 @@ export interface ProductFormData {
   image?: string;
   stock_quantity?: number;
   track_inventory?: boolean;
+  packaging_big_qty?: number;
+  packaging_small_qty?: number;
   is_available?: boolean;
   is_active?: boolean;
   tags?: string[];

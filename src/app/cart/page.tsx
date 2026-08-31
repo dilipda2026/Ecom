@@ -1,18 +1,31 @@
 'use client';
 
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Minus, Plus, Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/features/cart/store';
 import { useAuthStore } from '@/features/auth/store';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 
 export default function CartPage() {
   const router = useRouter();
   const store = useCartStore();
+  const publicSettings = usePublicSettings();
   const { items, updateQuantity, removeItem, clearCart, subtotal, deliveryFee, maintenanceFee, packagingCharge, total, totalItems } = store;
   const { isAuthenticated, isLoading } = useAuthStore();
   const count = totalItems();
+
+  useEffect(() => {
+    useCartStore.getState().setPricing({
+      deliveryFee: publicSettings.deliveryFee,
+      maintenanceFee: publicSettings.maintenanceFee,
+      packagingCharge: publicSettings.packagingCharge,
+      packagingBigPrice: publicSettings.packagingBigPrice,
+      packagingSmallPrice: publicSettings.packagingSmallPrice,
+    });
+  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee, publicSettings.packagingCharge, publicSettings.packagingBigPrice, publicSettings.packagingSmallPrice]);
 
   function goToCheckout() {
     if (isLoading) return;

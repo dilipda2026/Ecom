@@ -22,7 +22,8 @@ vi.mock('@/lib/settings', () => ({
   getNumericSetting: vi.fn(async (key: string, def: number) => {
     if (key === 'delivery_fee') return 20;
     if (key === 'maintenance_fee') return 1;
-    if (key === 'packaging_charge') return 5;
+    if (key === 'packaging_big_packet_price') return 3;
+    if (key === 'packaging_small_packet_price') return 2;
     return def;
   }),
   getBooleanSetting: vi.fn(async () => false),
@@ -157,6 +158,8 @@ describe('Authoritative Price Integrity Tests', () => {
           is_active: true,
           is_available: true,
           deleted_at: null,
+          packaging_big_qty: 1,
+          packaging_small_qty: 1,
         },
       ],
       error: null,
@@ -171,6 +174,8 @@ describe('Authoritative Price Integrity Tests', () => {
           quantity: 2,
           veg: false,
           image: '/thali.jpg',
+          packagingBigQty: 1,
+          packagingSmallQty: 1,
         },
       ],
       orderType: 'takeaway',
@@ -181,16 +186,16 @@ describe('Authoritative Price Integrity Tests', () => {
       expect(quote.data.subtotal).toBe(240);
       expect(quote.data.deliveryFee).toBe(0); // Takeaway = free delivery
       expect(quote.data.maintenanceFee).toBe(1);
-      expect(quote.data.packagingCharge).toBe(5);
-      expect(quote.data.total).toBe(246); // 240 + 0 + 1 + 5
+      expect(quote.data.packagingCharge).toBe(10); // 2 * (1*3 + 1*2) = 10
+      expect(quote.data.total).toBe(251); // 240 + 0 + 1 + 10
       expect(quote.data.priceChanged).toBe(true);
     }
   });
 
-  it('calculates total with packagingCharge in useCartStore', () => {
+  it('calculates total with dynamic packagingCharge in useCartStore', () => {
     const store = useCartStore.getState();
     store.clearCart();
-    store.setPricing({ deliveryFee: 15, maintenanceFee: 2, packagingCharge: 10 });
+    store.setPricing({ deliveryFee: 15, maintenanceFee: 2, packagingBigPrice: 3, packagingSmallPrice: 2 });
     store.setOrderType('room_delivery');
 
     store.addItem({
@@ -199,12 +204,14 @@ describe('Authoritative Price Integrity Tests', () => {
       price: 150,
       veg: true,
       image: '/paneer.jpg',
+      packagingBigQty: 2,
+      packagingSmallQty: 2,
     }, 1);
 
     expect(store.subtotal()).toBe(150);
     expect(store.deliveryFee()).toBe(15);
     expect(store.maintenanceFee()).toBe(2);
-    expect(store.packagingCharge()).toBe(10);
+    expect(store.packagingCharge()).toBe(10); // 1 * (2*3 + 2*2) = 10
     expect(store.total()).toBe(177); // 150 + 15 + 2 + 10
   });
 

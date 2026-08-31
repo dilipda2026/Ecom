@@ -81,8 +81,10 @@ export default function CheckoutPage() {
       deliveryFee: publicSettings.deliveryFee,
       maintenanceFee: publicSettings.maintenanceFee,
       packagingCharge: publicSettings.packagingCharge,
+      packagingBigPrice: publicSettings.packagingBigPrice,
+      packagingSmallPrice: publicSettings.packagingSmallPrice,
     });
-  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee, publicSettings.packagingCharge]);
+  }, [publicSettings.deliveryFee, publicSettings.maintenanceFee, publicSettings.packagingCharge, publicSettings.packagingBigPrice, publicSettings.packagingSmallPrice]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

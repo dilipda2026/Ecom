@@ -29,10 +29,11 @@ export default function AdminBNPLPage() {
 
   const fetchAccounts = useCallback(async (p?: number) => {
     setLoading(true);
+    const targetPage = p ?? page;
     const res = await getAdminCreditAccounts({
-      search: search || undefined,
+      search: search.trim() || undefined,
       status: status !== 'all' ? status : undefined,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 20,
       sortBy,
       sortOrder,
@@ -47,8 +48,11 @@ export default function AdminBNPLPage() {
   }, [search, status, sortBy, sortOrder, page]);
 
   useEffect(() => {
-    fetchAccounts(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => {
+      fetchAccounts(page);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search, status, sortBy, sortOrder, page, fetchAccounts]);
 
   const viewAccount = async (id: string) => {
     const res = await getAdminCreditAccountById(id);
@@ -181,8 +185,8 @@ export default function AdminBNPLPage() {
           pageSize={20}
           totalPages={totalPages}
           loading={loading}
-          onPageChange={(p) => fetchAccounts(p)}
-          onSort={(key, order) => { setSortBy(key); setSortOrder(order); }}
+          onPageChange={(p) => setPage(p)}
+          onSort={(key, order) => { setSortBy(key); setSortOrder(order); setPage(1); }}
           sortBy={sortBy}
           sortOrder={sortOrder}
           keyExtractor={(a) => (a as unknown as CreditAccountAdmin).id}

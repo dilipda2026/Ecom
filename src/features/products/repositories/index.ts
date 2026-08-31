@@ -4,7 +4,7 @@ import type { Product, ProductFormData, Category, CategoryFormData, ProductsFilt
 
 const BASE_PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, price, compare_at_price, cost_per_unit, unit, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
 
-const FULL_PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, full_description, price, compare_at_price, cost_per_unit, unit, servings, pieces, portion_size, included_items, ingredients, allergens, delivery_time, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, sort_order, tags, created_at, updated_at, deleted_at';
+const FULL_PRODUCT_COLUMNS = 'id, restaurant_id, category_id, name, slug, description, full_description, price, compare_at_price, cost_per_unit, unit, servings, pieces, portion_size, included_items, ingredients, allergens, delivery_time, is_vegetarian, is_vegan, is_gluten_free, spice_level, preparation_time, image, is_active, is_available, stock_quantity, track_inventory, packaging_big_qty, packaging_small_qty, sort_order, tags, created_at, updated_at, deleted_at';
 
 const CATEGORY_COLUMNS = 'id, restaurant_id, name, slug, description, display_order, is_active, created_at, updated_at';
 
@@ -115,6 +115,8 @@ export class ProductRepository {
       image: data.image ?? null,
       stock_quantity: data.stock_quantity ?? 0,
       track_inventory: data.track_inventory ?? false,
+      packaging_big_qty: data.packaging_big_qty ?? 0,
+      packaging_small_qty: data.packaging_small_qty ?? 0,
       is_available: data.is_available ?? true,
       is_active: data.is_active ?? true,
       tags: data.tags ?? null,
@@ -135,6 +137,8 @@ export class ProductRepository {
       delete insertPayload.ingredients;
       delete insertPayload.allergens;
       delete insertPayload.delivery_time;
+      delete insertPayload.packaging_big_qty;
+      delete insertPayload.packaging_small_qty;
 
       const fallbackRes = await supabase
         .from('products')
@@ -180,6 +184,8 @@ export class ProductRepository {
     if (data.image !== undefined) updateData.image = data.image;
     if (data.stock_quantity !== undefined) updateData.stock_quantity = data.stock_quantity;
     if (data.track_inventory !== undefined) updateData.track_inventory = data.track_inventory;
+    if (data.packaging_big_qty !== undefined) updateData.packaging_big_qty = data.packaging_big_qty;
+    if (data.packaging_small_qty !== undefined) updateData.packaging_small_qty = data.packaging_small_qty;
     if (data.is_available !== undefined) updateData.is_available = data.is_available;
     if (data.is_active !== undefined) updateData.is_active = data.is_active;
     if (data.tags !== undefined) updateData.tags = data.tags;
@@ -203,6 +209,8 @@ export class ProductRepository {
       delete updateData.ingredients;
       delete updateData.allergens;
       delete updateData.delivery_time;
+      delete updateData.packaging_big_qty;
+      delete updateData.packaging_small_qty;
 
       const fallbackRes = await supabase
         .from('products')

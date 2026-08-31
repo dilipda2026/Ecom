@@ -32,6 +32,8 @@ export default function RecentOrders({ orders }: { orders: Order[] }) {
         price: matched ? Number(matched.price) : Number(oi.product_price ?? oi.unit_price),
         veg: matched?.veg ?? false,
         image: matched?.img ?? '/images/Chicken Curry.jpg',
+        packagingBigQty: matched?.packagingBigQty,
+        packagingSmallQty: matched?.packagingSmallQty,
       }, oi.quantity || 1);
     }
     showToast(`Added ${items.length} item${items.length > 1 ? 's' : ''} to cart`);

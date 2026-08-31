@@ -13,6 +13,8 @@ export interface FavoriteItem {
   popular?: boolean;
   img: string;
   image?: string; // Support for FeaturedDishes variant
+  packagingBigQty?: number;
+  packagingSmallQty?: number;
 }
 
 const menuItemById = new Map<string, FavoriteItem>();

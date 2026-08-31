@@ -66,6 +66,8 @@ export async function getPublicMenu(): Promise<{ success: boolean; sections: Men
         deliveryTime: prod.delivery_time || '20–30 min',
         spiceLevel: prod.spice_level != null ? Number(prod.spice_level) : undefined,
         unit: prod.unit || 'piece',
+        packagingBigQty: prod.packaging_big_qty != null ? Number(prod.packaging_big_qty) : 0,
+        packagingSmallQty: prod.packaging_small_qty != null ? Number(prod.packaging_small_qty) : 0,
         isAvailable: prod.is_available ?? true,
       };
 

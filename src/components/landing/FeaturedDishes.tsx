@@ -40,7 +40,15 @@ export default function FeaturedDishes({
       const rect = e.currentTarget.getBoundingClientRect();
       setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     }
-    addItem({ id: dish.id, name: dish.name, price: dish.price, veg: dish.veg, image: dish.img });
+    addItem({
+      id: dish.id,
+      name: dish.name,
+      price: dish.price,
+      veg: dish.veg,
+      image: dish.img,
+      packagingBigQty: dish.packagingBigQty,
+      packagingSmallQty: dish.packagingSmallQty,
+    });
   }
 
   const filterCount = (vegOnly ? 1 : 0) + (priceCap ? 1 : 0) + (popularOnly ? 1 : 0);

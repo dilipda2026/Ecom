@@ -11,10 +11,17 @@ import { minutesOf, formatClock, temporaryCloseLabel } from '@/features/menu/lib
 
 import { menuSections as fallbackMenuSections } from '@/features/menu/data';
 
-const fallbackItemMap = new Map<string, { id: string; name: string; price: number; isAvailable?: boolean }>();
+const fallbackItemMap = new Map<string, { id: string; name: string; price: number; isAvailable?: boolean; packagingBigQty?: number; packagingSmallQty?: number }>();
 for (const sec of fallbackMenuSections) {
   for (const it of sec.items) {
-    fallbackItemMap.set(it.id, { id: it.id, name: it.name, price: it.price, isAvailable: it.isAvailable ?? true });
+    fallbackItemMap.set(it.id, {
+      id: it.id,
+      name: it.name,
+      price: it.price,
+      isAvailable: it.isAvailable ?? true,
+      packagingBigQty: it.packagingBigQty ?? 0,
+      packagingSmallQty: it.packagingSmallQty ?? 0,
+    });
   }
 }
 
@@ -62,6 +69,8 @@ interface ResolvedLineItem {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  packaging_big_qty?: number;
+  packaging_small_qty?: number;
   special_instructions?: string;
 }
 
@@ -78,8 +87,8 @@ export async function resolveAuthoritativeLineItems(
   }
 
   // Collect candidate IDs to query DB
-  const rawIdToDbIdMap = new Map<string, string>();
   const dbIdsToQuery: string[] = [];
+  const rawIdToDbIdMap = new Map<string, string>();
 
   for (const item of items) {
     const mappedUuid = STATIC_PRODUCT_IDS[item.id] ?? item.id;
@@ -91,15 +100,26 @@ export async function resolveAuthoritativeLineItems(
   }
 
   // Fetch current authoritative product records from DB
-  const dbProductMap = new Map<string, { id: string; name: string; price: number; is_active: boolean; is_available: boolean; deleted_at: string | null }>();
+  const dbProductMap = new Map<string, { id: string; name: string; price: number; is_active: boolean; is_available: boolean; deleted_at: string | null; packaging_big_qty: number; packaging_small_qty: number }>();
 
   if (dbIdsToQuery.length > 0) {
-    const { data: dbProducts, error: prodErr } = await supabase
+    let dbProducts: Array<{ id: string; name: string; price: number; is_active: boolean; is_available: boolean; deleted_at: string | null; packaging_big_qty?: number; packaging_small_qty?: number }> | null = null;
+    const { data, error: prodErr } = await supabase
       .from('products')
-      .select('id, name, price, is_active, is_available, deleted_at')
+      .select('id, name, price, is_active, is_available, deleted_at, packaging_big_qty, packaging_small_qty')
       .in('id', dbIdsToQuery);
 
-    if (!prodErr && dbProducts) {
+    if (prodErr && String(prodErr.message).toLowerCase().includes('column')) {
+      const fallbackRes = await supabase
+        .from('products')
+        .select('id, name, price, is_active, is_available, deleted_at')
+        .in('id', dbIdsToQuery);
+      dbProducts = fallbackRes.data;
+    } else {
+      dbProducts = data;
+    }
+
+    if (dbProducts) {
       for (const p of dbProducts) {
         dbProductMap.set(p.id, {
           id: p.id,
@@ -108,6 +128,8 @@ export async function resolveAuthoritativeLineItems(
           is_active: Boolean(p.is_active),
           is_available: p.is_available ?? true,
           deleted_at: p.deleted_at ?? null,
+          packaging_big_qty: p.packaging_big_qty != null ? Number(p.packaging_big_qty) : 0,
+          packaging_small_qty: p.packaging_small_qty != null ? Number(p.packaging_small_qty) : 0,
         });
       }
     }
@@ -125,6 +147,8 @@ export async function resolveAuthoritativeLineItems(
     let authoritativePrice: number;
     let productName: string;
     let resolvedProductId: string;
+    let packagingBigQty = 0;
+    let packagingSmallQty = 0;
 
     if (dbProd) {
       if (!dbProd.is_active || dbProd.deleted_at) {
@@ -136,6 +160,8 @@ export async function resolveAuthoritativeLineItems(
       authoritativePrice = dbProd.price;
       productName = dbProd.name;
       resolvedProductId = dbProd.id;
+      packagingBigQty = dbProd.packaging_big_qty ?? 0;
+      packagingSmallQty = dbProd.packaging_small_qty ?? 0;
     } else if (fallbackProd) {
       if (fallbackProd.isAvailable === false) {
         return { success: false, error: `"${fallbackProd.name}" is currently sold out.` };
@@ -143,6 +169,8 @@ export async function resolveAuthoritativeLineItems(
       authoritativePrice = fallbackProd.price;
       productName = fallbackProd.name;
       resolvedProductId = STATIC_PRODUCT_IDS[item.id] ?? (item.id.length === 36 ? item.id : '00000000-0000-0000-0000-000000000001');
+      packagingBigQty = fallbackProd.packagingBigQty ?? 0;
+      packagingSmallQty = fallbackProd.packagingSmallQty ?? 0;
     } else {
       return { success: false, error: `Product "${item.name || item.id}" was not found on the menu.` };
     }
@@ -162,6 +190,8 @@ export async function resolveAuthoritativeLineItems(
       unit_price: authoritativePrice,
       quantity: qty,
       subtotal: itemSubtotal,
+      packaging_big_qty: packagingBigQty,
+      packaging_small_qty: packagingSmallQty,
       special_instructions: undefined,
     });
   }
@@ -200,11 +230,19 @@ export async function validateAndQuoteOrder(input: {
   const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
   const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
   const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
-  const packagingChargeSetting = packagingChargeEnabled ? await getNumericSetting('packaging_charge', 0) : 0;
+  const packagingBigPacketPrice = await getNumericSetting('packaging_big_packet_price', 3);
+  const packagingSmallPacketPrice = await getNumericSetting('packaging_small_packet_price', 2);
+
+  const calculatedPackagingCharge = resolution.lineItems.reduce((sum, li) => {
+    const bigQty = li.packaging_big_qty ?? 0;
+    const smallQty = li.packaging_small_qty ?? 0;
+    const perUnit = (bigQty * packagingBigPacketPrice) + (smallQty * packagingSmallPacketPrice);
+    return sum + (perUnit * li.quantity);
+  }, 0);
 
   const deliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
   const maintenanceFee = maintenanceFeeSetting;
-  const packagingCharge = packagingChargeSetting;
+  const packagingCharge = packagingChargeEnabled ? calculatedPackagingCharge : 0;
   const total = resolution.subtotal + deliveryFee + maintenanceFee + packagingCharge;
 
   return {
@@ -340,12 +378,20 @@ export async function createOrder(params: CreateOrderParams) {
   const deliveryFeeSetting = await getNumericSetting('delivery_fee', 20);
   const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
   const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
-  const packagingChargeSetting = packagingChargeEnabled ? await getNumericSetting('packaging_charge', 0) : 0;
+  const packagingBigPacketPrice = await getNumericSetting('packaging_big_packet_price', 3);
+  const packagingSmallPacketPrice = await getNumericSetting('packaging_small_packet_price', 2);
+
+  const calculatedPackagingCharge = priceResolution.lineItems.reduce((sum, li) => {
+    const bigQty = li.packaging_big_qty ?? 0;
+    const smallQty = li.packaging_small_qty ?? 0;
+    const perUnit = (bigQty * packagingBigPacketPrice) + (smallQty * packagingSmallPacketPrice);
+    return sum + (perUnit * li.quantity);
+  }, 0);
 
   const calculatedSubtotal = priceResolution.subtotal;
   const effectiveDeliveryFee = isTakeaway ? 0 : deliveryFeeSetting;
   const effectiveMaintenanceFee = maintenanceFeeSetting;
-  const effectivePackagingCharge = packagingChargeSetting;
+  const effectivePackagingCharge = packagingChargeEnabled ? calculatedPackagingCharge : 0;
   const effectiveTotal = calculatedSubtotal + effectiveDeliveryFee + effectiveMaintenanceFee + effectivePackagingCharge;
 
   const availability = await getPaymentMethodAvailability();

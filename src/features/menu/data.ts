@@ -19,6 +19,8 @@ export interface MenuItem {
   deliveryTime?: string;
   spiceLevel?: number;
   unit?: string;
+  packagingBigQty?: number;
+  packagingSmallQty?: number;
   isAvailable?: boolean;
 }
 
@@ -57,6 +59,8 @@ export const menuSections: MenuSection[] = [
         deliveryTime: '20–30 min',
         spiceLevel: 2,
         unit: 'plate',
+        packagingBigQty: 1,
+        packagingSmallQty: 1,
       },
       {
         id: 'thali-pork',
@@ -84,6 +88,8 @@ export const menuSections: MenuSection[] = [
         deliveryTime: '20–30 min',
         spiceLevel: 3,
         unit: 'plate',
+        packagingBigQty: 1,
+        packagingSmallQty: 1,
       },
       {
         id: 'thali-veg',
@@ -111,6 +117,8 @@ export const menuSections: MenuSection[] = [
         deliveryTime: '20–30 min',
         spiceLevel: 1,
         unit: 'plate',
+        packagingBigQty: 1,
+        packagingSmallQty: 0,
       },
     ],
   },
@@ -138,6 +146,8 @@ export const menuSections: MenuSection[] = [
         deliveryTime: '20–30 min',
         spiceLevel: 2,
         unit: 'bowl',
+        packagingBigQty: 0,
+        packagingSmallQty: 1,
       },
       {
         id: 'gravy-pork',
@@ -160,6 +170,8 @@ export const menuSections: MenuSection[] = [
         deliveryTime: '20–30 min',
         spiceLevel: 3,
         unit: 'bowl',
+        packagingBigQty: 0,
+        packagingSmallQty: 1,
       },
     ],
   },

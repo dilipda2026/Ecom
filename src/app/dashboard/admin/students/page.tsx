@@ -65,10 +65,11 @@ export default function AdminStudentsPage() {
 
   const fetchStudents = useCallback(async (p?: number) => {
     setLoading(true);
+    const targetPage = p ?? page;
     const res = await getAdminStudents({
-      search: search || undefined,
+      search: search.trim() || undefined,
       status: status !== 'all' ? status : undefined,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 20,
       sortBy,
       sortOrder,
@@ -83,8 +84,11 @@ export default function AdminStudentsPage() {
   }, [search, status, sortBy, sortOrder, page]);
 
   useEffect(() => {
-    fetchStudents(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => {
+      fetchStudents(page);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search, status, sortBy, sortOrder, page, fetchStudents]);
 
   const handleSuspend = async (id: string) => {
     const res = await suspendStudent(id, 'Suspended by admin');
@@ -293,8 +297,8 @@ export default function AdminStudentsPage() {
           pageSize={20}
           totalPages={totalPages}
           loading={loading}
-          onPageChange={(p) => fetchStudents(p)}
-          onSort={(key, order) => { setSortBy(key); setSortOrder(order); }}
+          onPageChange={(p) => setPage(p)}
+          onSort={(key, order) => { setSortBy(key); setSortOrder(order); setPage(1); }}
           sortBy={sortBy}
           sortOrder={sortOrder}
           keyExtractor={(s) => (s as unknown as AdminStudent).id}

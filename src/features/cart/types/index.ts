@@ -5,6 +5,16 @@ export interface CartItem {
   quantity: number;
   veg: boolean;
   image: string;
+  packagingBigQty?: number;
+  packagingSmallQty?: number;
+}
+
+export interface CartPricing {
+  deliveryFee: number;
+  maintenanceFee: number;
+  packagingCharge?: number;
+  packagingBigPrice?: number;
+  packagingSmallPrice?: number;
 }
 
 export interface CartState {
@@ -12,7 +22,7 @@ export interface CartState {
   lastAddedAt: number | null;
   lastViewedAt: number | null;
   lastAddedRect: { left: number; top: number; width: number; height: number } | null;
-  pricing: { deliveryFee: number; maintenanceFee: number; packagingCharge?: number };
+  pricing: CartPricing;
   orderType: 'room_delivery' | 'takeaway';
 }
 
@@ -23,9 +33,9 @@ export interface CartStore extends CartState {
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   markCartViewed: () => void;
-  setPricing: (pricing: { deliveryFee: number; maintenanceFee: number; packagingCharge?: number }) => void;
+  setPricing: (pricing: CartPricing) => void;
   setOrderType: (orderType: 'room_delivery' | 'takeaway') => void;
-  syncPrices: (menuItems: Array<{ id: string; name: string; price: number; img?: string; veg?: boolean }>) => void;
+  syncPrices: (menuItems: Array<{ id: string; name: string; price: number; img?: string; veg?: boolean; packagingBigQty?: number; packagingSmallQty?: number }>) => void;
   totalItems: () => number;
   subtotal: () => number;
   deliveryFee: () => number;

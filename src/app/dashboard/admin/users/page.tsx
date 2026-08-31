@@ -45,11 +45,12 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async (p?: number) => {
     setLoading(true);
+    const targetPage = p ?? page;
     const res = await getAdminUsers({
-      search: search || undefined,
+      search: search.trim() || undefined,
       role: role !== 'all' ? role : undefined,
       status: status !== 'all' ? status : undefined,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 20,
       sortBy,
       sortOrder,
@@ -64,8 +65,11 @@ export default function AdminUsersPage() {
   }, [search, role, status, sortBy, sortOrder, page]);
 
   useEffect(() => {
-    fetchUsers(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const timer = setTimeout(() => {
+      fetchUsers(page);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search, role, status, sortBy, sortOrder, page, fetchUsers]);
 
   const handleDelete = async (id: string) => {
     const res = await deleteUser(id);
@@ -159,8 +163,8 @@ export default function AdminUsersPage() {
         pageSize={20}
         totalPages={totalPages}
         loading={loading}
-        onPageChange={(p) => fetchUsers(p)}
-        onSort={(key, order) => { setSortBy(key); setSortOrder(order); }}
+        onPageChange={(p) => setPage(p)}
+        onSort={(key, order) => { setSortBy(key); setSortOrder(order); setPage(1); }}
         sortBy={sortBy}
         sortOrder={sortOrder}
         keyExtractor={(u) => (u as unknown as AdminUser).id}

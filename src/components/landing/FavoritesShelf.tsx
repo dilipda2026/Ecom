@@ -16,12 +16,20 @@ export default function FavoritesShelf() {
     return items.find((i) => i.id === id)?.quantity ?? 0;
   }
 
-  function handleAdd(dish: { id: string; name: string; price: number; veg: boolean; img: string }, e?: React.MouseEvent<HTMLButtonElement>) {
+  function handleAdd(dish: { id: string; name: string; price: number; veg: boolean; img: string; packagingBigQty?: number; packagingSmallQty?: number }, e?: React.MouseEvent<HTMLButtonElement>) {
     if (e) {
       const rect = e.currentTarget.getBoundingClientRect();
       setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     }
-    addItem({ id: dish.id, name: dish.name, price: dish.price, veg: dish.veg, image: dish.img });
+    addItem({
+      id: dish.id,
+      name: dish.name,
+      price: dish.price,
+      veg: dish.veg,
+      image: dish.img,
+      packagingBigQty: dish.packagingBigQty,
+      packagingSmallQty: dish.packagingSmallQty,
+    });
   }
 
   return (

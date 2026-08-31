@@ -196,6 +196,8 @@ export async function createProductFromFormData(formData: FormData): Promise<Api
   const preparation_time = formData.get('preparation_time') ? Number(formData.get('preparation_time')) : 15;
   const stock_quantity = formData.get('stock_quantity') ? Number(formData.get('stock_quantity')) : 0;
   const track_inventory = formData.get('track_inventory') === 'true' || formData.get('track_inventory') === 'on';
+  const packaging_big_qty = formData.get('packaging_big_qty') ? Math.max(0, parseInt(String(formData.get('packaging_big_qty')), 10) || 0) : 0;
+  const packaging_small_qty = formData.get('packaging_small_qty') ? Math.max(0, parseInt(String(formData.get('packaging_small_qty')), 10) || 0) : 0;
   const tagsString = formData.get('tags') as string;
   const tags = tagsString ? tagsString.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
 
@@ -224,6 +226,8 @@ export async function createProductFromFormData(formData: FormData): Promise<Api
     preparation_time,
     stock_quantity,
     track_inventory,
+    packaging_big_qty,
+    packaging_small_qty,
     tags,
   };
 
@@ -284,6 +288,8 @@ export async function updateProductFromFormData(productId: string, formData: For
   const compare_at_price = formData.get('compare_at_price') ? Number(formData.get('compare_at_price')) : undefined;
   const preparation_time = formData.get('preparation_time') ? Number(formData.get('preparation_time')) : existing.preparation_time;
   const stock_quantity = formData.get('stock_quantity') ? Number(formData.get('stock_quantity')) : existing.stock_quantity;
+  const packaging_big_qty = formData.has('packaging_big_qty') ? Math.max(0, parseInt(String(formData.get('packaging_big_qty')), 10) || 0) : existing.packaging_big_qty;
+  const packaging_small_qty = formData.has('packaging_small_qty') ? Math.max(0, parseInt(String(formData.get('packaging_small_qty')), 10) || 0) : existing.packaging_small_qty;
 
   const productData: Partial<ProductFormData> = {
     name,
@@ -308,6 +314,8 @@ export async function updateProductFromFormData(productId: string, formData: For
     compare_at_price,
     preparation_time,
     stock_quantity,
+    packaging_big_qty,
+    packaging_small_qty,
   };
 
   const product = await productRepository.update(productId, existing.restaurant_id, productData);

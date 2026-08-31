@@ -33,7 +33,9 @@ export default function NewProductPage() {
     unit: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
     category_id: string; is_vegetarian: boolean; is_vegan: boolean;
     is_gluten_free: boolean; spice_level: number; preparation_time: number;
-    stock_quantity: number; track_inventory: boolean; image: string; tags: string;
+    stock_quantity: number; track_inventory: boolean;
+    packaging_big_qty: number; packaging_small_qty: number;
+    image: string; tags: string;
   }>({
     name: '', description: '', full_description: '',
     servings: '', pieces: '', portion_size: '',
@@ -41,7 +43,9 @@ export default function NewProductPage() {
     price: 0, compare_at_price: 0, cost_per_unit: 0,
     unit: 'piece', category_id: '', is_vegetarian: false, is_vegan: false,
     is_gluten_free: false, spice_level: 0, preparation_time: 10,
-    stock_quantity: 0, track_inventory: false, image: '', tags: '',
+    stock_quantity: 0, track_inventory: false,
+    packaging_big_qty: 0, packaging_small_qty: 0,
+    image: '', tags: '',
   });
 
   useEffect(() => {
@@ -77,6 +81,8 @@ export default function NewProductPage() {
     if (form.preparation_time) fd.append('preparation_time', String(form.preparation_time));
     if (form.stock_quantity) fd.append('stock_quantity', String(form.stock_quantity));
     if (form.track_inventory) fd.append('track_inventory', 'true');
+    fd.append('packaging_big_qty', String(form.packaging_big_qty || 0));
+    fd.append('packaging_small_qty', String(form.packaging_small_qty || 0));
     if (form.tags) fd.append('tags', form.tags);
     if (form.image) fd.append('image', form.image);
 
@@ -165,6 +171,14 @@ export default function NewProductPage() {
           <div>
             <label className="text-xs font-medium text-ztext-lighter">Prep time (min)</label>
             <input type="number" min={0} value={form.preparation_time} onChange={(e) => update('preparation_time', Number(e.target.value))} className="input-z mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Big packets required</label>
+            <input type="number" min={0} step={1} value={form.packaging_big_qty} onChange={(e) => update('packaging_big_qty', Number(e.target.value))} className="input-z mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ztext-lighter">Small packets required</label>
+            <input type="number" min={0} step={1} value={form.packaging_small_qty} onChange={(e) => update('packaging_small_qty', Number(e.target.value))} className="input-z mt-1" />
           </div>
           <div>
             <label className="text-xs font-medium text-ztext-lighter">Spice level (0-5)</label>

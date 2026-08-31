@@ -573,6 +573,8 @@ export async function processRefund(paymentId: string, amount: number, reason: s
 const DEFAULT_SYSTEM_SETTINGS = [
   { key: 'packaging_charge', value: '0', type: 'number', description: 'Packaging charge (₹) applied per customer order at checkout' },
   { key: 'packaging_charge_enabled', value: 'true', type: 'boolean', description: 'Enable or disable dynamic packaging charge' },
+  { key: 'packaging_big_packet_price', value: '3', type: 'number', description: 'Price per big packaging unit (₹)' },
+  { key: 'packaging_small_packet_price', value: '2', type: 'number', description: 'Price per small packaging unit (₹)' },
 ];
 
 export async function getSystemSettings() {

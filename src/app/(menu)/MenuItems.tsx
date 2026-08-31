@@ -49,7 +49,15 @@ export function MenuItems() {
       const rect = e.currentTarget.getBoundingClientRect();
       setLastAddedRect({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     }
-    addItem({ id: item.id, name: item.name, price: item.price, veg: item.veg, image: item.img });
+    addItem({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      veg: item.veg,
+      image: item.img,
+      packagingBigQty: item.packagingBigQty,
+      packagingSmallQty: item.packagingSmallQty,
+    });
   }
 
   function handleCategoryClick(category: string) {

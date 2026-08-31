@@ -22,6 +22,8 @@ const LABELS: Record<string, string> = {
   maintenance_fee: 'Maintenance fee (₹)',
   packaging_charge: 'Packaging Charge (₹)',
   packaging_charge_enabled: 'Enable Packaging Charge',
+  packaging_big_packet_price: 'Big Packet Price (₹)',
+  packaging_small_packet_price: 'Small Packet Price (₹)',
   telegram_show_qr: 'Send pickup QR in Telegram',
   dilip_da_email: "Owner's email (Dilip Da)",
   store_temp_close_until: 'Temporarily close until (HH:MM)',
@@ -423,10 +425,10 @@ export default function AdminSettingsPage() {
 
         {renderCard({
           icon: Package,
-          title: 'Packaging Charge',
-          subtitle: 'Configure dynamic packaging fee applied per customer order at checkout.',
+          title: 'Packaging Charges',
+          subtitle: 'Configure the cost per big and small packaging unit used per product.',
           toggleKey: 'packaging_charge_enabled',
-          keys: ['packaging_charge'],
+          keys: ['packaging_big_packet_price', 'packaging_small_packet_price'],
         })}
 
         {renderCard({

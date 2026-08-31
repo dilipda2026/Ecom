@@ -80,6 +80,8 @@ export default function FoodDetailModal({ dish, isOpen, onClose }: FoodDetailMod
           price: dish.price,
           veg: dish.veg,
           image: displayImg,
+          packagingBigQty: dish.packagingBigQty,
+          packagingSmallQty: dish.packagingSmallQty,
         },
         modalQty
       );

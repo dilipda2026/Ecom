@@ -44,6 +44,8 @@ export default function AdminProductsPage() {
   const [, setSpiceLevel] = useState<number>(0);
   const [prepTime, setPrepTime] = useState<string>('15');
   const [stockQuantity, setStockQuantity] = useState<string>('100');
+  const [packagingBigQty, setPackagingBigQty] = useState<string>('0');
+  const [packagingSmallQty, setPackagingSmallQty] = useState<string>('0');
   const [isAvailable, setIsAvailable] = useState(true);
   const [isActive, setIsActive] = useState(true);
 
@@ -107,6 +109,8 @@ export default function AdminProductsPage() {
     setSpiceLevel(0);
     setPrepTime('15');
     setStockQuantity('100');
+    setPackagingBigQty('0');
+    setPackagingSmallQty('0');
     setIsAvailable(true);
     setIsActive(true);
     setError('');
@@ -145,6 +149,8 @@ export default function AdminProductsPage() {
     setSpiceLevel(prod.spice_level);
     setPrepTime(prod.preparation_time.toString());
     setStockQuantity(prod.stock_quantity.toString());
+    setPackagingBigQty((prod.packaging_big_qty ?? 0).toString());
+    setPackagingSmallQty((prod.packaging_small_qty ?? 0).toString());
     setIsAvailable(prod.is_available);
     setIsActive(prod.is_active);
     setShowForm(true);
@@ -185,6 +191,8 @@ export default function AdminProductsPage() {
       if (isActive) formData.append('is_active', 'true');
       if (prepTime) formData.append('preparation_time', prepTime);
       if (stockQuantity) formData.append('stock_quantity', stockQuantity);
+      formData.append('packaging_big_qty', packagingBigQty || '0');
+      formData.append('packaging_small_qty', packagingSmallQty || '0');
 
       if (imageFile) {
         formData.append('file', imageFile);
@@ -622,6 +630,32 @@ export default function AdminProductsPage() {
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(e.target.value)}
                 placeholder="100"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Big packets required</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={packagingBigQty}
+                onChange={(e) => setPackagingBigQty(e.target.value)}
+                placeholder="0"
+                className="input-z"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-ztext-lighter block mb-1">Small packets required</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={packagingSmallQty}
+                onChange={(e) => setPackagingSmallQty(e.target.value)}
+                placeholder="0"
                 className="input-z"
               />
             </div>

@@ -143,10 +143,13 @@ export class AdminRepository {
       .is('deleted_at', null);
     if (status === 'active') query = query.eq('is_active', true);
     if (status === 'suspended') query = query.eq('is_active', false);
-    if (search) {
-      query = query.or(
-        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`,
-      );
+    if (search && search.trim()) {
+      const clean = search.trim().replace(/[%,\(\)]/g, '');
+      if (clean) {
+        query = query.or(
+          `full_name.ilike.%${clean}%,email.ilike.%${clean}%,phone.ilike.%${clean}%`,
+        );
+      }
     }
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
     const from = (page - 1) * pageSize;
@@ -246,10 +249,13 @@ export class AdminRepository {
       .is('deleted_at', null);
     if (status === 'active') query = query.eq('is_active', true);
     if (status === 'suspended') query = query.eq('is_active', false);
-    if (search) {
-      query = query.or(
-        `full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`,
-      );
+    if (search && search.trim()) {
+      const clean = search.trim().replace(/[%,\(\)]/g, '');
+      if (clean) {
+        query = query.or(
+          `full_name.ilike.%${clean}%,email.ilike.%${clean}%,phone.ilike.%${clean}%`,
+        );
+      }
     }
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
     const from = (page - 1) * pageSize;
