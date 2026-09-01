@@ -73,9 +73,9 @@ export default function NewProductPage() {
     if (form.allergens.trim()) fd.append('allergens', form.allergens.trim());
     if (form.unit) fd.append('unit', form.unit);
     if (form.category_id) fd.append('category_id', form.category_id);
-    if (form.is_vegetarian) fd.append('is_vegetarian', 'true');
-    if (form.is_vegan) fd.append('is_vegan', 'true');
-    if (form.is_gluten_free) fd.append('is_gluten_free', 'true');
+    fd.append('is_vegetarian', String(form.is_vegetarian));
+    fd.append('is_vegan', String(form.is_vegan));
+    fd.append('is_gluten_free', String(form.is_gluten_free));
     if (form.compare_at_price) fd.append('compare_at_price', String(form.compare_at_price));
     if (form.cost_per_unit) fd.append('cost_per_unit', String(form.cost_per_unit));
     if (form.preparation_time) fd.append('preparation_time', String(form.preparation_time));

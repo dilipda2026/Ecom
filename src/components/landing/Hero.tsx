@@ -19,9 +19,10 @@ interface HeroProps {
   vegOn: boolean;
   onVegToggle: () => void;
   bumperOffers?: BumperOfferItem[];
+  settingsLoading?: boolean;
 }
 
-export default function Hero({ query, onQueryChange, vegOn, onVegToggle, bumperOffers }: HeroProps) {
+export default function Hero({ query, onQueryChange, vegOn, onVegToggle, bumperOffers, settingsLoading }: HeroProps) {
   const [index, setIndex] = useState(0);
 
   const activeBumper = (bumperOffers ?? []).filter((o) => !!o.url);
@@ -64,7 +65,9 @@ export default function Hero({ query, onQueryChange, vegOn, onVegToggle, bumperO
 
         {/* Promo banner slider */}
         <div className="mt-3 sm:mt-4 animate-hero-in" style={{ animationDelay: '100ms' }}>
-          {showBumper ? (
+          {settingsLoading ? (
+            <div className="relative rounded-2xl overflow-hidden h-32 sm:h-44 lg:h-56 bg-zgray animate-pulse" />
+          ) : showBumper ? (
             <BumperOffersSlider items={activeBumper} />
           ) : (
             <>

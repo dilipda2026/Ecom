@@ -64,8 +64,9 @@ const FALLBACK: PublicStoreSettings = {
   deliveryCustomMessageEnabled: false,
 };
 
-export function usePublicSettings(): PublicStoreSettings {
+export function usePublicSettings(): PublicStoreSettings & { loading: boolean } {
   const [settings, setSettings] = useState<PublicStoreSettings>(FALLBACK);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,11 +74,14 @@ export function usePublicSettings(): PublicStoreSettings {
       .then((s) => {
         if (!cancelled) setSettings(s);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return settings;
+  return { ...settings, loading };
 }

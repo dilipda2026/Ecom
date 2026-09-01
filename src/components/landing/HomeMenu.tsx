@@ -35,7 +35,7 @@ function HomeContent() {
   const { sections } = useMenu();
   const { user, isAuthenticated } = useAuthStore();
   const { orders } = useHomeOrders();
-  const { bumperOffersEnabled, bumperOffers } = usePublicSettings();
+  const { bumperOffersEnabled, bumperOffers, loading: settingsLoading } = usePublicSettings();
   const visibleOrders = useMemo(() => (isAuthenticated ? (orders ?? []) : []), [isAuthenticated, orders]);
   const liveOrder = visibleOrders.find((o) => isActiveOrder(o.status)) ?? null;
   const recentDelivered = visibleOrders.filter((o) => isCompletedOrder(o.status)).slice(0, 5);
@@ -71,6 +71,7 @@ function HomeContent() {
         vegOn={vegOnly}
         onVegToggle={() => setVegOnly((v) => !v)}
         bumperOffers={bumperOffersEnabled ? bumperOffers : undefined}
+        settingsLoading={settingsLoading}
       />
       <StatusStrip />
       <Reveal>

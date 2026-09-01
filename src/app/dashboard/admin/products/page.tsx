@@ -184,11 +184,11 @@ export default function AdminProductsPage() {
       if (ingredients.trim()) formData.append('ingredients', ingredients.trim());
       if (allergens.trim()) formData.append('allergens', allergens.trim());
       if (image.trim()) formData.append('image', image.trim());
-      if (isVegetarian) formData.append('is_vegetarian', 'true');
-      if (isVegan) formData.append('is_vegan', 'true');
-      if (isGlutenFree) formData.append('is_gluten_free', 'true');
-      if (isAvailable) formData.append('is_available', 'true');
-      if (isActive) formData.append('is_active', 'true');
+      formData.append('is_vegetarian', String(isVegetarian));
+      formData.append('is_vegan', String(isVegan));
+      formData.append('is_gluten_free', String(isGlutenFree));
+      formData.append('is_available', String(isAvailable));
+      formData.append('is_active', String(isActive));
       if (prepTime) formData.append('preparation_time', prepTime);
       if (stockQuantity) formData.append('stock_quantity', stockQuantity);
       formData.append('packaging_big_qty', packagingBigQty || '0');
