@@ -391,9 +391,9 @@ export default function OrdersPage() {
                 <p className="text-[11px] text-ztext-light mt-0.5">Near CIT Kokrajhar, 2nd Gate</p>
               </div>
               <div className="flex items-center gap-2">
-                <Link href="/dashboard/student/credit" aria-label="Ethics Pay credit" title="Ethics Pay credit" className="w-9 h-9 rounded-full border border-zborder bg-zcard flex items-center justify-center text-ztext-light shadow-sm hover:border-zred/40 hover:text-zred transition-colors">
+                {/* <Link href="/dashboard/student/credit" aria-label="Ethics Pay credit" title="Ethics Pay credit" className="w-9 h-9 rounded-full border border-zborder bg-zcard flex items-center justify-center text-ztext-light shadow-sm hover:border-zred/40 hover:text-zred transition-colors">
                   <Wallet size={15} />
-                </Link>
+                </Link> */}
                 <Link href="/profile" aria-label="Profile" title="Profile" className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-blue-700 bg-blue-100/80 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800 shadow-sm hover:shadow-z-hover transition-shadow">
                   {user?.fullName
                     ? user.fullName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
