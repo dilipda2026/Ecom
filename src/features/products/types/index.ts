@@ -38,33 +38,33 @@ export interface Product {
 
 export interface ProductFormData {
   name: string;
-  description?: string;
-  full_description?: string;
+  description?: string | null;
+  full_description?: string | null;
   price: number;
-  compare_at_price?: number;
-  cost_per_unit?: number;
+  compare_at_price?: number | null;
+  cost_per_unit?: number | null;
   unit?: 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box';
-  servings?: string;
-  pieces?: string;
-  portion_size?: string;
-  included_items?: string[];
-  ingredients?: string[];
-  allergens?: string[];
-  delivery_time?: string;
-  category_id?: string;
+  servings?: string | null;
+  pieces?: string | null;
+  portion_size?: string | null;
+  included_items?: string[] | null;
+  ingredients?: string[] | null;
+  allergens?: string[] | null;
+  delivery_time?: string | null;
+  category_id?: string | null;
   is_vegetarian?: boolean;
   is_vegan?: boolean;
   is_gluten_free?: boolean;
   spice_level?: number;
   preparation_time?: number;
-  image?: string;
+  image?: string | null;
   stock_quantity?: number;
   track_inventory?: boolean;
   packaging_big_qty?: number;
   packaging_small_qty?: number;
   is_available?: boolean;
   is_active?: boolean;
-  tags?: string[];
+  tags?: string[] | null;
 }
 
 export interface Category {

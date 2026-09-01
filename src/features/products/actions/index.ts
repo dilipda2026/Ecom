@@ -250,44 +250,47 @@ export async function updateProductFromFormData(productId: string, formData: For
   const existing = await productRepository.findById(productId);
   if (!existing) return { success: false, error: 'Product not found' };
 
-  let imagePath: string | undefined = (formData.get('image') as string) || (existing.image ?? undefined);
+  let imagePath: string | null | undefined = existing.image;
   const file = (formData.get('file') || formData.get('image_file')) as File | null;
   if (file && file instanceof File && file.size > 0) {
     const uploadedPath = await processImageFile(file);
     if (uploadedPath) imagePath = uploadedPath;
+  } else if (formData.has('image')) {
+    const rawImage = (formData.get('image') as string)?.trim();
+    imagePath = rawImage ? rawImage : null;
   }
 
-  const name = (formData.get('name') as string)?.trim() || existing.name;
-  const price = formData.get('price') ? Number(formData.get('price')) : existing.price;
-  const description = formData.get('description') !== null ? ((formData.get('description') as string)?.trim() || undefined) : (existing.description ?? undefined);
-  const full_description = formData.get('full_description') !== null ? ((formData.get('full_description') as string)?.trim() || undefined) : (existing.full_description ?? undefined);
-  const servings = formData.get('servings') !== null ? ((formData.get('servings') as string)?.trim() || undefined) : (existing.servings ?? undefined);
-  const pieces = formData.get('pieces') !== null ? ((formData.get('pieces') as string)?.trim() || undefined) : (existing.pieces ?? undefined);
-  const portion_size = formData.get('portion_size') !== null ? ((formData.get('portion_size') as string)?.trim() || undefined) : (existing.portion_size ?? undefined);
-  const delivery_time = formData.get('delivery_time') !== null ? ((formData.get('delivery_time') as string)?.trim() || undefined) : (existing.delivery_time ?? undefined);
-  const unit = formData.get('unit') !== null ? ((formData.get('unit') as 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box') || undefined) : existing.unit;
+  const name = formData.has('name') ? ((formData.get('name') as string)?.trim() || existing.name) : existing.name;
+  const price = formData.has('price') && formData.get('price') ? Number(formData.get('price')) : existing.price;
+  const description = formData.has('description') ? ((formData.get('description') as string)?.trim() || null) : existing.description;
+  const full_description = formData.has('full_description') ? ((formData.get('full_description') as string)?.trim() || null) : existing.full_description;
+  const servings = formData.has('servings') ? ((formData.get('servings') as string)?.trim() || null) : existing.servings;
+  const pieces = formData.has('pieces') ? ((formData.get('pieces') as string)?.trim() || null) : existing.pieces;
+  const portion_size = formData.has('portion_size') ? ((formData.get('portion_size') as string)?.trim() || null) : existing.portion_size;
+  const delivery_time = formData.has('delivery_time') ? ((formData.get('delivery_time') as string)?.trim() || null) : existing.delivery_time;
+  const unit = formData.has('unit') ? ((formData.get('unit') as 'piece' | 'plate' | 'kg' | 'g' | 'ml' | 'l' | 'dozen' | 'box') || 'piece') : existing.unit;
 
-  const included_items = formData.get('included_items') !== null
+  const included_items = formData.has('included_items')
     ? (formData.get('included_items') as string).split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
-    : (existing.included_items ?? undefined);
+    : existing.included_items;
 
-  const ingredients = formData.get('ingredients') !== null
+  const ingredients = formData.has('ingredients')
     ? (formData.get('ingredients') as string).split(',').map((s) => s.trim()).filter(Boolean)
-    : (existing.ingredients ?? undefined);
+    : existing.ingredients;
 
-  const allergens = formData.get('allergens') !== null
+  const allergens = formData.has('allergens')
     ? (formData.get('allergens') as string).split(',').map((s) => s.trim()).filter(Boolean)
-    : (existing.allergens ?? undefined);
+    : existing.allergens;
 
-  const category_id = formData.get('category_id') !== null ? ((formData.get('category_id') as string) || undefined) : (existing.category_id ?? undefined);
-  const is_vegetarian = formData.get('is_vegetarian') !== null ? (formData.get('is_vegetarian') === 'true' || formData.get('is_vegetarian') === 'on') : existing.is_vegetarian;
-  const is_vegan = formData.get('is_vegan') !== null ? (formData.get('is_vegan') === 'true' || formData.get('is_vegan') === 'on') : existing.is_vegan;
-  const is_gluten_free = formData.get('is_gluten_free') !== null ? (formData.get('is_gluten_free') === 'true' || formData.get('is_gluten_free') === 'on') : existing.is_gluten_free;
-  const is_available = formData.get('is_available') !== null ? (formData.get('is_available') === 'true' || formData.get('is_available') === 'on') : existing.is_available;
-  const is_active = formData.get('is_active') !== null ? (formData.get('is_active') === 'true' || formData.get('is_active') === 'on') : existing.is_active;
-  const compare_at_price = formData.get('compare_at_price') ? Number(formData.get('compare_at_price')) : undefined;
-  const preparation_time = formData.get('preparation_time') ? Number(formData.get('preparation_time')) : existing.preparation_time;
-  const stock_quantity = formData.get('stock_quantity') ? Number(formData.get('stock_quantity')) : existing.stock_quantity;
+  const category_id = formData.has('category_id') ? ((formData.get('category_id') as string)?.trim() || null) : existing.category_id;
+  const is_vegetarian = formData.has('is_vegetarian') ? (formData.get('is_vegetarian') === 'true' || formData.get('is_vegetarian') === 'on') : existing.is_vegetarian;
+  const is_vegan = formData.has('is_vegan') ? (formData.get('is_vegan') === 'true' || formData.get('is_vegan') === 'on') : existing.is_vegan;
+  const is_gluten_free = formData.has('is_gluten_free') ? (formData.get('is_gluten_free') === 'true' || formData.get('is_gluten_free') === 'on') : existing.is_gluten_free;
+  const is_available = formData.has('is_available') ? (formData.get('is_available') === 'true' || formData.get('is_available') === 'on') : existing.is_available;
+  const is_active = formData.has('is_active') ? (formData.get('is_active') === 'true' || formData.get('is_active') === 'on') : existing.is_active;
+  const compare_at_price = formData.has('compare_at_price') ? (formData.get('compare_at_price') ? Number(formData.get('compare_at_price')) : null) : existing.compare_at_price;
+  const preparation_time = formData.has('preparation_time') && formData.get('preparation_time') ? Number(formData.get('preparation_time')) : existing.preparation_time;
+  const stock_quantity = formData.has('stock_quantity') && formData.get('stock_quantity') ? Number(formData.get('stock_quantity')) : existing.stock_quantity;
   const packaging_big_qty = formData.has('packaging_big_qty') ? Math.max(0, parseInt(String(formData.get('packaging_big_qty')), 10) || 0) : existing.packaging_big_qty;
   const packaging_small_qty = formData.has('packaging_small_qty') ? Math.max(0, parseInt(String(formData.get('packaging_small_qty')), 10) || 0) : existing.packaging_small_qty;
 

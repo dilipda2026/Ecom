@@ -192,11 +192,11 @@ export class ProductRepository {
     updateData.updated_at = new Date().toISOString();
 
     let product: Product | null = null;
-    const { data: updatedProduct, error } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', id)
-      .eq('restaurant_id', restaurantId)
+    let query = supabase.from('products').update(updateData).eq('id', id);
+    if (restaurantId) {
+      query = query.eq('restaurant_id', restaurantId);
+    }
+    const { data: updatedProduct, error } = await query
       .select(FULL_PRODUCT_COLUMNS)
       .single();
 
@@ -212,11 +212,11 @@ export class ProductRepository {
       delete updateData.packaging_big_qty;
       delete updateData.packaging_small_qty;
 
-      const fallbackRes = await supabase
-        .from('products')
-        .update(updateData)
-        .eq('id', id)
-        .eq('restaurant_id', restaurantId)
+      let fallbackQuery = supabase.from('products').update(updateData).eq('id', id);
+      if (restaurantId) {
+        fallbackQuery = fallbackQuery.eq('restaurant_id', restaurantId);
+      }
+      const fallbackRes = await fallbackQuery
         .select(BASE_PRODUCT_COLUMNS)
         .single();
       product = fallbackRes.data as unknown as Product | null;
