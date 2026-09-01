@@ -602,7 +602,7 @@ export default function CheckoutPage() {
                         <p className="text-[11px] mt-0.5 opacity-90">
                           {walletBalance !== null && (walletBalance - total()) >= -walletCreditLimit
                             ? 'Amount will be deducted from your wallet balance.'
-                            : `Current Balance: ₹{(walletBalance ?? 0).toLocaleString('en-IN')} • Order: ₹${total().toLocaleString('en-IN')}`}
+                            : `Current Balance: ₹${(walletBalance ?? 0).toLocaleString('en-IN')} • Order: ₹${total().toLocaleString('en-IN')}`}
                         </p>
                       </div>
                       <Link
