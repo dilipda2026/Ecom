@@ -18,6 +18,7 @@ import { menuSections } from '@/features/menu/data';
 import { useFavoritesStore } from '@/features/favorites/store';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { isStoreOpen, nextOrderByCutoff, formatClock, isTemporarilyClosed, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 
 const allMenuItems = menuSections.flatMap((s) => s.items);
 
@@ -61,7 +62,7 @@ function StoreStatusPill() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, signOut, refresh } = useAuthStore();
+  const { user, isAuthenticated, isLoading, signOut, refresh } = useAuthStore();
   const settings = usePublicSettings();
 
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export default function ProfilePage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   
   const [walletCash, setWalletCash] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
   const [walletStatus, setWalletStatus] = useState<string>('unverified');
   const [fullWalletData, setFullWalletData] = useState<Wallet | null>(null);
   const [showKycModal, setShowKycModal] = useState(false);
@@ -100,6 +102,7 @@ export default function ProfilePage() {
       const creditRes = await getCreditAccount();
       if (creditRes.success && creditRes.data) setWalletCash(creditRes.data.available_credit);
     }
+    setWalletLoading(false);
   }
 
   async function loadAddress() {
@@ -181,6 +184,14 @@ export default function ProfilePage() {
     setEditValue('');
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center page-pad">
+        <HamsterLoader size="md" text="Loading profile..." />
+      </div>
+    );
+  }
+
   if (!isAuthenticated || !user) {
     return (
       <div className="page-pad">
@@ -256,7 +267,9 @@ export default function ProfilePage() {
             {/* Stats row */}
             <div className="mt-4 grid grid-cols-3 gap-2.5">
               <div className="bg-zcard rounded-xl border border-zborder p-3 text-center">
-                <p className="text-lg font-extrabold text-ztext">{ordersLoading ? '—' : orderCount}</p>
+                <div className="h-7 flex items-center justify-center">
+                  {ordersLoading ? <Loader2 size={18} className="animate-spin text-ztext-muted" /> : <p className="text-lg font-extrabold text-ztext">{orderCount}</p>}
+                </div>
                 <p className="text-[10px] text-ztext-light mt-0.5">Total Orders</p>
               </div>
               {settings.walletEnabled ? (
@@ -267,11 +280,20 @@ export default function ProfilePage() {
                     setShowKycModal(true);
                   }
                 }} className="bg-zcard rounded-xl border border-zborder p-3 flex flex-col items-center justify-center hover:border-zred/40 transition-colors w-full h-full">
-                  {walletStatus === 'active' ? (
+                  {walletLoading ? (
                     <>
-                      <p className="text-lg font-extrabold text-ztext">
-                        {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
-                      </p>
+                      <div className="h-7 flex items-center justify-center">
+                        <Loader2 size={18} className="animate-spin text-ztext-muted" />
+                      </div>
+                      <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
+                    </>
+                  ) : walletStatus === 'active' ? (
+                    <>
+                      <div className="h-7 flex items-center justify-center">
+                        <p className="text-lg font-extrabold text-ztext">
+                          {walletCash !== null ? `₹${walletCash.toLocaleString('en-IN')}` : '—'}
+                        </p>
+                      </div>
                       <p className="text-[10px] text-ztext-light mt-0.5">Wallet Cash</p>
                     </>
                   ) : walletStatus === 'pending' ? (

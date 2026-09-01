@@ -13,6 +13,7 @@ import { menuSections } from '@/features/menu/data';
 import { showToast } from '@/components/shared/Toast';
 import { usePolling } from '@/hooks/usePolling';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
+import HamsterLoader from '@/components/ui/HamsterLoader';
 
 const POLL_INTERVAL_MS = 30_000;
 const ACTIVE_STATUSES = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'out_for_delivery'];
@@ -204,7 +205,7 @@ function OrderCard({ order, index, onCancel, cancellationWindowMs }: { order: Or
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('orders');
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isLoading } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, deliveryFee, maintenanceFee, total, totalItems } = useCartStore();
   const publicSettings = usePublicSettings();
   const cancellationWindowMs = publicSettings.cancellationWindowMinutes * 60_000;
@@ -257,6 +258,14 @@ export default function OrdersPage() {
         o.customer_name?.toLowerCase().includes(q)
       )
     : statusFilteredOrders;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center page-pad">
+        <HamsterLoader size="md" text="Loading orders..." />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
