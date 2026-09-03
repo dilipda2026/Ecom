@@ -16,16 +16,15 @@ export async function authorizeAdmin() {
   const { user } = await getServerSession();
   if (!user) throw new Error('Unauthorized');
 
-  const ownerEmail = await getOwnerEmail();
-  if (isOwnerEmail(user.email, ownerEmail)) throw new Error('Forbidden');
-
   const { profile } = await getServerProfile();
 
   const adminEmails = await getAdminEmails();
   const isAdminByEmail = isAdminEmail(user.email, adminEmails);
   const isAdminBySession = user.role === 'admin' || user.role === 'super_admin';
+  const ownerEmail = await getOwnerEmail();
+  const isOwner = isOwnerEmail(user.email, ownerEmail);
 
-  if (!profile && (isAdminByEmail || isAdminBySession)) {
+  if (!profile && (isAdminByEmail || isAdminBySession || isOwner)) {
     const supabase = createServiceClient();
     if (supabase) {
       await supabase.from('profiles').upsert({
@@ -39,7 +38,7 @@ export async function authorizeAdmin() {
   }
 
   const effectiveRole = profile?.role || user.role;
-  const isAuthorized = ['admin', 'super_admin'].includes(effectiveRole ?? '') || isAdminByEmail;
+  const isAuthorized = ['admin', 'super_admin'].includes(effectiveRole ?? '') || isAdminByEmail || isOwner;
 
   if (!isAuthorized) throw new Error('Forbidden');
   return {

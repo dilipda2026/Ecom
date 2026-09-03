@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -58,22 +58,22 @@ export default function OwnerOverviewPage() {
 
   const quickLinks = [
     {
-      title: 'In-Store Counter History',
-      description: 'View offline counter orders, POS transactions, and daily cash/UPI sales breakdown.',
+      title: 'In-Store Counter',
+      description: 'Manage counter orders, create POS transactions, and track daily cash/UPI sales.',
       href: '/dashboard/owner/in-store',
       icon: Store,
-      badge: 'Counter History',
+      badge: 'POS Counter',
     },
     {
       title: 'Products & Menu Catalog',
-      description: 'Check active dishes, pricing, inventory stock, and packaging packet requirements.',
+      description: 'Manage dishes, pricing, inventory stock, and packaging packet requirements.',
       href: '/dashboard/owner/products',
       icon: UtensilsCrossed,
       badge: 'Catalog',
     },
     {
       title: 'Orders & Deliveries',
-      description: 'Track online orders, line item receipts, and customer order history.',
+      description: 'Manage online orders, update statuses, assign delivery partners, and track history.',
       href: '/dashboard/owner/orders',
       icon: ShoppingBag,
       badge: 'Online Orders',
@@ -90,12 +90,8 @@ export default function OwnerOverviewPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <PageHeader title="Owner Dashboard" description="Business overview & read-only analytics for Dilip Da" />
+        <PageHeader title="Owner Dashboard" description="Business overview & analytics for Dilip Da" />
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ztext-muted bg-zcard rounded-xl border border-zborder">
-            <Lock size={13} />
-            Read-only
-          </span>
           <button onClick={() => load()} aria-label="Refresh" className="p-2.5 rounded-xl hover:bg-zgray border border-zborder text-ztext-lighter transition-colors">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -143,10 +139,12 @@ export default function OwnerOverviewPage() {
               </div>
 
               <div className="mt-4 pt-3 border-t border-zborder/60 flex items-center justify-between text-xs font-semibold text-zred">
-                <span>View details</span>
-                <span className="text-[10px] font-normal text-ztext-muted flex items-center gap-1">
-                  <Lock size={10} /> Read-only
-                </span>
+                <span>{item.href === '/dashboard/owner/expenses' ? 'View details' : 'Manage'}</span>
+                {item.href === '/dashboard/owner/expenses' && (
+                  <span className="text-[10px] font-normal text-ztext-muted flex items-center gap-1">
+                    <Lock size={10} /> Read-only
+                  </span>
+                )}
               </div>
             </Link>
           ))}

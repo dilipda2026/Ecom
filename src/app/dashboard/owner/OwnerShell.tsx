@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutDashboard, LogOut, Menu, X, Lock, ShoppingBag, Banknote, Bike,
+  LayoutDashboard, LogOut, Menu, X, ShoppingBag, Banknote, Bike,
   Store, UtensilsCrossed, Wallet,
 } from 'lucide-react';
 
@@ -79,10 +79,6 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
           ))}
 
           <div className="pt-4 mt-4 border-t border-zborder">
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-ztext-muted">
-              <Lock size={13} />
-              <span>Read-only view</span>
-            </div>
             <button
               onClick={handleSignOut}
               className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-ztext-light hover:bg-zgray hover:text-red-400 transition-all"
@@ -105,12 +101,7 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
               <span className="text-xs font-medium text-ztext-muted">Dilip Da — Owner Dashboard</span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-ztext-muted border border-zborder">
-                <Lock size={12} />
-                Read-only
-              </span>
-            </div>
+            <div className="flex items-center gap-3" />
           </div>
         </header>
 

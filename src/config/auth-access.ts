@@ -29,7 +29,8 @@ export function isDeliveryEmail(email: string, extraDeliveryEmails: string[] = [
 
 /**
  * The store owner (Dilip Da) is identified purely by the email configured in
- * General Settings (`dilip_da_email`). The owner gets a read-only dashboard.
+ * General Settings (`dilip_da_email`). The owner has full admin access, with
+ * expenses remaining read-only (enforced on the frontend).
  */
 export function isOwnerEmail(email: string, ownerEmail?: string | null) {
   if (!ownerEmail) return false;
