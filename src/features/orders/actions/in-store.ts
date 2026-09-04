@@ -149,7 +149,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     const calculatedSubtotal = priceResolution.subtotal;
 
     // Calculate authoritative packaging charge & maintenance fee
-    const { getNumericSetting, getSetting } = await import('@/features/settings/actions');
+    const { getNumericSetting, getSetting } = await import('@/lib/settings');
     const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
     const packagingBigPacketPrice = await getNumericSetting('packaging_big_packet_price', 3);
     const packagingSmallPacketPrice = await getNumericSetting('packaging_small_packet_price', 2);
