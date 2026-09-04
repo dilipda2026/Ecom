@@ -40,6 +40,7 @@ const FALLBACK: PublicStoreSettings = {
   deliveryFee: 10,
   maintenanceFee: 1,
   packagingCharge: 0,
+  packagingChargeEnabled: true,
   packagingBigPrice: 3,
   packagingSmallPrice: 2,
   cancellationWindowMinutes: 2,

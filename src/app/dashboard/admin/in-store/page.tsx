@@ -269,6 +269,8 @@ export default function InStorePage() {
           quantity: 1,
           veg: product.is_vegetarian,
           image: product.image ?? '',
+          packagingBigQty: Number(product.packaging_big_qty) || 0,
+          packagingSmallQty: Number(product.packaging_small_qty) || 0,
         },
       ];
     });
@@ -299,7 +301,18 @@ export default function InStorePage() {
   // Financial calculations
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const maintenanceFee = subtotal > 0 ? publicSettings.maintenanceFee : 0;
-  const packagingCharge = subtotal > 0 && isTakeaway ? publicSettings.packagingCharge : 0;
+
+  const isPackagingEnabled = publicSettings.packagingChargeEnabled ?? true;
+  const bigPacketPrice = publicSettings.packagingBigPrice ?? 3;
+  const smallPacketPrice = publicSettings.packagingSmallPrice ?? 2;
+
+  const totalBigPackets = cart.reduce((sum, item) => sum + (item.packagingBigQty ?? 0) * item.quantity, 0);
+  const totalSmallPackets = cart.reduce((sum, item) => sum + (item.packagingSmallQty ?? 0) * item.quantity, 0);
+
+  const packagingCharge = subtotal > 0 && isTakeaway && isPackagingEnabled
+    ? (totalBigPackets * bigPacketPrice) + (totalSmallPackets * smallPacketPrice)
+    : 0;
+
   const totalFees = maintenanceFee + packagingCharge;
   const total = subtotal + totalFees;
   const tenderedAmount = Number(cashTendered) || 0;
@@ -665,7 +678,7 @@ export default function InStorePage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {filteredProducts.map((prod) => {
+                {filteredProducts.map((prod, idx) => {
                   const inCart = cart.find((i) => i.id === prod.id);
                   const isOutOfStock = prod.track_inventory && prod.stock_quantity <= 0;
                   const isAvailable = prod.is_available && prod.is_active && !isOutOfStock;
@@ -692,11 +705,31 @@ export default function InStorePage() {
 
                         {prod.image && (
                           <div className="relative w-full h-20 rounded-lg overflow-hidden mb-2 bg-zgray">
-                            <Image src={prod.image} alt={prod.name} fill className="object-cover" />
+                            <Image
+                              src={prod.image}
+                              alt={prod.name}
+                              fill
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                              className="object-cover"
+                              priority={idx < 6}
+                            />
                           </div>
                         )}
 
                         <p className="font-bold text-ztext text-sm">₹{prod.price}</p>
+                        {((Number(prod.packaging_big_qty) || 0) > 0 || (Number(prod.packaging_small_qty) || 0) > 0) && (
+                          <div className="text-[10px] text-amber-400/90 font-medium flex items-center gap-1 mt-0.5">
+                            <span>📦</span>
+                            <span>
+                              {[
+                                (Number(prod.packaging_big_qty) || 0) > 0 ? `${prod.packaging_big_qty} Big` : '',
+                                (Number(prod.packaging_small_qty) || 0) > 0 ? `${prod.packaging_small_qty} Small` : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' + ')}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="mt-3">
@@ -759,10 +792,10 @@ export default function InStorePage() {
                         ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-sm'
                         : 'bg-zgray border-zborder text-ztext-light hover:text-ztext'
                     }`}
-                    title={isTakeaway ? 'Take Away mode enabled (click to disable)' : 'Take Away mode disabled (click to enable)'}
+                    title={isTakeaway ? 'Take Away mode enabled (packet charges applied)' : 'Click to enable Take Away (adds packet charges)'}
                   >
                     <span className="text-xs">{isTakeaway ? '🥡' : '🏪'}</span>
-                    <span>Take Away</span>
+                    <span>{isTakeaway ? 'Take Away (Parcel)' : 'Dine-in'}</span>
                     <span
                       className={`w-2 h-2 rounded-full transition-colors ${
                         isTakeaway ? 'bg-amber-400' : 'bg-zborder'
@@ -793,7 +826,24 @@ export default function InStorePage() {
                     <div key={item.id} className="flex items-center justify-between bg-zgray p-2.5 rounded-lg text-xs">
                       <div className="min-w-0 flex-1 pr-2">
                         <p className="font-semibold text-ztext truncate">{item.name}</p>
-                        <p className="text-[11px] text-ztext-light">₹{item.price} × {item.quantity}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[11px] text-ztext-light">₹{item.price} × {item.quantity}</p>
+                          {((item.packagingBigQty ?? 0) > 0 || (item.packagingSmallQty ?? 0) > 0) && (
+                            <span
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors ${
+                                isTakeaway
+                                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                  : 'bg-zcard text-ztext-lighter'
+                              }`}
+                              title={isTakeaway ? 'Takeaway packaging packets required' : 'Packet requirement if takeaway enabled'}
+                            >
+                              📦 {[
+                                (item.packagingBigQty ?? 0) > 0 ? `${(item.packagingBigQty ?? 0) * item.quantity} Big` : '',
+                                (item.packagingSmallQty ?? 0) > 0 ? `${(item.packagingSmallQty ?? 0) * item.quantity} Small` : '',
+                              ].filter(Boolean).join(' + ')}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
@@ -832,7 +882,16 @@ export default function InStorePage() {
                 )}
                 {packagingCharge > 0 && (
                   <div className="flex justify-between text-ztext-light">
-                    <span>Packaging Charge</span>
+                    <div>
+                      <span>Packaging Charge</span>
+                      {(totalBigPackets > 0 || totalSmallPackets > 0) && (
+                        <span className="text-[10px] text-amber-400 block sm:inline sm:ml-1 font-medium">
+                          ({totalBigPackets > 0 ? `${totalBigPackets} Big @ ₹${bigPacketPrice}` : ''}
+                          {totalBigPackets > 0 && totalSmallPackets > 0 ? ' + ' : ''}
+                          {totalSmallPackets > 0 ? `${totalSmallPackets} Small @ ₹${smallPacketPrice}` : ''})
+                        </span>
+                      )}
+                    </div>
                     <span className="font-medium text-ztext">₹{packagingCharge}</span>
                   </div>
                 )}

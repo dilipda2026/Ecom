@@ -70,7 +70,7 @@ export default function CartPage() {
             {items.map((item) => (
               <div key={item.id} className="bg-zcard rounded-xl border border-zborder p-3.5 flex items-center gap-3.5 shadow-z">
                 <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-zsurface">
-                  <Image src={item.image || '/images/food-placeholder.svg'} alt={item.name} fill className="object-cover" />
+                  <Image src={item.image || '/images/food-placeholder.svg'} alt={item.name} fill sizes="64px" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">

@@ -90,7 +90,7 @@ export default function ProductsPage() {
             <div key={p.id} className="bg-zcard rounded-xl border border-zborder p-4 flex items-center gap-4 hover:shadow-z transition-shadow">
               <div className="w-12 h-12 rounded-lg bg-zgray overflow-hidden shrink-0 relative">
                 {p.image ? (
-                  <Image src={p.image} alt={p.name} fill className="object-cover" />
+                  <Image src={p.image} alt={p.name} fill sizes="48px" className="object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-ztext-muted"><UtensilsCrossed size={18} /></div>
                 )}

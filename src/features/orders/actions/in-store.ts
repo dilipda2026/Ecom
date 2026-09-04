@@ -94,7 +94,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     const supabase = createServiceClient();
     if (!supabase) return { success: false, error: 'Service unavailable' };
 
-    const { items, taxAmount, discountAmount = 0, paymentMethod, customerPhone, customerName, customerEmail, notes, orderType = 'in_store' } = params;
+    const { items, discountAmount = 0, paymentMethod, customerPhone, customerName, customerEmail, notes, orderType = 'in_store' } = params;
 
     if (!items || items.length === 0) {
       return { success: false, error: 'Cannot place order with an empty cart' };
@@ -147,7 +147,25 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     }
 
     const calculatedSubtotal = priceResolution.subtotal;
-    const finalTaxAmount = Number(taxAmount) || 0;
+
+    // Calculate authoritative packaging charge & maintenance fee
+    const { getNumericSetting, getSetting } = await import('@/features/settings/actions');
+    const packagingChargeEnabled = (await getSetting('packaging_charge_enabled')) !== 'false';
+    const packagingBigPacketPrice = await getNumericSetting('packaging_big_packet_price', 3);
+    const packagingSmallPacketPrice = await getNumericSetting('packaging_small_packet_price', 2);
+    const maintenanceFeeSetting = await getNumericSetting('maintenance_fee', 1);
+
+    const calculatedPackagingCharge = isTakeaway && packagingChargeEnabled
+      ? priceResolution.lineItems.reduce((sum, li) => {
+          const bigQty = li.packaging_big_qty ?? 0;
+          const smallQty = li.packaging_small_qty ?? 0;
+          const perUnit = (bigQty * packagingBigPacketPrice) + (smallQty * packagingSmallPacketPrice);
+          return sum + (perUnit * li.quantity);
+        }, 0)
+      : 0;
+
+    const authoritativeMaintenanceFee = calculatedSubtotal > 0 ? maintenanceFeeSetting : 0;
+    const finalTaxAmount = authoritativeMaintenanceFee + calculatedPackagingCharge;
     const finalDiscountAmount = Number(discountAmount) || 0;
     const finalTotal = Math.max(0, calculatedSubtotal + finalTaxAmount - finalDiscountAmount);
     const nowIso = new Date().toISOString();
