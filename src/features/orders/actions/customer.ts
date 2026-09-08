@@ -404,6 +404,7 @@ export async function createOrder(params: CreateOrderParams) {
   const paymentMethodDb =
     paymentMethod === 'bnpl' ? 'bnpl'
     : paymentMethod === 'cod' ? 'cod'
+    : paymentMethod === 'wallet' ? 'wallet'
     : paymentMethod === 'phonepe' || paymentMethod === 'gpay' ? 'upi'
     : 'razorpay';
 
@@ -658,6 +659,7 @@ async function recordPayment(orderId: string) {
   const gateway =
     method === 'bnpl' ? 'bnpl'
     : method === 'cod' ? 'manual'
+    : method === 'wallet' ? 'wallet'
     : method === 'upi' ? 'upi'
     : 'razorpay';
 

@@ -505,7 +505,9 @@ function OrderCard({ assignment, order, now, setModal, busy, run }: {
       ? paymentCollected ? 'Paid online' : 'Pay at door (UPI QR)'
       : order.payment_method === 'bnpl'
         ? 'BNPL credit'
-        : (order.payment_method ?? '').toUpperCase();
+        : order.payment_method === 'wallet'
+          ? 'Wallet'
+          : (order.payment_method ?? '').toUpperCase();
 
   return (
     <div className="bg-zcard rounded-xl shadow-z p-5">
