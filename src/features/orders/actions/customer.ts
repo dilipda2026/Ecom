@@ -288,6 +288,20 @@ export async function createOrder(params: CreateOrderParams) {
   const { user } = await getServerSession();
   if (!user) return { success: false, error: 'Please sign in to place your order' };
 
+  // Option 2 Enforcement: Check if user has an unpaid late fine
+  const { data: userWallet } = await supabase
+    .from('wallets')
+    .select('balance, total_penalties')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (userWallet && Number(userWallet.balance) < 0 && Number(userWallet.total_penalties) > 0) {
+    return {
+      success: false,
+      error: `You have an unpaid Late Repayment Fine of ₹${Number(userWallet.total_penalties).toLocaleString('en-IN')}. Please top up your wallet to clear pending dues before placing an order.`,
+    };
+  }
+
   const maintenanceMode = await getBooleanSetting('maintenance_mode', false);
   if (maintenanceMode) {
     return { success: false, error: 'The store is currently in maintenance mode. Please try again later.' };

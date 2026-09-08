@@ -122,7 +122,7 @@ export async function getWalletDetails(): Promise<{
       .filter((t) => t.type === 'debit')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const currentBalance = profileBalance || Number(walletRecord?.balance) || 0;
+    const currentBalance = walletRecord ? Number(walletRecord.balance) : (profileBalance || 0);
     const totalCredit = Math.max(creditSum, currentBalance, Number(walletRecord?.total_credit) || 0);
     const totalDebit = Math.max(debitSum, Number(walletRecord?.total_debit) || 0);
 
@@ -161,17 +161,63 @@ export async function topupWallet(
   }
 
   try {
-    // Fetch current wallet or profile balance
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_balance')
-      .eq('id', user.id)
+    // 1. Fetch record in `wallets` table as Single Source of Truth
+    const { data: existingWallet, error: walletFetchErr } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', user.id)
       .maybeSingle();
 
-    const balanceBefore = Number(profile?.wallet_balance) || 0;
-    const balanceAfter = balanceBefore + amount;
+    if (walletFetchErr || !existingWallet) {
+      return { success: false, error: 'Your wallet is not active. Please complete KYC.' };
+    }
 
-    // 1. Update profiles table
+    if (existingWallet.status !== 'active') {
+      return { success: false, error: 'Your wallet is not active. Please complete KYC.' };
+    }
+
+    // If user has an unpaid late fine, they must top up at least the outstanding debt amount
+    if (Number(existingWallet.balance) < 0 && Number(existingWallet.total_penalties) > 0) {
+      const minRequired = Math.ceil(Math.abs(Number(existingWallet.balance)));
+      if (amount < minRequired) {
+        return {
+          success: false,
+          error: `Minimum top-up of ₹${minRequired} is required to clear your outstanding debt and fine.`,
+        };
+      }
+    }
+
+    const walletId = existingWallet.id;
+    const balanceBefore = Number(existingWallet.balance) || 0;
+    const balanceAfter = balanceBefore + amount;
+    const updatedTotalCredit = (Number(existingWallet.total_credit) || 0) + amount;
+
+    // Retain credit timer if still in overdraft debt, only clear once balance >= 0
+    let creditUsedAt = existingWallet.credit_used_at;
+    let totalPenalties = Number(existingWallet.total_penalties) || 0;
+    if (balanceAfter >= 0) {
+      creditUsedAt = null;
+      totalPenalties = 0; // Clear fine because the student has fully repaid debt & penalty
+    }
+
+    // 2. Update `wallets` table
+    const { error: walletUpdateErr } = await supabase
+      .from('wallets')
+      .update({
+        balance: balanceAfter,
+        total_credit: updatedTotalCredit,
+        credit_used_at: creditUsedAt,
+        total_penalties: totalPenalties,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingWallet.id);
+
+    if (walletUpdateErr) {
+      console.error('Failed updating wallets table:', walletUpdateErr);
+      return { success: false, error: 'Failed to update wallet balance' };
+    }
+
+    // 3. Keep `profiles` table in sync
     const { error: profileErr } = await supabase
       .from('profiles')
       .update({ wallet_balance: balanceAfter })
@@ -179,43 +225,6 @@ export async function topupWallet(
 
     if (profileErr) {
       console.error('Failed updating profile wallet balance:', profileErr);
-    }
-
-    // 2. Fetch or update `wallets` table if exists
-    let walletId: string | null = null;
-    try {
-      const { data: existingWallet } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (existingWallet) {
-        if (existingWallet.status !== 'active') {
-          return { success: false, error: 'Your wallet is not active. Please complete KYC.' };
-        }
-        walletId = existingWallet.id;
-        const updatedTotalCredit = (Number(existingWallet.total_credit) || 0) + amount;
-        
-        let creditUsedAt = existingWallet.credit_used_at;
-        if (balanceAfter >= 0) {
-          creditUsedAt = null; // Clear penalty timer since debt is repaid
-        }
-
-        await supabase
-          .from('wallets')
-          .update({
-            balance: balanceAfter,
-            total_credit: updatedTotalCredit,
-            credit_used_at: creditUsedAt,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingWallet.id);
-      } else {
-        return { success: false, error: 'Your wallet is not active. Please complete KYC.' };
-      }
-    } catch {
-      // Ignored if wallets table not yet created
     }
 
     // 3. Insert transaction record into `wallet_transactions`
@@ -313,6 +322,15 @@ export async function deductWalletBalance(
         if (existingWallet.status !== 'active') {
           return { success: false, error: 'Your wallet is not active.' };
         }
+
+        // Block wallet usage if user has an unpaid late repayment penalty
+        if (Number(existingWallet.balance) < 0 && Number(existingWallet.total_penalties) > 0) {
+          return {
+            success: false,
+            error: `You have an unpaid Late Repayment Penalty of ₹${Number(existingWallet.total_penalties).toLocaleString('en-IN')}. Please top up your wallet to clear pending dues before placing an order.`,
+          };
+        }
+
         walletId = existingWallet.id;
         userCreditLimit = Number(existingWallet.credit_limit) || 0;
         
@@ -771,7 +789,7 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
     // We only care about wallets that are currently in overdraft.
     const { data: overdueWallets, error: fetchErr } = await supabase
       .from('wallets')
-      .select('id, balance, credit_used_at, total_debit, total_penalties')
+      .select('id, user_id, balance, credit_used_at, total_debit, total_penalties')
       .lt('balance', 0)
       .not('credit_used_at', 'is', null);
 
@@ -800,10 +818,10 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
       const expectedPenaltyCount = Math.floor(diffDays / PENALTY_PERIOD_DAYS);
 
       if (expectedPenaltyCount > 0) {
-        // Count how many penalties have ALREADY been applied in this specific debt cycle.
-        const { count: appliedPenaltiesCount, error: txErr } = await supabase
+        // Sum total penalty amount ALREADY applied in this specific debt cycle
+        const { data: existingPenaltyTxs, error: txErr } = await supabase
           .from('wallet_transactions')
-          .select('*', { count: 'exact', head: true })
+          .select('amount')
           .eq('wallet_id', wallet.id)
           .eq('type', 'debit')
           .ilike('description', 'Late Repayment Penalty%')
@@ -814,10 +832,14 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
           continue;
         }
 
-        const penaltiesToApply = expectedPenaltyCount - (appliedPenaltiesCount || 0);
+        const totalPenaltyAppliedAmount = (existingPenaltyTxs || []).reduce(
+          (sum, tx) => sum + (Number(tx.amount) || 0),
+          0
+        );
+        const appliedPenaltiesCount = Math.floor(totalPenaltyAppliedAmount / PENALTY_AMOUNT);
+        const penaltiesToApply = expectedPenaltyCount - appliedPenaltiesCount;
 
         if (penaltiesToApply > 0) {
-          // Calculate the total fine for this run (usually just 1 * 20 = 20, unless the cron didn't run for a long time)
           const totalFine = penaltiesToApply * PENALTY_AMOUNT;
 
           // Update Wallet Balance
@@ -836,7 +858,15 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
             .eq('id', wallet.id);
 
           if (!updateErr) {
-            // Insert Wallet Transactions (one for each penalty, or combined. We'll do combined for simplicity but note the periods)
+            // Also sync profiles table
+            if (wallet.user_id) {
+              await supabase
+                .from('profiles')
+                .update({ wallet_balance: newBalance })
+                .eq('id', wallet.user_id);
+            }
+
+            // Insert Wallet Transaction
             await supabase.from('wallet_transactions').insert({
               wallet_id: wallet.id,
               type: 'debit',
@@ -897,15 +927,23 @@ export async function getAllWallets(): Promise<{ success: boolean; data?: Wallet
       }
     }
 
-    // Enrich submitted wallets with student name/email
-    const enrichedWallets: Wallet[] = submittedWallets.map((w) => {
+    // Enrich submitted wallets with student name/email and clear legacy paid fines
+    const enrichedWallets: Wallet[] = [];
+    for (const w of submittedWallets) {
       const p = profilesMap.get(w.user_id);
-      return {
+      let penalties = Number(w.total_penalties) || 0;
+      if (Number(w.balance) >= 0 && penalties > 0) {
+        // Debt is already repaid; reset legacy fine to 0 in DB
+        penalties = 0;
+        supabase.from('wallets').update({ total_penalties: 0 }).eq('id', w.id).then();
+      }
+      enrichedWallets.push({
         ...w,
+        total_penalties: penalties,
         kyc_name: w.kyc_name || p?.full_name || 'Student',
         kyc_email: w.kyc_email || p?.email || '',
-      };
-    });
+      });
+    }
 
     return { success: true, data: enrichedWallets };
   } catch (err: unknown) {

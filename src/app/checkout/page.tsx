@@ -38,6 +38,7 @@ export default function CheckoutPage() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletStatus, setWalletStatus] = useState<string | null>(null);
   const [walletCreditLimit, setWalletCreditLimit] = useState<number>(0);
+  const [walletTotalPenalties, setWalletTotalPenalties] = useState<number>(0);
   const [address, setAddress] = useState('');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
@@ -99,9 +100,11 @@ export default function CheckoutPage() {
           setWalletBalance(res.data.balance);
           setWalletStatus(res.data.wallet?.status ?? 'unverified');
           setWalletCreditLimit(res.data.wallet?.credit_limit ?? 0);
+          setWalletTotalPenalties(Number(res.data.wallet?.total_penalties) || 0);
         } else {
           setWalletStatus('unverified');
           setWalletCreditLimit(0);
+          setWalletTotalPenalties(0);
         }
       });
     }
@@ -166,6 +169,10 @@ export default function CheckoutPage() {
   async function validateAndPlace(pm: string) {
     setError('');
     const now = new Date();
+    if (hasPendingPenalty) {
+      setError(`You have an unpaid Late Fine of ₹${walletTotalPenalties.toLocaleString('en-IN')}. Please top up your wallet to clear pending dues before placing an order.`);
+      return false;
+    }
     if (publicSettings.isOpen === false) {
       setError('The store is currently closed. Please try again later.');
       return false;
@@ -344,6 +351,7 @@ export default function CheckoutPage() {
   }
 
   const isDelivery = orderType === 'room_delivery';
+  const hasPendingPenalty = walletBalance !== null && walletBalance < 0 && walletTotalPenalties > 0;
 
   function handleLocationSelect(value: string) {
     setIsCustomAddress(false);
@@ -366,6 +374,29 @@ export default function CheckoutPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <div className="lg:col-span-3 space-y-3">
+              {/* Option 2: Pending Late Fine Block Banner */}
+              {hasPendingPenalty && (
+                <div className="bg-rose-500/10 border-2 border-rose-500/30 rounded-2xl p-4 sm:p-5 text-rose-500 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={24} className="shrink-0 mt-0.5 text-rose-500" />
+                    <div>
+                      <h3 className="font-extrabold text-sm sm:text-base text-rose-500">
+                        Order Blocked: Unpaid Late Fine (₹{walletTotalPenalties.toLocaleString('en-IN')})
+                      </h3>
+                      <p className="text-xs text-ztext-light mt-1">
+                        You have an overdue late repayment fine on your account. To place any order, please clear your outstanding dues by topping up your wallet.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard/student/wallet"
+                    className="w-full sm:w-auto px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all shrink-0 text-center shadow-md shadow-rose-500/20 whitespace-nowrap"
+                  >
+                    Clear Dues / Top Up
+                  </Link>
+                </div>
+              )}
+
               {/* Custom Delivery Announcement Banner */}
               {publicSettings.deliveryCustomMessageEnabled && publicSettings.deliveryCustomMessage && (
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3.5 flex items-start gap-2 text-xs text-blue-500 font-semibold">
@@ -715,10 +746,23 @@ export default function CheckoutPage() {
                   )}
                   <div className="border-t border-zborder pt-2.5 flex justify-between font-bold text-ztext text-sm"><span>Total</span><span>₹{total()}</span></div>
                 </div>
+                {hasPendingPenalty && (
+                  <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-500 font-bold flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>Unpaid Late Fine: ₹{walletTotalPenalties.toLocaleString('en-IN')}. Please top up to order.</span>
+                  </div>
+                )}
                 {error && <p className="text-xs mt-2 flex items-center gap-1 text-zred"><span className="w-1.5 h-1.5 rounded-full bg-zred" />{error}</p>}
-                <button onClick={handlePlaceOrder} disabled={placing || (isDelivery && !address.trim()) || !customerPhone.trim()} className="button-z button-z-primary w-full mt-3 h-10 text-xs font-bold" style={{ opacity: ((isDelivery && !address.trim()) || !customerPhone.trim()) && !placing ? 0.6 : 1 }}>
+                <button 
+                  onClick={handlePlaceOrder} 
+                  disabled={placing || hasPendingPenalty || (isDelivery && !address.trim()) || !customerPhone.trim()} 
+                  className="button-z button-z-primary w-full mt-3 h-10 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed" 
+                  style={{ opacity: (hasPendingPenalty || ((isDelivery && !address.trim()) || !customerPhone.trim())) && !placing ? 0.6 : 1 }}
+                >
                   {placing ? (
                     <span className="flex items-center justify-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing...</span>
+                  ) : hasPendingPenalty ? (
+                    `Fine Pending (₹${walletTotalPenalties.toLocaleString('en-IN')}) • Top Up Required`
                   ) : (
                     `Place order • ₹${total()}`
                   )}

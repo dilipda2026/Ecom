@@ -100,6 +100,10 @@ export default function StudentWalletDashboard() {
       setModalError('Please enter a valid top-up amount');
       return;
     }
+    if (hasFine && amt < minDueAmount) {
+      setModalError(`Minimum top-up of ₹${minDueAmount} is required to clear your outstanding debt and fine.`);
+      return;
+    }
     if (amt > 50000) {
       setModalError('Maximum single top-up limit is ₹50,000');
       return;
@@ -187,6 +191,8 @@ export default function StudentWalletDashboard() {
   const totalCredit = summary?.totalCredit ?? 0;
   const totalDebit = summary?.totalDebit ?? 0;
   const creditLimit = summary?.creditLimit ?? 500;
+  const hasFine = balance < 0 && (Number(summary?.wallet?.total_penalties) > 0);
+  const minDueAmount = hasFine ? Math.ceil(Math.abs(balance)) : 1;
 
   const isAvail = (id: string) => {
     const avail = availableMethods.find((a) => a.id === id);
@@ -315,9 +321,9 @@ export default function StudentWalletDashboard() {
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zgray border border-zborder text-ztext-light text-xs font-semibold">
                 <span>Credit Limit: ₹{creditLimit.toLocaleString('en-IN')}</span>
               </div>
-              {summary?.wallet?.total_penalties ? (
+              {Number(summary?.balance) < 0 && Number(summary?.wallet?.total_penalties) > 0 ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold">
-                  <span>Total Fine: ₹{Number(summary.wallet.total_penalties).toLocaleString('en-IN')}</span>
+                  <span>Pending Fine: ₹{Number(summary?.wallet?.total_penalties).toLocaleString('en-IN')}</span>
                 </div>
               ) : null}
             </div>
@@ -348,6 +354,7 @@ export default function StudentWalletDashboard() {
                 if (walletMethods[0] && !walletMethods.some((pm) => pm.id === paymentMethod)) {
                   setPaymentMethod(walletMethods[0].id);
                 }
+                setTopupAmount(hasFine ? minDueAmount.toString() : '500');
                 setShowTopupModal(true);
               }}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-zred to-zred-dark text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg hover:shadow-zred/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -468,7 +475,11 @@ export default function StudentWalletDashboard() {
                 </p>
                 {!search && (
                   <button
-                    onClick={() => setShowTopupModal(true)}
+                    onClick={() => {
+                      setModalError('');
+                      setTopupAmount(hasFine ? minDueAmount.toString() : '500');
+                      setShowTopupModal(true);
+                    }}
                     className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-zred/10 text-zred border border-zred/20 rounded-xl text-xs font-bold hover:bg-zred hover:text-white transition-all"
                   >
                     <PlusCircle size={14} /> Top Up Now
@@ -566,17 +577,40 @@ export default function StudentWalletDashboard() {
             </div>
 
             <form onSubmit={handleTopupSubmit} className="mt-4 space-y-4">
+              {/* Alert if user has fine / overdue debt */}
+              {hasFine && (
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-500 flex items-start gap-2.5 animate-fade-in">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-extrabold text-xs sm:text-sm">Overdue Debt & Fine: ₹{minDueAmount.toLocaleString('en-IN')}</p>
+                    <p className="text-[11px] text-ztext-light mt-0.5 leading-relaxed">
+                      You must top up at least <strong className="text-rose-500 font-bold">₹{minDueAmount.toLocaleString('en-IN')}</strong> to clear your outstanding dues. Preset options are disabled. You can add more money, but not less.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Amount Buttons */}
               <div>
-                <label className="text-[11px] font-semibold text-ztext-lighter block mb-1.5">Select Amount</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-semibold text-ztext-lighter">Select Amount</label>
+                  {hasFine && (
+                    <span className="text-[10px] font-semibold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded">
+                      Presets disabled
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {['100', '200', '500', '1000'].map((amt) => (
                     <button
                       key={amt}
                       type="button"
-                      onClick={() => setTopupAmount(amt)}
+                      disabled={hasFine}
+                      onClick={() => !hasFine && setTopupAmount(amt)}
                       className={`py-2 px-2 sm:px-3 rounded-xl border text-xs font-bold transition-all ${
-                        topupAmount === amt
+                        hasFine
+                          ? 'bg-zgray/40 border-zborder/50 text-ztext-muted/40 cursor-not-allowed opacity-40'
+                          : topupAmount === amt
                           ? 'bg-zred text-white border-zred shadow-md'
                           : 'bg-zgray border-zborder text-ztext hover:border-zred/40'
                       }`}
@@ -589,20 +623,38 @@ export default function StudentWalletDashboard() {
 
               {/* Custom Amount Input */}
               <div>
-                <label className="text-[11px] font-semibold text-ztext-lighter block mb-1">Or Enter Custom Amount (₹)</label>
+                <label className="text-[11px] font-semibold text-ztext-lighter block mb-1">
+                  {hasFine ? `Top Up Amount (Minimum ₹${minDueAmount.toLocaleString('en-IN')})` : 'Or Enter Custom Amount (₹)'}
+                </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ztext-light font-bold text-xs sm:text-sm">₹</span>
                   <input
                     type="number"
                     value={topupAmount}
-                    onChange={(e) => setTopupAmount(e.target.value)}
-                    placeholder="Enter amount (e.g. 500)"
-                    min="1"
+                    onChange={(e) => {
+                      setTopupAmount(e.target.value);
+                      if (modalError) setModalError('');
+                    }}
+                    onBlur={() => {
+                      if (hasFine && (Number(topupAmount) < minDueAmount || isNaN(Number(topupAmount)))) {
+                        setTopupAmount(minDueAmount.toString());
+                      }
+                    }}
+                    placeholder={`Enter amount (min ₹${hasFine ? minDueAmount : 1})`}
+                    min={hasFine ? minDueAmount : 1}
                     max="50000"
-                    className="input-z pl-8 text-xs sm:text-sm font-bold"
+                    className={`input-z pl-8 text-xs sm:text-sm font-bold ${
+                      hasFine && Number(topupAmount) < minDueAmount ? '!border-rose-500 text-rose-500' : ''
+                    }`}
                     autoFocus
                   />
                 </div>
+                {hasFine && (
+                  <p className="text-[10px] text-ztext-muted mt-1.5 flex items-center justify-between">
+                    <span>Minimum required: <strong className="text-rose-500 font-bold">₹{minDueAmount.toLocaleString('en-IN')}</strong></span>
+                    <span className="text-ztext-lighter font-medium">Cannot decrease</span>
+                  </p>
+                )}
               </div>
 
               {/* Payment Method Selector */}

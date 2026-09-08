@@ -182,7 +182,7 @@ export default function AdminStudentsPage() {
             Limit: ₹{Number(w.credit_limit || 0).toLocaleString('en-IN')}
           </span>
         )}
-        {w && Number(w.total_penalties) > 0 && (
+        {w && Number(w.balance) < 0 && Number(w.total_penalties) > 0 && (
           <span className="text-[10px] text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded w-fit mt-0.5">
             Fine: ₹{Number(w.total_penalties).toLocaleString('en-IN')}
           </span>

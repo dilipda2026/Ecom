@@ -267,7 +267,7 @@ export default function AdminWalletKycDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {Number(kyc.total_penalties) > 0 ? (
+                        {Number(kyc.balance) < 0 && Number(kyc.total_penalties) > 0 ? (
                           <span className="text-xs text-rose-500 font-bold bg-rose-500/10 px-2 py-1 rounded-md">
                             ₹{Number(kyc.total_penalties).toLocaleString('en-IN')}
                           </span>
