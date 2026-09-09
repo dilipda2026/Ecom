@@ -13,14 +13,36 @@ export async function getServerSession() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { user: null };
 
+  let phone = (user.user_metadata?.phone as string) ?? null;
+  let fullName = (user.user_metadata?.full_name as string) ?? user.email?.split('@')[0] ?? 'User';
+  let role = (user.user_metadata?.role as string) ?? null;
+  let avatarUrl = (user.user_metadata?.avatar_url as string) ?? null;
+
+  const serviceClient = createServiceClient();
+  if (serviceClient) {
+    try {
+      const { data: profile } = await serviceClient
+        .from('profiles')
+        .select('phone, full_name, role, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile) {
+        if (profile.phone) phone = profile.phone;
+        if (profile.full_name) fullName = profile.full_name;
+        if (profile.role) role = profile.role;
+        if (profile.avatar_url) avatarUrl = profile.avatar_url;
+      }
+    } catch {}
+  }
+
   return {
     user: {
       id: user.id,
       email: user.email ?? '',
-      fullName: (user.user_metadata?.full_name as string) ?? user.email?.split('@')[0] ?? 'User',
-      role: (user.user_metadata?.role as string) ?? null,
-      avatarUrl: (user.user_metadata?.avatar_url as string) ?? null,
-      phone: (user.user_metadata?.phone as string) ?? null,
+      fullName,
+      role,
+      avatarUrl,
+      phone,
     },
   };
 }
@@ -53,9 +75,17 @@ export async function updateServerProfile(updates: { role?: string; phone?: stri
   const { user } = await getServerSession();
   if (!user) return { error: 'Not authenticated' };
 
+  const profileUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.full_name !== undefined) profileUpdates.full_name = updates.full_name;
+  if (updates.phone !== undefined) profileUpdates.phone = updates.phone;
+  if (updates.role !== undefined) profileUpdates.role = updates.role;
+
   const { error } = await supabase
     .from('profiles')
-    .upsert({ id: user.id, email: user.email, full_name: user.fullName, role: user.role || '', is_active: true, ...updates });
+    .update(profileUpdates)
+    .eq('id', user.id);
 
   if (error) return { error: error.message };
 
@@ -67,7 +97,7 @@ export async function updateServerProfile(updates: { role?: string; phone?: stri
   if (Object.keys(metadataUpdates).length > 0) {
     const authSupabase = await createServerSupabaseClient();
     if (authSupabase) {
-      await authSupabase.auth.updateUser({ data: metadataUpdates });
+      await authSupabase.auth.updateUser({ data: metadataUpdates }).catch(() => null);
     }
   }
 
@@ -288,13 +318,14 @@ export async function createUserAccount(input: {
   email: string;
   password: string;
   fullName: string;
-  phone?: string;
+  phone: string;
 }) {
   const admin = createAdminClient();
   const { email, password, fullName, phone } = input;
+  const cleanPhone = phone ? phone.trim() : '';
 
-  if (phone && !/^[0-9]{10}$/.test(phone)) {
-    return { user: null, error: 'Phone number must be exactly 10 digits' };
+  if (!cleanPhone || !/^[0-9]{10}$/.test(cleanPhone)) {
+    return { user: null, error: 'Phone number is required and must be exactly 10 digits' };
   }
 
   // The store owner's account starts as the read-only `owner` role instead of
@@ -306,11 +337,25 @@ export async function createUserAccount(input: {
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
-      phone: phone ?? '',
+      phone: cleanPhone,
       role,
     },
   });
   if (error) return { user: null, error: error.message };
+
+  if (data.user) {
+    // Ensure profiles record is updated/inserted immediately with phone number and details
+    await admin.from('profiles').upsert({
+      id: data.user.id,
+      email,
+      full_name: fullName,
+      phone: cleanPhone,
+      role,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
   return { user: data.user ? { id: data.user.id } : null, error: null };
 }
 

@@ -1,4 +1,6 @@
-import { repaymentRequestSchema, profileUpdateSchema, productSchema } from '@/schemas/api';
+import { describe, it, expect } from 'vitest';
+import { repaymentRequestSchema, profileUpdateSchema, productSchema } from '../../schemas/api';
+
 
 describe('repaymentRequestSchema', () => {
   it('accepts valid repayment request', () => {
@@ -43,6 +45,12 @@ describe('profileUpdateSchema', () => {
   it('rejects invalid role', () => {
     const result = profileUpdateSchema.safeParse({ role: 'invalid' });
     expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid phone numbers', () => {
+    expect(profileUpdateSchema.safeParse({ phone: '12345' }).success).toBe(false);
+    expect(profileUpdateSchema.safeParse({ phone: '12345678901' }).success).toBe(false);
+    expect(profileUpdateSchema.safeParse({ phone: 'abcdefghij' }).success).toBe(false);
   });
 
   it('accepts partial update', () => {

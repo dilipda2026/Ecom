@@ -413,9 +413,13 @@ export default function ProfilePage() {
                   <p className="font-semibold text-ztext text-sm">Phone</p>
                   {editingField === 'phone' ? (
                     <input
+                      type="tel"
                       className="input-z mt-1 text-sm"
+                      placeholder="10-digit mobile number"
+                      maxLength={10}
+                      inputMode="numeric"
                       value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
+                      onChange={(e) => setEditValue(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       autoFocus
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelEdit(); }}
                     />

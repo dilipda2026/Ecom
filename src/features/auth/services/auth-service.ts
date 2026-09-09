@@ -42,7 +42,21 @@ export const authService = {
     try {
       const { data } = await supabase.auth.getUser();
       if (!data.user) return { user: null };
-      return { user: mapUser(data.user) };
+      const user = mapUser(data.user);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone, full_name, role, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profile) {
+          if (profile.phone) user.phone = profile.phone;
+          if (profile.full_name) user.fullName = profile.full_name;
+          if (profile.role) user.role = profile.role as Role;
+          if (profile.avatar_url) user.avatarUrl = profile.avatar_url;
+        }
+      } catch {}
+      return { user };
     } catch {
       // Invalid/expired refresh token — clear the stale local session
       await supabase.auth.signOut({ scope: 'local' }).catch(() => null);

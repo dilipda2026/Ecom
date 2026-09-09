@@ -113,7 +113,11 @@ export default function SignupForm() {
     e.preventDefault();
     setError('');
     const cleanPhone = phone.trim();
-    if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
+    if (!cleanPhone) {
+      setError('Phone number is required');
+      return;
+    }
+    if (!/^[0-9]{10}$/.test(cleanPhone)) {
       setError('Phone number must be exactly 10 digits (0-9)');
       return;
     }
@@ -125,7 +129,7 @@ export default function SignupForm() {
         email,
         password,
         fullName,
-        phone: phone || undefined,
+        phone: cleanPhone,
       });
       created = res.user;
       err = res.error;
@@ -150,16 +154,15 @@ export default function SignupForm() {
     try {
       const supabase = (await import('@/infrastructure/supabase/service')).createServiceClient();
       if (supabase) {
-        const profileUpdates: Record<string, unknown> = {};
-        if (phone) profileUpdates.phone = phone;
+        const profileUpdates: Record<string, unknown> = {
+          phone: cleanPhone,
+        };
         if (isCitEmail) {
           profileUpdates.is_cit_student = true;
           profileUpdates.student_email = email.toLowerCase();
           profileUpdates.student_verified_at = new Date().toISOString();
         }
-        if (Object.keys(profileUpdates).length > 0) {
-          await supabase.from('profiles').update(profileUpdates).eq('id', activeUser.id);
-        }
+        await supabase.from('profiles').update(profileUpdates).eq('id', activeUser.id);
       }
     } catch {}
 
@@ -169,7 +172,7 @@ export default function SignupForm() {
       const formData = new FormData();
       formData.set('vehicleType', vehicleType);
       formData.set('licensePlate', licensePlate);
-      formData.set('phone', phone || '');
+      formData.set('phone', cleanPhone);
       const result = await setupDeliveryAccount(formData);
       if (result.error) { setError(result.error); return; }
       window.location.href = result.redirect ?? '/dashboard/delivery';
@@ -178,7 +181,7 @@ export default function SignupForm() {
 
     if (accountType === 'admin') {
       const formData = new FormData();
-      formData.set('phone', phone || '');
+      formData.set('phone', cleanPhone);
       let result: { error: string | null; redirect: string | null };
       try {
         result = await setupAdminAccount(formData);
@@ -210,12 +213,26 @@ export default function SignupForm() {
 
           <form onSubmit={handleCreateAccount} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-ztext mb-1.5">Full name</label>
+              <label className="block text-sm font-medium text-ztext mb-1.5">
+                Full name <span className="text-zred">*</span>
+              </label>
               <input type="text" className="input-z w-full" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ztext mb-1.5">Phone number</label>
-              <input type="tel" className="input-z w-full" placeholder="Enter your phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <label className="block text-sm font-medium text-ztext mb-1.5">
+                Phone number <span className="text-zred">*</span>
+              </label>
+              <input
+                type="tel"
+                className="input-z w-full"
+                placeholder="10-digit mobile number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                required
+                maxLength={10}
+                pattern="[0-9]{10}"
+                inputMode="numeric"
+              />
             </div>
             {accountType === 'delivery' && (
               <>

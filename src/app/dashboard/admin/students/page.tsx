@@ -156,11 +156,12 @@ export default function AdminStudentsPage() {
         <div>
           <p className="font-medium text-ztext">{s.full_name}</p>
           <p className="text-xs text-ztext-lighter">{s.email}</p>
+          {s.phone && <p className="text-[10px] text-ztext-muted sm:hidden font-mono">{s.phone}</p>}
         </div>
       </div>
     )},
     { key: 'phone', header: 'Phone', render: (s: AdminStudent) => (
-      <span className="text-ztext-light">{s.phone ?? '-'}</span>
+      <span className="text-ztext-light font-mono text-xs">{s.phone || '-'}</span>
     ), hideOnMobile: true },
     { key: 'status', header: 'Status', render: (s: AdminStudent) => (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
