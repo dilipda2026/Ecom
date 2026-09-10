@@ -477,13 +477,21 @@ export class AdminRepository {
     if (status === 'accepted') updateData.accepted_at = new Date().toISOString();
     if (status === 'preparing') updateData.prepared_at = new Date().toISOString();
     if (status === 'ready') updateData.prepared_at = order.prepared_at ?? new Date().toISOString();
-    if (status === 'cancelled') updateData.cancelled_at = new Date().toISOString();
     if (status === 'completed' || status === 'delivered') {
       updateData.delivered_at = new Date().toISOString();
       updateData.payment_status = 'confirmed';
     }
-    if (status === 'cancelled' && order.payment_method === 'cod') {
-      updateData.payment_status = 'failed';
+    if (status === 'cancelled' || status === 'declined') {
+      updateData.cancelled_at = new Date().toISOString();
+      if (order.payment_method === 'cod') {
+        updateData.payment_status = 'failed';
+      } else if (order.payment_status === 'confirmed') {
+        const { processOrderRefundIfEligible } = await import('@/features/orders/actions/customer');
+        const refundRes = await processOrderRefundIfEligible(order, reason || 'Cancelled by store admin');
+        if (refundRes.refunded) {
+          updateData.payment_status = 'refunded';
+        }
+      }
     }
     const { error } = await admin.from('orders').update(updateData).eq('id', orderId);
     if (error) throw new Error(error.message);

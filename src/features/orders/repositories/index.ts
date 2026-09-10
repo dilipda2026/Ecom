@@ -52,8 +52,17 @@ export class OrderRepository {
     if (status === 'completed' || status === 'delivered') timestamps.delivered_at = new Date().toISOString();
     if (status === 'cancelled') timestamps.cancelled_at = new Date().toISOString();
     if (status === 'declined') timestamps.cancelled_at = new Date().toISOString();
-    const paymentStatus: PaymentStatus | undefined = (status === 'completed' || status === 'delivered') ? 'confirmed' :
-      status === 'cancelled' && order.payment_method === 'cod' ? 'failed' : undefined;
+    let paymentStatus: PaymentStatus | undefined = (status === 'completed' || status === 'delivered') ? 'confirmed' :
+      (status === 'cancelled' || status === 'declined') && order.payment_method === 'cod' ? 'failed' : undefined;
+
+    if ((status === 'cancelled' || status === 'declined') && order.payment_status === 'confirmed' && order.payment_method !== 'cod') {
+      const { processOrderRefundIfEligible } = await import('@/features/orders/actions/customer');
+      const refundRes = await processOrderRefundIfEligible(order as any, note || 'Cancelled by merchant');
+      if (refundRes.refunded) {
+        paymentStatus = 'refunded';
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       status,
       status_history: statusHistory,

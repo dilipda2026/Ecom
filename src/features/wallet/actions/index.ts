@@ -398,6 +398,63 @@ export async function deductWalletBalance(
 }
 
 /**
+ * Refund wallet balance when an order is cancelled
+ */
+export async function refundWalletOrder(
+  userId: string,
+  amount: number,
+  orderTrackingCode: string,
+  reason = 'Order cancelled'
+): Promise<{ success: boolean; error?: string; newBalance?: number }> {
+  const supabase = createServiceClient();
+  if (!supabase) return { success: false, error: 'Service unavailable' };
+
+  if (!amount || amount <= 0) return { success: false, error: 'Invalid refund amount' };
+
+  try {
+    const { data: existingWallet } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!existingWallet) {
+      return { success: false, error: 'Wallet not found' };
+    }
+
+    const balanceBefore = Number(existingWallet.balance) || 0;
+    const balanceAfter = balanceBefore + amount;
+
+    await supabase
+      .from('wallets')
+      .update({
+        balance: balanceAfter,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingWallet.id);
+
+    await supabase
+      .from('profiles')
+      .update({ wallet_balance: balanceAfter })
+      .eq('id', userId);
+
+    await supabase.from('wallet_transactions').insert({
+      wallet_id: existingWallet.id,
+      type: 'credit',
+      amount: amount,
+      balance_after: balanceAfter,
+      description: `Refund for order #${orderTrackingCode}: ${reason}`,
+      reference_id: `REFUND-${orderTrackingCode}-${Date.now()}`,
+    });
+
+    return { success: true, newBalance: balanceAfter };
+  } catch (err: unknown) {
+    console.error('refundWalletOrder error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to process wallet refund' };
+  }
+}
+
+/**
  * Legacy exports for backwards compatibility
  */
 export async function getWalletBalance() {

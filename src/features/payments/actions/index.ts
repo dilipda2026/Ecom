@@ -98,3 +98,47 @@ export async function verifyRazorpayPayment(
   }
 }
 
+export async function refundRazorpayPayment(
+  paymentId: string,
+  amountInRupees?: number,
+  notes?: Record<string, string>
+): Promise<{ success: boolean; refundId?: string; error?: string }> {
+  if (!paymentId) return { success: false, error: 'Missing Razorpay Payment ID' };
+
+  const keyId = await getSetting('razorpay_key_id');
+  const keySecret = await getSetting('razorpay_key_secret');
+
+  if (!keyId || !keySecret) {
+    return { success: false, error: 'Razorpay is not configured' };
+  }
+
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+  const bodyPayload: Record<string, unknown> = {};
+  if (amountInRupees && amountInRupees > 0) {
+    bodyPayload.amount = Math.round(amountInRupees * 100);
+  }
+  if (notes) {
+    bodyPayload.notes = notes;
+  }
+
+  try {
+    const res = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refund`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${auth}`,
+      },
+      body: Object.keys(bodyPayload).length > 0 ? JSON.stringify(bodyPayload) : undefined,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.error?.description || 'Failed to refund payment on Razorpay' };
+    }
+
+    return { success: true, refundId: data.id };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Razorpay refund error' };
+  }
+}
+

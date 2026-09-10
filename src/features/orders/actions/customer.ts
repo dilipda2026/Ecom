@@ -786,6 +786,92 @@ export async function getUserOrders(page = 1, pageSize = 10) {
   };
 }
 
+/**
+ * Process automatic refund for an order if and ONLY if it was paid via Wallet or Razorpay/UPI.
+ * Cash on Delivery (COD) and unpaid orders are strictly excluded from refunds.
+ */
+export async function processOrderRefundIfEligible(order: {
+  id: string;
+  user_id?: string | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+  total: number;
+  tracking_code: string;
+}, reason = 'Order cancelled'): Promise<{ refunded: boolean; method: string | null }> {
+  if (!order || order.payment_status !== 'confirmed') {
+    return { refunded: false, method: order?.payment_method ?? null };
+  }
+
+  // Strictly ignore COD - COD NEVER issues refunds
+  if (order.payment_method === 'cod') {
+    return { refunded: false, method: 'cod' };
+  }
+
+  const supabase = createServiceClient();
+  if (!supabase) return { refunded: false, method: null };
+
+  let refunded = false;
+
+  // 1. Wallet Refund: ONLY if paid via Wallet
+  if (order.payment_method === 'wallet' && order.user_id) {
+    try {
+      const { refundWalletOrder } = await import('@/features/wallet/actions');
+      await refundWalletOrder(
+        order.user_id,
+        Number(order.total) || 0,
+        order.tracking_code,
+        reason
+      );
+      refunded = true;
+    } catch (err) {
+      console.error('Wallet automatic refund error:', err);
+    }
+  }
+
+  // 2. Razorpay / Online UPI Refund: ONLY if paid via Razorpay/UPI
+  if (order.payment_method === 'razorpay' || order.payment_method === 'upi') {
+    try {
+      const { refundRazorpayPayment } = await import('@/features/payments/actions');
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('id, gateway_payment_id')
+        .eq('order_id', order.id)
+        .maybeSingle();
+
+      if (payment?.gateway_payment_id) {
+        await refundRazorpayPayment(
+          payment.gateway_payment_id,
+          Number(order.total) || 0,
+          {
+            order_id: order.id,
+            tracking_code: order.tracking_code,
+            reason,
+          }
+        );
+        refunded = true;
+      }
+    } catch (err) {
+      console.error('Razorpay automatic refund error:', err);
+    }
+  }
+
+  // 3. Update payment record in database
+  try {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'refunded',
+        refund_amount: Number(order.total) || 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('order_id', order.id);
+  } catch (pErr) {
+    console.error('Error updating payment status to refunded:', pErr);
+  }
+
+  return { refunded, method: order.payment_method ?? null };
+}
+
 export async function cancelUserOrder(orderId: string, reason: string) {
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service unavailable' };
@@ -795,7 +881,7 @@ export async function cancelUserOrder(orderId: string, reason: string) {
 
   const { data: order, error: fetchError } = await supabase
     .from('orders')
-    .select('user_id, status, status_history, created_at')
+    .select('id, user_id, status, status_history, created_at, payment_method, payment_status, total, tracking_code')
     .eq('id', orderId)
     .maybeSingle();
 
@@ -814,10 +900,22 @@ export async function cancelUserOrder(orderId: string, reason: string) {
   const existingHistory = (order.status_history ?? []) as Array<Record<string, unknown>>;
   const statusHistory = [...existingHistory, historyEntry];
 
+  // Process refund: ONLY for confirmed Wallet or Razorpay/UPI payments; COD never refunds
+  const isCod = order.payment_method === 'cod';
+  let newPaymentStatus = isCod ? 'failed' : order.payment_status;
+
+  if (order.payment_status === 'confirmed' && !isCod) {
+    const refundResult = await processOrderRefundIfEligible(order, reason || 'Cancelled by customer');
+    if (refundResult.refunded) {
+      newPaymentStatus = 'refunded';
+    }
+  }
+
   const { error } = await supabase
     .from('orders')
     .update({
       status: 'cancelled',
+      payment_status: newPaymentStatus,
       cancelled_at: new Date().toISOString(),
       cancellation_reason: reason || 'Cancelled by customer',
       status_history: statusHistory,
@@ -825,7 +923,7 @@ export async function cancelUserOrder(orderId: string, reason: string) {
     .eq('id', orderId);
 
   if (error) return { success: false, error: 'Failed to cancel order' };
-  return { success: true };
+  return { success: true, refunded: !isCod && order.payment_status === 'confirmed' };
 }
 
 export async function getUserOrder(orderId: string) {
