@@ -204,7 +204,7 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
     // Prepare line items with authoritative prices
     const orderItems = priceResolution.lineItems.map((li) => ({
       order_id: order.id,
-      product_id: li.product_id,
+      product_id: li.product_id ?? null,
       product_name: li.product_name,
       product_price: li.product_price,
       unit_price: li.unit_price,
@@ -213,9 +213,16 @@ export async function createInStoreOrder(params: InStoreOrderParams) {
       special_instructions: li.special_instructions ?? null,
     }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+    let { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+
+    if (itemsError && String(itemsError.message || '').toLowerCase().includes('foreign key')) {
+      const fallbackItems = orderItems.map((it) => ({ ...it, product_id: null }));
+      const retry = await supabase.from('order_items').insert(fallbackItems);
+      itemsError = retry.error;
+    }
 
     if (itemsError) {
+      console.error('Failed to save in-store order line items:', itemsError);
       await supabase.from('orders').delete().eq('id', order.id);
       return { success: false, error: 'Failed to save order line items' };
     }

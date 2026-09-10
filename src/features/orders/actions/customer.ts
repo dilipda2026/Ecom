@@ -63,7 +63,7 @@ const STATIC_PRODUCT_IDS: Record<string, string> = {
 };
 
 interface ResolvedLineItem {
-  product_id: string;
+  product_id: string | null;
   product_name: string;
   product_price: number;
   unit_price: number;
@@ -146,7 +146,7 @@ export async function resolveAuthoritativeLineItems(
 
     let authoritativePrice: number;
     let productName: string;
-    let resolvedProductId: string;
+    let resolvedProductId: string | null = null;
     let packagingBigQty = 0;
     let packagingSmallQty = 0;
 
@@ -168,7 +168,7 @@ export async function resolveAuthoritativeLineItems(
       }
       authoritativePrice = fallbackProd.price;
       productName = fallbackProd.name;
-      resolvedProductId = STATIC_PRODUCT_IDS[item.id] ?? (item.id.length === 36 ? item.id : '00000000-0000-0000-0000-000000000001');
+      resolvedProductId = null;
       packagingBigQty = fallbackProd.packagingBigQty ?? 0;
       packagingSmallQty = fallbackProd.packagingSmallQty ?? 0;
     } else {
@@ -499,7 +499,7 @@ export async function createOrder(params: CreateOrderParams) {
 
   const orderItemsToInsert = priceResolution.lineItems.map((li) => ({
     order_id: order.id,
-    product_id: li.product_id,
+    product_id: li.product_id ?? null,
     product_name: li.product_name,
     product_price: li.product_price,
     unit_price: li.unit_price,
@@ -508,9 +508,17 @@ export async function createOrder(params: CreateOrderParams) {
     special_instructions: li.special_instructions ?? null,
   }));
 
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+  let { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+
+  // If FK fails due to any stale/static product_id, retry once with product_id set to null
+  if (itemsError && String(itemsError.message || '').toLowerCase().includes('foreign key')) {
+    const fallbackItems = orderItemsToInsert.map((it) => ({ ...it, product_id: null }));
+    const retry = await supabase.from('order_items').insert(fallbackItems);
+    itemsError = retry.error;
+  }
 
   if (itemsError) {
+    console.error('Failed to save order items:', itemsError);
     await supabase.from('orders').delete().eq('id', order.id);
     return { success: false, error: 'Failed to save order items' };
   }
@@ -635,7 +643,14 @@ export async function getOrderTrackingByCode(trackingCode: string) {
   };
 }
 
-export async function confirmPayment(orderId: string) {
+export async function confirmPayment(
+  orderId: string,
+  gatewayInfo?: {
+    gatewayOrderId?: string;
+    gatewayPaymentId?: string;
+    gatewaySignature?: string;
+  }
+) {
   const supabase = createServiceClient();
   if (!supabase) return { success: false, error: 'Service unavailable' };
 
@@ -646,11 +661,18 @@ export async function confirmPayment(orderId: string) {
 
   if (error) return { success: false, error: 'Failed to confirm payment' };
 
-  await recordPayment(orderId);
+  await recordPayment(orderId, gatewayInfo);
   return { success: true };
 }
 
-async function recordPayment(orderId: string) {
+async function recordPayment(
+  orderId: string,
+  gatewayInfo?: {
+    gatewayOrderId?: string;
+    gatewayPaymentId?: string;
+    gatewaySignature?: string;
+  }
+) {
   const supabase = createServiceClient();
   if (!supabase) return;
 
@@ -667,7 +689,17 @@ async function recordPayment(orderId: string) {
     .eq('order_id', orderId)
     .limit(1)
     .maybeSingle();
-  if (existing) return;
+
+  if (existing) {
+    if (gatewayInfo?.gatewayPaymentId || gatewayInfo?.gatewayOrderId) {
+      await supabase.from('payments').update({
+        gateway_payment_id: gatewayInfo.gatewayPaymentId ?? null,
+        gateway_order_id: gatewayInfo.gatewayOrderId ?? null,
+        gateway_signature: gatewayInfo.gatewaySignature ?? null,
+      }).eq('id', existing.id);
+    }
+    return;
+  }
 
   const method = order.payment_method ?? 'razorpay';
   const gateway =
@@ -684,6 +716,9 @@ async function recordPayment(orderId: string) {
     currency: 'INR',
     payment_method: method,
     gateway,
+    gateway_order_id: gatewayInfo?.gatewayOrderId ?? null,
+    gateway_payment_id: gatewayInfo?.gatewayPaymentId ?? null,
+    gateway_signature: gatewayInfo?.gatewaySignature ?? null,
     status: 'confirmed',
   });
 }

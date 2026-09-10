@@ -110,6 +110,15 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (user?.phone) {
+      setCustomerPhone((prev) => prev || (user.phone ?? ''));
+    }
+    if (user?.fullName) {
+      setCustomerName((prev) => prev || (user.fullName ?? ''));
+    }
+  }, [user?.phone, user?.fullName]);
+
   async function handleAuthRejected(errorMessage?: string | null) {
     if (!errorMessage) return false;
     const m = errorMessage.toLowerCase();
@@ -149,6 +158,7 @@ export default function CheckoutPage() {
   }
 
   function buildOrderParams(pm: string) {
+    const effectivePhone = (customerPhone || user?.phone || '').trim();
     return {
       items,
       subtotal: subtotal(),
@@ -159,8 +169,8 @@ export default function CheckoutPage() {
       paymentMethod: pm,
       address,
       notes,
-      customerPhone,
-      customerName: customerName || undefined,
+      customerPhone: effectivePhone,
+      customerName: customerName || user?.fullName || undefined,
       orderType: orderType ?? undefined,
       deliverySlotId: effectiveSlotId || undefined,
     };
@@ -211,8 +221,8 @@ export default function CheckoutPage() {
       setError('Online payments are not configured. Please choose Wallet or Cash on Delivery.');
       return false;
     }
-     if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
-    const cleanPhone = customerPhone.trim();
+    if (isDelivery && !address.trim()) { setError('Please enter your delivery address'); return false; }
+    const cleanPhone = (customerPhone || user?.phone || '').trim();
     if (!/^[0-9]{10}$/.test(cleanPhone)) {
       setError('Phone number must be exactly 10 digits (0-9)');
       return false;
@@ -244,6 +254,9 @@ export default function CheckoutPage() {
       return;
     }
 
+    const prefillPhone = (customerPhone || user?.phone || '').trim();
+    const prefillName = customerName || user?.fullName || '';
+
     openRazorpayCheckout({
       key: razorpayKey,
       amount: rzpResult.data.amount,
@@ -251,8 +264,8 @@ export default function CheckoutPage() {
       description: opts?.description ?? 'Food order',
       method: opts?.method,
       orderId: rzpResult.data.id,
-      prefill: { contact: customerPhone },
-      onSuccess: async () => {
+      prefill: { contact: prefillPhone, name: prefillName },
+      onSuccess: async (rzpRes) => {
         const orderResult = await createOrder(buildOrderParams(pm));
         if (!orderResult.success) {
           if (await handleAuthRejected(orderResult.error)) return;
@@ -260,7 +273,11 @@ export default function CheckoutPage() {
           setPlacing(false);
           return;
         }
-        await confirmPayment(orderResult.data!.orderId);
+        await confirmPayment(orderResult.data!.orderId, {
+          gatewayOrderId: rzpRes?.razorpay_order_id,
+          gatewayPaymentId: rzpRes?.razorpay_payment_id,
+          gatewaySignature: rzpRes?.razorpay_signature,
+        });
         await sendOrderNotification(orderResult.data!.orderId, orderResult.data!.qrToken ?? null);
         clearCart();
         router.push(`/order/confirmed?orderId=${orderResult.data!.orderId}`);
@@ -755,9 +772,9 @@ export default function CheckoutPage() {
                 {error && <p className="text-xs mt-2 flex items-center gap-1 text-zred"><span className="w-1.5 h-1.5 rounded-full bg-zred" />{error}</p>}
                 <button 
                   onClick={handlePlaceOrder} 
-                  disabled={placing || hasPendingPenalty || (isDelivery && !address.trim()) || !customerPhone.trim()} 
+                  disabled={placing || hasPendingPenalty || (isDelivery && !address.trim()) || !(customerPhone || user?.phone || '').trim()} 
                   className="button-z button-z-primary w-full mt-3 h-10 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed" 
-                  style={{ opacity: (hasPendingPenalty || ((isDelivery && !address.trim()) || !customerPhone.trim())) && !placing ? 0.6 : 1 }}
+                  style={{ opacity: (hasPendingPenalty || ((isDelivery && !address.trim()) || !(customerPhone || user?.phone || '').trim())) && !placing ? 0.6 : 1 }}
                 >
                   {placing ? (
                     <span className="flex items-center justify-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing...</span>
