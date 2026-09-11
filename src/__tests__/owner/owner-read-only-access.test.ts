@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { isOwnerEmail, isAdminEmail } from '@/config/auth-access';
 
 describe('Store Owner (Dilip Da) Read-Only Access & Permissions', () => {
@@ -10,6 +10,16 @@ describe('Store Owner (Dilip Da) Read-Only Access & Permissions', () => {
       expect(isOwnerEmail('dilipda@cit.ac.in', STORE_OWNER_EMAIL)).toBe(true);
       expect(isOwnerEmail('DILIPDA@CIT.AC.IN', STORE_OWNER_EMAIL)).toBe(true);
       expect(isOwnerEmail('  dilipda@cit.ac.in  ', STORE_OWNER_EMAIL)).toBe(true);
+    });
+
+    it('correctly matches multiple configured store owner emails (comma/newline separated or array)', () => {
+      const MULTIPLE_OWNERS = 'dilipda@cit.ac.in, secondowner@cit.ac.in \n thirdowner@cit.ac.in;fourthowner@cit.ac.in';
+      expect(isOwnerEmail('dilipda@cit.ac.in', MULTIPLE_OWNERS)).toBe(true);
+      expect(isOwnerEmail('secondowner@cit.ac.in', MULTIPLE_OWNERS)).toBe(true);
+      expect(isOwnerEmail('THIRDOWNER@cit.ac.in', MULTIPLE_OWNERS)).toBe(true);
+      expect(isOwnerEmail('fourthowner@cit.ac.in', MULTIPLE_OWNERS)).toBe(true);
+      expect(isOwnerEmail('other@cit.ac.in', MULTIPLE_OWNERS)).toBe(false);
+      expect(isOwnerEmail('secondowner@cit.ac.in', ['dilipda@cit.ac.in', 'secondowner@cit.ac.in'])).toBe(true);
     });
 
     it('rejects non-owner emails', () => {
