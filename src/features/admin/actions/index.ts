@@ -656,9 +656,10 @@ export async function updateSystemSetting(id: string, value: string) {
     await adminRepository.updateSystemSetting(setting.id, value, user.id);
     await adminRepository.createAuditLog({
       table_name: 'system_settings',
-      record_id: setting.id,
-      action: 'update',
-      new_data: { value },
+      record_id: setting.key,
+      action: 'update_setting',
+      old_data: { key: setting.key, value: setting.value ?? '' },
+      new_data: { key: setting.key, value },
       changed_by: user.id,
     });
     clearSettingsCache();

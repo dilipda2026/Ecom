@@ -421,12 +421,12 @@ export class AdminRepository {
     const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate, restaurantId } = filter;
     let query = admin
       .from('orders')
-      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)', { count: 'exact' })
+      .select('*, order_items(*), user:profiles!user_id(full_name, email, phone), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)', { count: 'exact' })
       .is('deleted_at', null);
     if (status && status !== 'all') query = query.eq('status', status);
     if (search) {
       query = query.or(
-        `tracking_code.ilike.%${search}%,customer_name.ilike.%${search}%,customer_email.ilike.%${search}%`,
+        `tracking_code.ilike.%${search}%,customer_name.ilike.%${search}%,customer_email.ilike.%${search}%,customer_phone.ilike.%${search}%`,
       );
     }
     if (fromDate) query = query.gte('created_at', fromDate);
@@ -449,7 +449,7 @@ export class AdminRepository {
     const admin = createAdminClient();
     const { data } = await admin
       .from('orders')
-      .select('*, order_items(*), user:profiles!user_id(full_name, email), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)')
+      .select('*, order_items(*), user:profiles!user_id(full_name, email, phone), restaurant:restaurants!restaurant_id(name), delivery_partner:profiles!delivery_partner_id(full_name, phone)')
       .eq('id', id)
       .single();
     return data as unknown as AdminOrder | null;
@@ -606,15 +606,24 @@ export class AdminRepository {
 
   async getPayments(filter: AdminFilter = {}): Promise<PaginatedResponse<PaymentAdmin>> {
     const admin = createAdminClient();
-    const { search, status, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate } = filter;
+    const { search, status, paymentMethodGroup, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate } = filter;
     let query = admin
       .from('payments')
-      .select('*, order:orders!order_id!inner(tracking_code, status, customer_name, customer_phone, customer_email, user_id)', { count: 'exact' })
+      .select('*, order:orders!order_id!inner(tracking_code, status, customer_name, customer_phone, customer_email, user_id, order_items(id, product_name, quantity, unit_price, subtotal))', { count: 'exact' })
       .neq('order.status', 'cancelled');
     if (status && status !== 'all') query = query.eq('status', status);
+    if (paymentMethodGroup && paymentMethodGroup !== 'all') {
+      if (paymentMethodGroup === 'online') {
+        query = query.in('payment_method', ['razorpay', 'upi', 'phonepe', 'gpay', 'online']);
+      } else if (paymentMethodGroup === 'wallet') {
+        query = query.in('payment_method', ['wallet', 'bnpl']);
+      } else if (paymentMethodGroup === 'cod') {
+        query = query.in('payment_method', ['cod', 'cash', 'collected']);
+      }
+    }
     if (search) {
       query = query.or(
-        `gateway_payment_id.ilike.%${search}%,gateway_order_id.ilike.%${search}%,order.tracking_code.ilike.%${search}%`,
+        `gateway_payment_id.ilike.%${search}%,gateway_order_id.ilike.%${search}%,order.tracking_code.ilike.%${search}%,order.customer_name.ilike.%${search}%,order.customer_phone.ilike.%${search}%,order.customer_email.ilike.%${search}%`,
       );
     }
     if (fromDate) query = query.gte('created_at', fromDate);
