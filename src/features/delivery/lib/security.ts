@@ -17,10 +17,11 @@ export function isQrConfigured(): boolean {
   return qrSecret() !== '';
 }
 
-export function signQrToken(trackingCode: string): string {
+export function signQrToken(trackingCode: string, ttlMinutes?: number): string {
   const secret = qrSecret();
   if (!secret) throw new Error('DELIVERY_QR_SECRET is not configured');
-  const exp = Date.now() + DELIVERY_QR_TTL_MS;
+  const ttlMs = ttlMinutes && ttlMinutes > 0 ? ttlMinutes * 60 * 1000 : DELIVERY_QR_TTL_MS;
+  const exp = Date.now() + ttlMs;
   const payload = `${trackingCode}.${exp}`;
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   return `${Buffer.from(payload).toString('base64url')}.${sig}`;

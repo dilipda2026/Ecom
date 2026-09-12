@@ -529,7 +529,8 @@ export async function createOrder(params: CreateOrderParams) {
   if (isDeliveryOrder) {
     try {
       if (isQrConfigured()) {
-        qrToken = signQrToken(order.tracking_code);
+        const qrExpiryMinutes = await getNumericSetting('telegram_qr_expiry_minutes', 30);
+        qrToken = signQrToken(order.tracking_code, qrExpiryMinutes);
         await supabase
           .from('orders')
           .update({ pickup_qr_token: qrToken })

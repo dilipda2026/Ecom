@@ -107,8 +107,10 @@ export async function generateDeliveryQr(orderId: string) {
     return { success: false, error: 'Delivery QR is not available for takeaway or in-store orders' };
   }
 
-  const token = signQrToken(order.data.tracking_code);
-  const expiresAt = Date.now() + DELIVERY_QR_TTL_MS;
+  const { getNumericSetting } = await import('@/lib/settings');
+  const qrExpiryMinutes = await getNumericSetting('telegram_qr_expiry_minutes', 30);
+  const token = signQrToken(order.data.tracking_code, qrExpiryMinutes);
+  const expiresAt = Date.now() + qrExpiryMinutes * 60 * 1000;
 
   await supabase
     .from('delivery_assignments')
@@ -238,10 +240,6 @@ export async function startPickupByToken(token: string) {
 
   const order = await deliveryRepository.getOrderByTrackingCode(verified.trackingCode);
   if (!order) return { success: false, error: 'Order not found' };
-
-  if (Date.now() - new Date(order.created_at).getTime() > DELIVERY_QR_TTL_MS) {
-    return { success: false, error: 'QR/Order ID has expired — ask the store for a fresh QR.' };
-  }
 
   return claimOrderForPickup(supabase, user, order, hashDeliveryOtp(token));
 }

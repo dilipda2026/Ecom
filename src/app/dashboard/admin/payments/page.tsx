@@ -8,13 +8,14 @@ import { getAdminPayments, processRefund } from '@/features/admin/actions';
 import type { PaymentAdmin } from '@/features/admin/types';
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  processing: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
-  collected: 'bg-emerald-100 text-emerald-700',
-  failed: 'bg-red-100 text-red-700',
-  refunded: 'bg-blue-100 text-blue-700',
-  partially_refunded: 'bg-indigo-100 text-indigo-700',
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  processing: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  collected: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  failed: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  refunded: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  partially_refunded: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400',
+  cancelled: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -25,7 +26,21 @@ const STATUS_LABEL: Record<string, string> = {
   failed: 'Failed',
   refunded: 'Refunded',
   partially_refunded: 'Part Refund',
+  cancelled: 'Cancelled',
 };
+
+function getPaymentBadge(p: PaymentAdmin): { label: string; color: string } | null {
+  if (p.order?.status === 'cancelled' || p.status === 'cancelled') {
+    return { label: 'Canceled', color: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' };
+  }
+  if (p.status === 'refunded' || (p.refund_amount != null && p.refund_amount >= p.amount && p.amount > 0)) {
+    return { label: 'Refunded', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400' };
+  }
+  if (p.status === 'partially_refunded' || (p.refund_amount != null && p.refund_amount > 0)) {
+    return { label: 'Part Refund', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' };
+  }
+  return null;
+}
 
 function formatCurrency(n: number) {
   return `₹${Number(n).toLocaleString('en-IN')}`;
@@ -57,8 +72,9 @@ const PAYMENT_EXPORT_HEADERS = [
   'Payment Method',
   'Gateway',
   'Gateway Payment ID',
-  'Status',
+  'Payment Status',
   'Refund Amount',
+  'Order Status',
   'Date',
 ];
 
@@ -80,14 +96,18 @@ export default function AdminPaymentsPage() {
   const [refundReason, setRefundReason] = useState('');
   const { toasts, addToast, removeToast } = useToast();
 
+  const pageRef = useRef(page);
+  pageRef.current = page;
+
   const fetchPayments = useCallback(async (p?: number) => {
     setLoading(true);
+    const targetPage = p ?? pageRef.current;
     const res = await getAdminPayments({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
       paymentMethodGroup: paymentMethodGroup !== 'all' ? paymentMethodGroup : undefined,
       ...dateRange,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 50,
       sortBy,
       sortOrder,
@@ -99,26 +119,15 @@ export default function AdminPaymentsPage() {
       setPage(res.data.page);
     }
     setLoading(false);
-  }, [search, status, paymentMethodGroup, dateRange, sortBy, sortOrder, page]);
+  }, [search, status, paymentMethodGroup, dateRange]);
 
   useEffect(() => {
-    fetchPayments(1);  
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const filterKey = useMemo(
-    () => JSON.stringify([search, status, paymentMethodGroup, dateRange, sortBy, sortOrder]),
-    [search, status, paymentMethodGroup, dateRange, sortBy, sortOrder],
-  );
-  const lastFilterKey = useRef(filterKey);
-  useEffect(() => {
-    if (filterKey === lastFilterKey.current) return;
-    lastFilterKey.current = filterKey;
     fetchPayments(1);
-  }, [filterKey, fetchPayments]);
+  }, [fetchPayments]);
 
   const stats = useMemo(() => {
     const completed = payments.filter(
-      (p) => ['confirmed', 'collected'].includes(p.status) && !['cancelled', 'declined'].includes(p.order?.status ?? '')
+      (p) => ['confirmed', 'collected'].includes(p.status) && !['cancelled', 'declined'].includes(p.order?.status ?? '') && p.status !== 'refunded'
     );
     const totalAmount = completed.reduce((sum, p) => sum + Number(p.amount), 0);
     const avg = completed.length > 0 ? totalAmount / completed.length : 0;
@@ -136,21 +145,25 @@ export default function AdminPaymentsPage() {
   };
 
   const exportRows = useMemo(() => {
-    return payments.map((p) => [
-      p.order?.customer_name || p.user?.full_name || 'Walk-in / Guest',
-      p.wallet_info || 'N/A',
-      p.order?.customer_phone || p.user?.phone || 'N/A',
-      p.order?.customer_email || p.user?.email || 'N/A',
-      p.id,
-      p.order?.tracking_code || 'N/A',
-      p.amount,
-      paymentTitle(p.payment_method),
-      p.gateway,
-      p.gateway_payment_id || 'N/A',
-      STATUS_LABEL[p.status] || p.status,
-      p.refund_amount ?? 0,
-      new Date(p.created_at).toLocaleString('en-IN'),
-    ]);
+    return payments.map((p) => {
+      const badge = getPaymentBadge(p);
+      return [
+        p.order?.customer_name || p.user?.full_name || 'Walk-in / Guest',
+        p.wallet_info || 'N/A',
+        p.order?.customer_phone || p.user?.phone || 'N/A',
+        p.order?.customer_email || p.user?.email || 'N/A',
+        p.id,
+        p.order?.tracking_code || 'N/A',
+        p.amount,
+        paymentTitle(p.payment_method),
+        p.gateway,
+        p.gateway_payment_id || 'N/A',
+        badge ? badge.label : 'Success',
+        p.refund_amount ?? 0,
+        p.order?.status ? p.order.status.replace(/_/g, ' ') : 'N/A',
+        new Date(p.created_at).toLocaleString('en-IN'),
+      ];
+    });
   }, [payments]);
 
   return (
@@ -301,6 +314,8 @@ export default function AdminPaymentsPage() {
                 const customerEmail = p.order?.customer_email || p.user?.email || null;
                 const orderItems = p.order?.order_items ?? [];
 
+                const badge = getPaymentBadge(p);
+
                 return (
                   <div key={p.id} className="bg-zcard border border-zborder rounded-2xl p-4 hover:border-ztext/20 transition-all space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zborder/60">
@@ -314,6 +329,17 @@ export default function AdminPaymentsPage() {
                             {p.order?.tracking_code && (
                               <span className="text-[11px] font-mono font-medium px-2 py-0.5 bg-zgray rounded-md text-ztext-light">
                                 #{p.order.tracking_code}
+                              </span>
+                            )}
+                            {p.order?.status && (
+                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${
+                                p.order.status === 'delivered' || p.order.status === 'completed'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : p.order.status === 'cancelled'
+                                  ? 'bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20'
+                                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                              }`}>
+                                Order: {p.order.status.replace(/_/g, ' ')}
                               </span>
                             )}
                           </div>
@@ -331,9 +357,11 @@ export default function AdminPaymentsPage() {
                       <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                         <div className="text-left sm:text-right">
                           <p className="text-base font-bold text-ztext">{formatCurrency(p.amount)}</p>
-                          <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full mt-0.5 ${STATUS_COLORS[p.status] ?? 'bg-zgray text-ztext-light'}`}>
-                            {STATUS_LABEL[p.status] ?? p.status}
-                          </span>
+                          {badge && (
+                            <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full mt-0.5 ${badge.color}`}>
+                              {badge.label}
+                            </span>
+                          )}
                         </div>
                         {p.status === 'confirmed' && (p.refund_amount ?? 0) < p.amount && (
                           <button

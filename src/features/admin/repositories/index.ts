@@ -651,8 +651,7 @@ export class AdminRepository {
     const { search, status, paymentMethodGroup, page = 1, pageSize = 20, sortBy = 'created_at', sortOrder = 'desc', fromDate, toDate } = filter;
     let query = admin
       .from('payments')
-      .select('*, order:orders!order_id!inner(tracking_code, status, customer_name, customer_phone, customer_email, user_id, order_items(id, product_name, quantity, unit_price, subtotal))', { count: 'exact' })
-      .neq('order.status', 'cancelled');
+      .select('*, order:orders!order_id!inner(tracking_code, status, customer_name, customer_phone, customer_email, user_id, order_items(id, product_name, quantity, unit_price, subtotal))', { count: 'exact' });
     if (status && status !== 'all') query = query.eq('status', status);
     if (paymentMethodGroup && paymentMethodGroup !== 'all') {
       if (paymentMethodGroup === 'online') {
@@ -660,7 +659,7 @@ export class AdminRepository {
       } else if (paymentMethodGroup === 'wallet') {
         query = query.in('payment_method', ['wallet', 'bnpl']);
       } else if (paymentMethodGroup === 'cod') {
-        query = query.in('payment_method', ['cod', 'cash', 'collected']);
+        query = query.in('payment_method', ['cod', 'cash', 'collected']).in('order.status', ['delivered', 'completed']);
       }
     }
     if (search) {
@@ -711,8 +710,16 @@ export class AdminRepository {
       };
     });
 
+    const validPayments = paymentsWithDetails.filter((p) => {
+      const isCod = ['cod', 'cash', 'collected'].includes(p.payment_method);
+      if (isCod) {
+        return p.order?.status === 'delivered' || p.order?.status === 'completed';
+      }
+      return true;
+    });
+
     return {
-      data: paymentsWithDetails as unknown as PaymentAdmin[],
+      data: validPayments as unknown as PaymentAdmin[],
       total: count ?? 0,
       page,
       pageSize,

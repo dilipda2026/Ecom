@@ -87,13 +87,17 @@ export default function AdminOrdersPage() {
     else addToast(res.error ?? 'Failed to assign', 'error');
   };
 
+  const pageRef = useRef(page);
+  pageRef.current = page;
+
   const fetchOrders = useCallback(async (p?: number, silent = false) => {
     if (!silent) setLoading(true);
+    const targetPage = p ?? pageRef.current;
     const res = await getAdminOrders({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
       ...dateRange,
-      page: p ?? page,
+      page: targetPage,
       pageSize: 20,
       sortBy,
       sortOrder,
@@ -105,7 +109,7 @@ export default function AdminOrdersPage() {
       setPage(res.data.page);
     }
     if (!silent) setLoading(false);
-  }, [search, status, dateRange, sortBy, sortOrder, page]);
+  }, [search, status, dateRange, sortBy, sortOrder]);
 
   usePolling(() => { fetchOrders(undefined, true); }, POLL_INTERVAL_MS);
 
@@ -122,17 +126,6 @@ export default function AdminOrdersPage() {
       supabase.removeChannel(channel);
     };
   }, [fetchOrders]);
-
-  const filterKey = useMemo(
-    () => JSON.stringify([search, status, dateRange, sortBy, sortOrder]),
-    [search, status, dateRange, sortBy, sortOrder],
-  );
-  const lastFilterKey = useRef(filterKey);
-  useEffect(() => {
-    if (filterKey === lastFilterKey.current) return;
-    lastFilterKey.current = filterKey;
-    fetchOrders(1);
-  }, [filterKey, fetchOrders]);
 
   const handleCancel = async (id: string, reason: string) => {
     const res = await cancelOrderByAdmin(id, reason);

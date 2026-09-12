@@ -343,10 +343,12 @@ export async function regenerateOrderQr(orderId: string) {
     }
 
     const { signQrToken, isQrConfigured } = await import('@/features/delivery/lib/security');
+    const { getNumericSetting } = await import('@/lib/settings');
     if (!isQrConfigured()) return { success: false, error: 'Delivery QR is not configured on the server' };
 
-    const token = signQrToken(order.tracking_code);
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const qrExpiryMinutes = await getNumericSetting('telegram_qr_expiry_minutes', 30);
+    const token = signQrToken(order.tracking_code, qrExpiryMinutes);
+    const expiresAt = new Date(Date.now() + qrExpiryMinutes * 60 * 1000).toISOString();
 
     // Persisting the token is best-effort (needs the pickup_qr_token column).
     try {
@@ -574,6 +576,7 @@ const DEFAULT_SYSTEM_SETTINGS = [
   { key: 'packaging_charge_enabled', value: 'true', type: 'boolean', description: 'Enable or disable dynamic packaging charge' },
   { key: 'packaging_big_packet_price', value: '3', type: 'number', description: 'Price per big packaging unit (₹)' },
   { key: 'packaging_small_packet_price', value: '2', type: 'number', description: 'Price per small packaging unit (₹)' },
+  { key: 'telegram_qr_expiry_minutes', value: '30', type: 'number', description: 'Expiry duration for the Telegram pickup QR in minutes' },
 ];
 
 export async function getSystemSettings() {

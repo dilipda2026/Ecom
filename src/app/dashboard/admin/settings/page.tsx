@@ -25,6 +25,7 @@ const LABELS: Record<string, string> = {
   packaging_big_packet_price: 'Big Packet Price (₹)',
   packaging_small_packet_price: 'Small Packet Price (₹)',
   telegram_show_qr: 'Send pickup QR in Telegram',
+  telegram_qr_expiry_minutes: 'Telegram QR Expiry Time (minutes)',
   dilip_da_email: "Owner's email (Dilip Da)",
   store_temp_close_until: 'Temporarily close until (HH:MM)',
   delivery_available: 'Delivery Available',
@@ -84,6 +85,13 @@ export default function AdminSettingsPage() {
       return;
     }
     for (const s of dirty) {
+      if (s.key === 'telegram_qr_expiry_minutes') {
+        const num = Number(editingValues[s.key]);
+        if (!Number.isFinite(num) || num < 1 || num > 60) {
+          addToast('Telegram QR Expiry Time must be between 1 and 60 minutes', 'error');
+          return;
+        }
+      }
       if (s.type === 'json') {
         const val = editingValues[s.key] ?? '';
         if (!val.trim()) {
@@ -188,6 +196,8 @@ export default function AdminSettingsPage() {
               <input
                 type="number"
                 value={val}
+                min={setting.key === 'telegram_qr_expiry_minutes' ? 1 : undefined}
+                max={setting.key === 'telegram_qr_expiry_minutes' ? 60 : undefined}
                 disabled={disabled}
                 onChange={(e) => setVal(setting.key, e.target.value)}
                 className={`${inputClass} text-right`}
@@ -404,7 +414,7 @@ export default function AdminSettingsPage() {
           title: 'Telegram',
           subtitle: 'Order notifications delivered to the owner chat.',
           toggleKey: 'telegram_enabled',
-          keys: ['telegram_bot_token', 'telegram_chat_id', 'telegram_show_qr'],
+          keys: ['telegram_bot_token', 'telegram_chat_id', 'telegram_show_qr', 'telegram_qr_expiry_minutes'],
         })}
 
         {renderCard({
