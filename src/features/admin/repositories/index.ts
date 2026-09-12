@@ -4,6 +4,7 @@ import type {
   CreditAccountAdmin, PaymentAdmin, AuditEntry, SystemSetting,
   PaginatedResponse, AdminFilter, ActivityEntry, DeliveryPartnerAdmin,
 } from '../types';
+import { notifyOrderStatusPush, sendPushToUser, sendPushToDeliveryPartners } from '@/lib/push';
 
 export class AdminRepository {
   async getDashboardStats(): Promise<DashboardStats | null> {
@@ -369,7 +370,7 @@ export class AdminRepository {
 
     const { data: order } = await admin
       .from('orders')
-      .select('status, delivery_partner_id')
+      .select('id, user_id, tracking_code, status, delivery_partner_id')
       .eq('id', orderId)
       .maybeSingle();
     if (!order) throw new Error('Order not found');
@@ -414,6 +415,26 @@ export class AdminRepository {
       .update({ is_available: false })
       .eq('id', partnerId);
     if (partnerError) throw new Error(partnerError.message);
+
+    // Dispatch Native Web Push to customer
+    if (order.user_id) {
+      notifyOrderStatusPush({
+        userId: order.user_id,
+        orderId: order.id,
+        trackingCode: order.tracking_code,
+        status: 'assigned',
+      }).catch((err) => console.error('Error sending assigned push to customer:', err));
+    }
+
+    // Dispatch Native Web Push to the assigned Delivery Partner
+    if (partnerId) {
+      sendPushToUser(partnerId, {
+        title: `📦 Order #${order.tracking_code} Assigned to You!`,
+        body: `You have been assigned to deliver order #${order.tracking_code}. Click to view details and start delivery.`,
+        url: `/dashboard/delivery`,
+        tag: `delivery-assigned-${order.id}`,
+      }).catch((err) => console.error('Error sending assigned push to partner:', err));
+    }
   }
 
   async getOrders(filter: AdminFilter & { restaurantId?: string } = {}): Promise<PaginatedResponse<AdminOrder>> {
@@ -495,6 +516,27 @@ export class AdminRepository {
     }
     const { error } = await admin.from('orders').update(updateData).eq('id', orderId);
     if (error) throw new Error(error.message);
+
+    // Dispatch Native Web Push to customer
+    if (order.user_id) {
+      notifyOrderStatusPush({
+        userId: order.user_id,
+        orderId: order.id,
+        trackingCode: order.tracking_code,
+        status,
+        note: reason,
+      }).catch((err) => console.error('Error sending admin order push:', err));
+    }
+
+    // When order is marked ready, notify all Delivery Partners
+    if (status === 'ready') {
+      sendPushToDeliveryPartners({
+        title: `🛵 Order #${order.tracking_code} is Ready!`,
+        body: `Food is packed and ready for delivery pickup from Dilip Da kitchen.`,
+        url: `/dashboard/delivery`,
+        tag: `delivery-ready-${order.id}`,
+      }).catch((err) => console.error('Error sending delivery partner push:', err));
+    }
 
     // Also update delivery assignments if transitioning to a terminal status
     if (status === 'completed' || status === 'delivered' || status === 'cancelled' || status === 'declined') {

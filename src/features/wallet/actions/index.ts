@@ -5,6 +5,7 @@ import { getServerSession } from '@/features/auth/actions';
 import { getAdminEmails } from '@/lib/settings';
 import { isAdminEmail } from '@/config/auth-access';
 import type { Wallet, WalletTransaction, WalletSummary } from '../types';
+import { notifyBnplFinePush } from '@/lib/push';
 
 async function checkAdminAuth() {
   const supabase = createServiceClient();
@@ -932,6 +933,15 @@ export async function processBnplPenalties(): Promise<{ success: boolean; proces
               description: `Late Repayment Penalty (${penaltiesToApply}x period)`,
             });
             
+            // Dispatch native Web Push to student's registered devices
+            if (wallet.user_id) {
+              notifyBnplFinePush({
+                userId: wallet.user_id,
+                amount: totalFine,
+                newBalance,
+              }).catch((err) => console.error('BNPL fine push error:', err));
+            }
+
             processedCount++;
           }
         }

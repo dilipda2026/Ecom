@@ -5,6 +5,7 @@ import { getServerSession } from '@/features/auth/actions';
 import type { CartItem } from '@/features/cart/types';
 import type { Order, OrderItem } from '../types';
 import { notifyNewOrder } from '@/lib/notifications';
+import { sendPushToUser, sendPushToAdmins } from '@/lib/push';
 import { signQrToken, isQrConfigured } from '@/features/delivery/lib/security';
 import { getNumericSetting, getBooleanSetting, getSetting, getPaymentMethodAvailability } from '@/lib/settings';
 import { minutesOf, formatClock, temporaryCloseLabel } from '@/features/menu/lib/store-hours';
@@ -581,6 +582,25 @@ export async function sendOrderNotification(orderId: string, qrTokenOverride?: s
     customerPhone: data.customer_phone,
     orderType: data.order_type,
   }, data.status, effectiveQr);
+
+  // Dispatch Native Web Push to student's registered devices
+  if (data.user_id) {
+    sendPushToUser(data.user_id, {
+      title: 'Order Placed! 🍽️',
+      body: `Your order #${data.tracking_code} (₹${data.total}) has been placed and is waiting for confirmation.`,
+      url: `/orders/${data.id}`,
+      tag: `order-${data.id}`,
+    }).catch((err) => console.error('Error sending order placed push:', err));
+  }
+
+  // Dispatch Native Web Push to all Admins & Owner
+  const itemCount = items.reduce((sum: number, it: { quantity: number }) => sum + (Number(it.quantity) || 1), 0);
+  sendPushToAdmins({
+    title: `🚨 New Order #${data.tracking_code} Received!`,
+    body: `${data.customer_name || 'A customer'} placed an order for ₹${data.total} (${itemCount} item${itemCount > 1 ? 's' : ''}). Click to view.`,
+    url: `/dashboard/admin/orders`,
+    tag: `admin-new-order-${data.id}`,
+  }).catch((err) => console.error('Error sending admin order push:', err));
 }
 
 export async function getOrderTrackingByCode(trackingCode: string) {
