@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Bike, MapPin } from 'lucide-react';
 import type { AuthUser } from '@/features/auth/types';
 import type { Order } from '@/features/orders/types';
+import LiveNotificationToggle from '@/components/notifications/LiveNotificationToggle';
 
 interface HomeHeaderProps {
   user: AuthUser | null;
@@ -20,6 +21,9 @@ export default function HomeHeader({ user, liveOrder }: HomeHeaderProps) {
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Hello, {firstName}!</h1>
             <p className="mt-0.5 text-xs font-medium text-white/90">Dilip Da · Homestyle meals</p>
+          </div>
+          <div className="shrink-0 pt-0.5">
+            <LiveNotificationToggle />
           </div>
         </div>
 

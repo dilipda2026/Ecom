@@ -192,7 +192,7 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setVal(setting.key, e.target.value)}
                 className={`${inputClass} text-right`}
               />
-            ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' || setting.key === 'admin_emails' || setting.key === 'delivery_unavailable_message' || setting.key === 'delivery_custom_message' ? (
+            ) : setting.key === 'store_address' || setting.key === 'store_delivery_locations' || setting.key === 'delivery_person_emails' || setting.key === 'admin_emails' || setting.key === 'dilip_da_email' || setting.key === 'delivery_unavailable_message' || setting.key === 'delivery_custom_message' ? (
               <textarea
                 rows={2}
                 value={val}
@@ -395,7 +395,7 @@ export default function AdminSettingsPage() {
         {renderCard({
           icon: UserCog,
           title: 'Store Owner',
-          subtitle: 'Email of the store owner (Dilip Da). This email gets a read-only view of the dashboard and cannot edit anything.',
+          subtitle: 'Email(s) of the store owner (Dilip Da). Separate multiple emails with commas or new lines. Gets a read-only view of the dashboard.',
           keys: ['dilip_da_email'],
         })}
 

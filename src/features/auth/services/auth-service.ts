@@ -31,7 +31,19 @@ export const authService = {
     return { user: data.user ? mapUser(data.user) : null, error: null };
   },
 
-  async signOut() {
+  async signOut(): Promise<{ error: string | null }> {
+    try {
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub?.endpoint) {
+          const { removePushSubscription } = await import('@/features/notifications/actions/push');
+          await removePushSubscription(sub.endpoint);
+        }
+      }
+    } catch (e) {
+      console.warn('Error clearing push subscription on signOut:', e);
+    }
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
     return { error: error?.message ?? null };

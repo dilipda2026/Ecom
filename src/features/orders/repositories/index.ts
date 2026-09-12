@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/infrastructure/supabase/server';
 import type { Order, OrderStatus, OrdersFilter, OrdersResponse, PaymentStatus } from '../types';
+import { notifyOrderStatusPush, sendPushToDeliveryPartners } from '@/lib/push';
 
 export class OrderRepository {
   async findById(orderId: string): Promise<Order | null> {
@@ -76,6 +77,26 @@ export class OrderRepository {
       .eq('id', orderId)
       .select('*, order_items(*)')
       .single();
+
+    if (data?.user_id) {
+      notifyOrderStatusPush({
+        userId: data.user_id,
+        orderId: data.id,
+        trackingCode: data.tracking_code,
+        status,
+        note,
+      }).catch((err) => console.error('Error sending order status push:', err));
+    }
+
+    // When order is marked ready, notify all Delivery Partners
+    if (status === 'ready' && data) {
+      sendPushToDeliveryPartners({
+        title: `🛵 Order #${data.tracking_code} is Ready!`,
+        body: `Food is packed and ready for delivery pickup from Dilip Da kitchen.`,
+        url: `/dashboard/delivery`,
+        tag: `delivery-ready-${data.id}`,
+      }).catch((err) => console.error('Error sending delivery partner push:', err));
+    }
 
     if (data && (status === 'completed' || status === 'delivered' || status === 'cancelled' || status === 'declined')) {
       const assignmentStatus = (status === 'delivered' || status === 'completed') ? 'delivered' : 'failed';

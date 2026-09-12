@@ -183,6 +183,10 @@ export default function AdminOrdersPage() {
         <p className="text-xs text-ztext-lighter">{o.user?.email ?? o.customer_email ?? ''}</p>
       </div>
     )},
+    { key: 'phone', header: 'Phone-No', render: (o: AdminOrder) => {
+      const phone = o.customer_phone || o.user?.phone || (o.delivery_address as Record<string, unknown> | null)?.phone as string | undefined;
+      return <span className="text-xs font-mono text-ztext-light">{phone || '—'}</span>;
+    }, hideOnMobile: true},
     { key: 'restaurant', header: 'Restaurant', render: (o: AdminOrder) => (
       <span className="text-sm text-ztext-light">{o.restaurant?.name ?? 'Unknown'}</span>
     ), hideOnMobile: true},
@@ -312,6 +316,7 @@ export default function AdminOrdersPage() {
                 <div className="flex justify-between"><span className="text-ztext-lighter">Delivery Slot</span><span className="font-bold text-emerald-600">{selectedOrder.delivery_slot_time} {selectedOrder.delivery_slot_label ? `(${selectedOrder.delivery_slot_label})` : ''}</span></div>
               )}
               <div className="flex justify-between"><span className="text-ztext-lighter">Customer</span><span>{selectedOrder.user?.full_name ?? selectedOrder.customer_name ?? 'Guest'}</span></div>
+              <div className="flex justify-between"><span className="text-ztext-lighter">Phone Number</span><span className="font-mono">{selectedOrder.customer_phone || selectedOrder.user?.phone || (selectedOrder.delivery_address as Record<string, unknown> | null)?.phone as string || '—'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Restaurant</span><span>{selectedOrder.restaurant?.name ?? 'Unknown'}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Total</span><span className="font-bold">₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>
               <div className="flex justify-between"><span className="text-ztext-lighter">Payment</span><span className="capitalize">{selectedOrder.payment_method} ({selectedOrder.payment_status})</span></div>

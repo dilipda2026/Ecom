@@ -70,6 +70,7 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
+  const [paymentMethodGroup, setPaymentMethodGroup] = useState<'all' | 'online' | 'wallet' | 'cod'>('all');
   const [dateRange, setDateRange] = useState<DateFilterValue>({});
   const [showTransactions, setShowTransactions] = useState<boolean>(false);
   const sortBy = 'created_at';
@@ -84,6 +85,7 @@ export default function AdminPaymentsPage() {
     const res = await getAdminPayments({
       search: search || undefined,
       status: status !== 'all' ? status : undefined,
+      paymentMethodGroup: paymentMethodGroup !== 'all' ? paymentMethodGroup : undefined,
       ...dateRange,
       page: p ?? page,
       pageSize: 50,
@@ -97,15 +99,15 @@ export default function AdminPaymentsPage() {
       setPage(res.data.page);
     }
     setLoading(false);
-  }, [search, status, dateRange, sortBy, sortOrder, page]);
+  }, [search, status, paymentMethodGroup, dateRange, sortBy, sortOrder, page]);
 
   useEffect(() => {
     fetchPayments(1);  
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filterKey = useMemo(
-    () => JSON.stringify([search, status, dateRange, sortBy, sortOrder]),
-    [search, status, dateRange, sortBy, sortOrder],
+    () => JSON.stringify([search, status, paymentMethodGroup, dateRange, sortBy, sortOrder]),
+    [search, status, paymentMethodGroup, dateRange, sortBy, sortOrder],
   );
   const lastFilterKey = useRef(filterKey);
   useEffect(() => {
@@ -222,15 +224,37 @@ export default function AdminPaymentsPage() {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search by gateway ID or order..."
+              placeholder="Search by customer name, phone, gateway ID or tracking code..."
               className="w-full pl-9 pr-3 py-2.5 text-sm border border-zborder rounded-xl bg-zcard focus:outline-none focus:ring-2 focus:ring-zred/20 focus:border-zred placeholder-ztext-muted transition-all"
             />
+          </div>
+
+          {/* Payment Method Group Filter Tabs */}
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-1 [scrollbar-width:none]">
+            {[
+              { value: 'all', label: 'All Methods' },
+              { value: 'online', label: 'Online Payment (Razorpay, UPI)' },
+              { value: 'wallet', label: 'Wallet' },
+              { value: 'cod', label: 'COD' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setPaymentMethodGroup(opt.value as typeof paymentMethodGroup); setPage(1); }}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
+                  paymentMethodGroup === opt.value
+                    ? 'bg-zred text-white border-zred shadow-sm'
+                    : 'bg-zcard border-zborder text-ztext-muted hover:border-ztext-light hover:text-ztext'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
 
           {/* Status filter pills */}
           <div className="flex gap-2 mb-4 overflow-x-auto pb-1 [scrollbar-width:none]">
             {[
-              { value: 'all', label: `All (${total})` },
+              { value: 'all', label: `All Status (${total})` },
               { value: 'confirmed', label: 'Success' },
               { value: 'pending', label: 'Pending' },
               { value: 'refunded', label: 'Refunds' },
@@ -266,43 +290,91 @@ export default function AdminPaymentsPage() {
                 <AlertCircle size={24} className="text-ztext-muted" />
               </div>
               <p className="text-sm font-semibold text-ztext">No payments found</p>
-              <p className="text-xs text-ztext-lighter mt-1">Payments will appear here once orders are confirmed.</p>
+              <p className="text-xs text-ztext-lighter mt-1">Payments matching your filters will appear here.</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {payments.map((p) => {
                 const m = p.payment_method;
+                const customerName = p.order?.customer_name || p.user?.full_name || 'Walk-in / Guest';
+                const customerPhone = p.order?.customer_phone || p.user?.phone || '—';
+                const customerEmail = p.order?.customer_email || p.user?.email || null;
+                const orderItems = p.order?.order_items ?? [];
+
                 return (
-                  <div key={p.id} className="bg-zcard border border-zborder rounded-2xl px-4 py-3 flex items-center justify-between gap-3 hover:border-ztext/20 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder flex items-center justify-center shrink-0">
-                        <Banknote size={18} className="text-ztext-light" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-ztext truncate">{paymentTitle(m)}</p>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ztext-muted">
-                          <span>{formatDate(p.created_at)}</span>
-                          {p.gateway_payment_id && (
-                            <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded text-ztext-lighter truncate max-w-[120px]">{p.gateway_payment_id}</span>
-                          )}
+                  <div key={p.id} className="bg-zcard border border-zborder rounded-2xl p-4 hover:border-ztext/20 transition-all space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zborder/60">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-zgray border border-zborder flex items-center justify-center shrink-0 mt-0.5">
+                          <Banknote size={18} className="text-ztext-light" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-bold text-ztext">{paymentTitle(m)}</p>
+                            {p.order?.tracking_code && (
+                              <span className="text-[11px] font-mono font-medium px-2 py-0.5 bg-zgray rounded-md text-ztext-light">
+                                #{p.order.tracking_code}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-ztext-muted flex-wrap">
+                            <span>{formatDate(p.created_at)}</span>
+                            {p.gateway_payment_id && (
+                              <span className="font-mono text-[10px] bg-zgray px-1.5 py-0.5 rounded text-ztext-lighter truncate max-w-[140px]">
+                                ID: {p.gateway_payment_id}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-ztext">{formatCurrency(p.amount)}</p>
-                        <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full mt-0.5 ${STATUS_COLORS[p.status] ?? 'bg-zgray text-ztext-light'}`}>
-                          {STATUS_LABEL[p.status] ?? p.status}
-                        </span>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                        <div className="text-left sm:text-right">
+                          <p className="text-base font-bold text-ztext">{formatCurrency(p.amount)}</p>
+                          <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full mt-0.5 ${STATUS_COLORS[p.status] ?? 'bg-zgray text-ztext-light'}`}>
+                            {STATUS_LABEL[p.status] ?? p.status}
+                          </span>
+                        </div>
+                        {p.status === 'confirmed' && (p.refund_amount ?? 0) < p.amount && (
+                          <button
+                            onClick={() => setRefundModal({ id: p.id, amount: p.amount, currentRefunded: p.refund_amount ?? 0 })}
+                            className="px-2.5 py-1 text-xs font-semibold text-ztext-light hover:text-ztext bg-zgray border border-zborder rounded-xl transition-colors"
+                          >
+                            Refund
+                          </button>
+                        )}
                       </div>
-                      {p.status === 'confirmed' && (p.refund_amount ?? 0) < p.amount && (
-                        <button
-                          onClick={() => setRefundModal({ id: p.id, amount: p.amount, currentRefunded: p.refund_amount ?? 0 })}
-                          className="px-2.5 py-1 text-xs font-semibold text-ztext-light hover:text-ztext bg-zgray border border-zborder rounded-xl transition-colors"
-                        >
-                          Refund
-                        </button>
-                      )}
+                    </div>
+
+                    {/* Customer Info & Order Items */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Customer Details */}
+                      <div className="bg-zgray/40 rounded-xl p-2.5 border border-zborder/50">
+                        <p className="text-[10px] uppercase font-bold text-ztext-lighter tracking-wider mb-1">Customer Details</p>
+                        <p className="font-semibold text-ztext text-xs">{customerName}</p>
+                        <div className="flex items-center gap-2 text-ztext-lighter mt-0.5">
+                          <span>Phone: <strong className="font-mono text-ztext-light">{customerPhone}</strong></span>
+                          {customerEmail && <span className="truncate max-w-[150px]">({customerEmail})</span>}
+                        </div>
+                      </div>
+
+                      {/* Ordered Items */}
+                      <div className="bg-zgray/40 rounded-xl p-2.5 border border-zborder/50">
+                        <p className="text-[10px] uppercase font-bold text-ztext-lighter tracking-wider mb-1">
+                          Items Ordered ({orderItems.length})
+                        </p>
+                        {orderItems.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-0.5 max-h-16 overflow-y-auto">
+                            {orderItems.map((item) => (
+                              <span key={item.id} className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-zcard border border-zborder text-ztext-light">
+                                <span className="font-bold text-ztext mr-1">{item.quantity}×</span> {item.product_name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-ztext-lighter text-[11px] italic">No item details recorded</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

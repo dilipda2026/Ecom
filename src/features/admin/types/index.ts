@@ -124,7 +124,7 @@ export interface AdminOrder {
     unit_price: number;
     subtotal: number;
   }>;
-  user?: { full_name: string; email: string } | null;
+  user?: { full_name: string; email: string; phone?: string | null } | null;
   restaurant?: { name: string } | null;
   delivery_partner?: { full_name: string; phone: string | null } | null;
 }
@@ -168,6 +168,13 @@ export interface PaymentAdmin {
     customer_phone?: string | null;
     customer_email?: string | null;
     user_id?: string | null;
+    order_items?: Array<{
+      id: string;
+      product_name: string;
+      quantity: number;
+      unit_price: number;
+      subtotal: number;
+    }> | null;
   } | null;
   user?: {
     full_name?: string | null;
@@ -234,6 +241,7 @@ export interface AdminFilter {
   pageSize?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  paymentMethodGroup?: 'online' | 'wallet' | 'cod' | 'all';
   fromDate?: string;
   toDate?: string;
 }

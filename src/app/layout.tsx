@@ -12,6 +12,7 @@ const Toast = dynamic(() => import('@/components/shared/Toast'));
 const FlyingBird = dynamic(() => import('@/components/shared/FlyingBird'));
 const FavoritesSync = dynamic(() => import('@/components/shared/FavoritesSync'));
 const PageLoader = dynamic(() => import('@/components/shared/PageLoader'));
+const PushNotificationManager = dynamic(() => import('@/components/notifications/PushNotificationManager'));
 
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <FloatingCartBar />
           <Toast />
           <FavoritesSync />
+          <PushNotificationManager />
         </Providers>
       </body>
     </html>

@@ -32,7 +32,14 @@ export function isDeliveryEmail(email: string, extraDeliveryEmails: string[] = [
  * General Settings (`dilip_da_email`). The owner has full admin access, with
  * expenses remaining read-only (enforced on the frontend).
  */
-export function isOwnerEmail(email: string, ownerEmail?: string | null) {
+export function isOwnerEmail(email: string, ownerEmail?: string | string[] | null) {
   if (!ownerEmail) return false;
-  return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+  const target = email.trim().toLowerCase();
+  if (Array.isArray(ownerEmail)) {
+    return ownerEmail.some((e) => e.trim().toLowerCase() === target);
+  }
+  return ownerEmail
+    .split(/[\n,;]+/)
+    .some((e) => e.trim().toLowerCase() === target);
 }
+
